@@ -792,13 +792,7 @@ npx playwright test --shard=<span class="tk-n">3</span>/<span class="tk-n">3</sp
     </div>
     <div data-anim="fade-up" style="animation-delay:.2s">
       <h3>🐢 La postura honesta de este repo</h3>
-      <pre class="code" style="font-size:clamp(.76rem,1.15vw,.93rem)">
-<span class="tk-c">// playwright.config.ts (la postura; el archivo manda)</span>
-fullyParallel: <span class="tk-k">false</span>,
-retries: <span class="tk-n">0</span>,
-<span class="tk-c">// "Single worker for now - increase</span>
-<span class="tk-c">//  when tests are stable"</span>
-workers: <span class="tk-n">1</span>,</pre>
+      <p style="font-size:.9rem">El config de este repo corre en serie y sin reintentos, a propósito. Los valores vigentes de <code>fullyParallel</code>, <code>retries</code> y <code>workers</code> están en <code>playwright.config.ts</code>; el archivo manda.</p>
       <div class="callout" style="margin-top:.8rem"><span class="co-ico">🎯</span><p>Primero <b>determinismo</b>, después velocidad. Con la suite joven se corre en serie para cazar dependencias ocultas; el paralelismo se sube cuando los tests ya son sólidos.</p></div>
     </div>
   </div>

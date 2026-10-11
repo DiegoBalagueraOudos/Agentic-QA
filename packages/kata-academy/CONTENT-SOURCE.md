@@ -400,7 +400,11 @@ async checkoutWithNewUser() {
 @atc('T1') async loginWithInvalidCredentials(payload: LoginPayload) { /* 401 */ }
 ```
 
-### 5.11 kata-manifest.json (extracto real)
+### 5.11 kata-manifest.json (extracto ilustrativo)
+
+La forma es la del manifest; los ids, las líneas y los totales de abajo son de
+ejemplo y cambian apenas el proyecto agrega o mueve una ATC. El registro vigente
+es `kata-manifest.json` (se regenera con `bun run kata:manifest`).
 
 ```json
 {
@@ -460,8 +464,8 @@ Reglas que el ensamblador debe hacer cumplir (con feedback visual):
   `AuthApi.authenticateSuccessfully` y a `LoginPage.loginSuccessfully` a la vez,
   y eso colapsaba las dos ATCs en una sola fila del reporte de cobertura: un
   fallo en una era indistinguible del fallo en la otra. Hoy cada método tiene su
-  id (`AuthApi` 101/102, `LoginPage` 111/112, `ExampleApi` 121/122, `ExamplePage`
-  131/132) y `kata:manifest:check` falla sobre cualquier duplicado. La variante
+  id propio (la lista vigente está en `kata-manifest.json`) y
+  `kata:manifest:check` falla sobre cualquier duplicado. La variante
   API y la variante UI del mismo caso de negocio son DOS casos de prueba en el
   TMS, no uno con dos implementaciones.
 - Lo que sí colapsa en una fila, correctamente, es la MISMA ATC ejecutada varias
