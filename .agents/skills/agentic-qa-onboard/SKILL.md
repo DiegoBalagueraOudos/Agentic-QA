@@ -347,7 +347,7 @@ Full details in [`INSTALLER.md`](../../../INSTALLER.md).
 
 ## Community skills installed at user level
 
-`bun setup` also runs `bunx skills add --global` for the cross-project skills in the `USER_LEVEL_SKILLS` array of `cli/install.ts` (the last row of the table below is NOT one of them — the orchestration binary installs it, not `setup`):
+`bun setup` also runs `bunx skills add --global` for the cross-project skills in the `USER_LEVEL_SKILLS` array of `cli/install.ts` (the last row of the table below is NOT one of them — the orchestration binary installs it, not `setup`). It asks per skill, all pre-checked; a skill you uncheck is recorded as declined and not offered again, and a non-interactive run installs every skill not declined:
 
 **Every installed skill needs a LOADER, or it should not be installed.** An install that no flow
 ever reaches is tokens spent on a capability nobody invokes — and the failure is silent, because an
@@ -362,7 +362,6 @@ loader cell neither cites its loader in backticks nor says "user-invoked only".
 | `find-skills` | vercel-labs/skills | **automatic, last resort.** `agentic-qa-core/references/skill-composition-strategy.md` §11.2: scan T1+T2, then installed T3+T4, and only if a task domain still has no match does any flow invoke this — then asks before installing |
 | `github-actions-docs` | xixu-me/skills | `/framework-development` and `/regression-testing` when EDITING or diagnosing `.github/workflows/**` (both name it; reading a workflow does not need it) |
 | `html-ppt` | lewislulu/html-ppt-skill | **user-invoked only.** `packages/decks/` is hand-authored; this is for a one-off deck outside that tree |
-| `bun` | bun.sh/docs | every flow, before a Bash call that runs `bun` (the CLI mapping in `.agents/instructions/agent-tool-resolution.md` §6.5) |
 | `mkd` | upex-galaxy/agentic-user-skills | any flow that reaches the decision threshold in `agentic-qa-core/references/decision-elicitation-doctrine.md` (>3 decisions, or one dense one) |
 | `orchestration.orchestrator_skills` | the orchestration binary | `/orca-orchestration`, ALONGSIDE it — the vendor owns the command grammar, the repo skill owns when and what |
 

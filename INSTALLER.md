@@ -271,7 +271,7 @@ The command carries no secret: the human fills the credentials afterwards in `.e
 | `--force-step <key>`           | Re-run one step by key                        |
 | `INSTALL_FORCE_ALL=1`          | Same as `--force`                             |
 | `INSTALL_FORCE_ENGRAM=1`       | Re-run `engram setup` (legacy alias: `INSTALL_FORCE_GENTLE_AI=1`) |
-| `INSTALL_FORCE_COMMUNITY=1`    | Re-run community skill install                |
+| `INSTALL_FORCE_COMMUNITY=1`    | Re-run community skill install (declined user-level skills stay out) |
 | `INSTALL_FORCE_GITHUB=1`       | Re-run GitHub remote setup                    |
 | `INSTALL_FORCE_AGENTS_SETUP=1` | Re-run agents:setup                           |
 
@@ -355,6 +355,8 @@ The list is `PROJECT_LEVEL_SKILLS` in `cli/install.ts`; each entry carries its s
 Installed with `bunx skills add <package> [--skill <name>] --global --yes` and useful across most projects regardless of stack.
 
 The list is `USER_LEVEL_SKILLS` in `cli/install.ts`; each entry carries its source package and the reason it is universal rather than project-bound.
+
+The installer asks per skill: a multiselect with every skill pre-checked. A skill you uncheck is recorded as `declined` in the state file and is not offered again, not even when `INSTALL_FORCE_COMMUNITY=1` or `--sync-skills` forces a re-run; the installer prints the `bunx skills add` line to install it by hand. A non-interactive run installs every skill you have not declined.
 
 ### Skipping or re-running
 

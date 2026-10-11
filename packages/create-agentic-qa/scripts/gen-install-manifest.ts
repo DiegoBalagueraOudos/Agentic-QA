@@ -74,14 +74,14 @@ const PURPOSES: Record<string, string> = {
   'playwright-cli': 'Browser automation CLI — screenshots, traces, video, session management, request mocking.',
   'playwright-best-practices': 'Playwright reference patterns — flaky-test fixes, POM, accessibility (axe-core), auth/OAuth fixtures, perf budgets, i18n, component testing.',
   'resend-cli': 'Transactional email development with Resend.',
+  'skill-creator': 'Create, modify, and evaluate Claude Code skills.',
+  'diagram-design': 'Diagrams for the business context maps (data, API, E2E).',
 
   // Community user-level skills (USER_LEVEL_SKILLS)
-  'skill-creator': 'Create, modify, and evaluate Claude Code skills.',
   'find-skills': 'Discover and search available skills.',
   'github-actions-docs': 'GitHub Actions documentation and workflow patterns.',
-  'brainstorming': 'Structured brainstorming and ideation techniques.',
   'html-ppt': 'Create HTML-based presentations.',
-  'bun': 'Bun runtime reference — installation, scripts, package management, testing.',
+  'mkd': 'Decision-deck CLI — the AI asks, the user answers point by point in a browser deck.',
 };
 
 function purposeOr(name: string, fallback = `Community skill: ${name}`): string {

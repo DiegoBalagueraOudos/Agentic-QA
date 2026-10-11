@@ -119,7 +119,7 @@ import { criticalVars, nonCriticalVars, valueSourceOf, VAR_MANIFEST, varsFor } f
 
 export type AgentId = 'claude-code' | 'opencode' | 'codex';
 
-type InstallStatus = 'installed' | 'skipped' | 'failed';
+type InstallStatus = 'installed' | 'skipped' | 'failed' | 'declined';
 
 type McpStatus = 'configured-with-key' | 'configured-no-key' | 'placeholder' | 'skipped-by-user';
 
@@ -440,13 +440,14 @@ export const PROJECT_LEVEL_SKILLS: ReadonlyArray<CommunitySkill> = [
  * universal layer — design/automation skills (n8n-skills, emil-design-eng,
  * ui-ux-pro-max) live only in the dev repo since QA does not author UI or
  * automation flows. html-ppt is a cross-project utility useful for report
- * generation. bun is the runtime used across all projects.
+ * generation. The user picks which of them to install (a per-skill multiselect,
+ * all pre-checked); an unchecked one is recorded as declined and left out of
+ * every later run (`partitionDeclinedSkills`).
  */
-const USER_LEVEL_SKILLS: ReadonlyArray<CommunitySkill> = [
+export const USER_LEVEL_SKILLS: ReadonlyArray<CommunitySkill> = [
   { package: 'https://github.com/vercel-labs/skills', skill: 'find-skills' },
   { package: 'https://github.com/xixu-me/skills', skill: 'github-actions-docs' },
   { package: 'https://github.com/lewislulu/html-ppt-skill', skill: 'html-ppt' },
-  { package: 'https://bun.sh/docs', skill: 'bun' },
   // Cross-project decision-deck CLI (`mkd`, Make Decision): the AI writes a spec
   // of items (decision / question / report / table) and the user answers in a
   // browser deck, pasting the Result JSON back into the chat (non-blocking).
@@ -1067,6 +1068,41 @@ function describeSkill(item: CommunitySkill): string {
   return item.skill;
 }
 
+/**
+ * Splits the user-level list into the skills to offer in this run and the ones
+ * the user declined in an earlier one (`state.skills['community:global:<slug>']
+ * === 'declined'`). A declined skill is never offered again by default, not even
+ * when INSTALL_FORCE_COMMUNITY or `--sync-skills` forces a re-run.
+ */
+export function partitionDeclinedSkills(
+  list: ReadonlyArray<CommunitySkill>,
+  skills: Record<string, string>,
+): { offered: CommunitySkill[], declined: CommunitySkill[] } {
+  const offered: CommunitySkill[] = [];
+  const declined: CommunitySkill[] = [];
+  for (const item of list) {
+    (skills[`community:global:${describeSkill(item)}`] === 'declined' ? declined : offered).push(item);
+  }
+  return { offered, declined };
+}
+
+/**
+ * The per-skill ask for the user level: a multiselect with every offered skill
+ * pre-checked. Non-interactive runs take them all.
+ */
+async function pickUserLevelSkills(offered: CommunitySkill[]): Promise<CommunitySkill[]> {
+  if (NON_INTERACTIVE) { return offered; }
+  const result = await tui.multiselect({
+    message: 'User-level skills to install (an unchecked one is declined and not offered again):',
+    options: offered.map(item => ({ value: describeSkill(item), label: describeSkill(item), hint: item.package })),
+    initialValues: offered.map(describeSkill),
+    required: false,
+  });
+  if (tui.isCancel(result)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
+  const picked = new Set(result);
+  return offered.filter(item => picked.has(describeSkill(item)));
+}
+
 async function installCommunitySkills(
   agents: AgentId[],
   state: InstallState,
@@ -1088,22 +1124,42 @@ async function installCommunitySkills(
   }
 
   log.banner(`Community skills — ${label}`);
-  log.info(`This will run ${list.length} \`bunx skills add\` commands (${label}).`);
 
-  const proceed = await maybeConfirm(`Install ${label} community skills?`, true);
-  if (!proceed) {
-    log.warn(`Skipping ${label} community skills.`);
-    for (const item of list) {
-      const slug = describeSkill(item);
-      const stateKey = `community:${level}:${slug}`;
-      if (!state.skills[stateKey]) {
-        state.skills[stateKey] = 'skipped';
-      }
+  let toInstall: ReadonlyArray<CommunitySkill> = list;
+  if (level === 'global') {
+    const { offered, declined } = partitionDeclinedSkills(list, state.skills);
+    for (const item of declined) {
+      log.dim(`  ${describeSkill(item)}: declined earlier, not offered. Install by hand: bunx ${buildCommunitySkillArgs(item, level, agents).join(' ')}`);
     }
-    return;
+    const picked = offered.length > 0 ? await pickUserLevelSkills(offered) : [];
+    for (const item of offered) {
+      if (!picked.includes(item)) { state.skills[`community:${level}:${describeSkill(item)}`] = 'declined'; }
+    }
+    if (picked.length === 0) {
+      log.warn(`No ${label} community skills to install.`);
+      markStepDone(state, key);
+      return;
+    }
+    toInstall = picked;
+    log.info(`This will run ${toInstall.length} \`bunx skills add\` commands (${label}).`);
+  }
+  else {
+    log.info(`This will run ${list.length} \`bunx skills add\` commands (${label}).`);
+    const proceed = await maybeConfirm(`Install ${label} community skills?`, true);
+    if (!proceed) {
+      log.warn(`Skipping ${label} community skills.`);
+      for (const item of list) {
+        const slug = describeSkill(item);
+        const stateKey = `community:${level}:${slug}`;
+        if (!state.skills[stateKey]) {
+          state.skills[stateKey] = 'skipped';
+        }
+      }
+      return;
+    }
   }
 
-  for (const item of list) {
+  for (const item of toInstall) {
     const slug = describeSkill(item);
     const stateKey = `community:${level}:${slug}`;
     if (state.skills[stateKey] === 'installed' && !shouldRunStep(state, key, forceKeys) && !FORCE_COMMUNITY) {

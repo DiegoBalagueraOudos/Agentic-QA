@@ -231,10 +231,10 @@ Project-owned and project-dependency skills are named explicitly. Community skil
 | `testing-component` | `playwright-best-practices` (component testing section) | `test-automation` (rare — when the project has component tests) |
 | `accessibility` | `playwright-best-practices` (axe-core section) | `test-automation` (a11y suites), `sprint-testing` (manual a11y checks) |
 | `vcs` | (no T3/T4 — `git-flow-master` is T1 and covers `gh` CLI usage natively) | `git-flow-master`, `regression-testing` (CI run inspection) |
-| `automation-cli` | `bun` | `framework-development`, `test-automation` (script / bundler tweaks) |
+| `automation-cli` | (no T3/T4 — runtime and library docs come from Context7, `[DOCS_TOOL]`) | `framework-development`, `test-automation` (script / bundler tweaks) |
 | `issue-tracker` | (acli is T1) | `sprint-testing`, `test-documentation` |
 | `tms` | (xray-cli is T1; acli covers Modality jira-native) | `test-documentation`, `sprint-testing` |
-| `meta-skill` | `skill-creator` (T3), `find-skills` | `skill-creator` is loaded silently by `framework-development` (the change IS a skill) and by `project-context` mode `context-skill`; `find-skills` only as the §8.2 last resort; also `session-handoff` (session continuity) |
+| `meta-skill` | `skill-creator` (T3), `find-skills` | `skill-creator` is loaded silently by `framework-development` (the change IS a skill) and by `project-context` mode `context-skill`; `find-skills` only as the §11.2 last resort; also `session-handoff` (session continuity) |
 | `ci-cd` | `github-actions-docs` | `regression-testing`, `framework-development` (CI workflow evolution) |
 | `framework-evolution` | (no T3/T4 — concept-only category) | `framework-development` (self-tag) |
 | `orchestration` | (the binary's own guides, named in `orchestration.orchestrator_skills` — optional to HAVE, loaded alongside `/orca-orchestration` when present, and never a gate) | `orca-orchestration` (self-tag); `session-handoff` (successor launch rides the same terminal layer, but a handoff is ownership transfer, NOT a Run/Task/Dispatch); cited as the transport by `sprint-testing`, `test-automation`, `shift-left-testing`, `framework-development`, `regression-testing` |
