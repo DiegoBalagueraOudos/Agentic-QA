@@ -554,5 +554,13 @@ export interface UpdaterConfig {
   hooks?: {
     afterApply?: (summary: RunSummary) => Promise<void>
     skillsResolver?: (templateDir: string) => string[]
+    /**
+     * Runs right before the process hands itself to another updater (the
+     * self-update re-exec, or the upstream updater a `--dry-run` previews
+     * with). The parent's event loop is blocked while the child runs, so a
+     * live page must be handed over here: the hook stops what it serves and
+     * returns the env the child needs to pick it up (installer-ui plan §6).
+     */
+    beforeReexec?: (info: { kind: 'self-update' | 'preview', from: string, to: string }) => Promise<Record<string, string>>
   }
 }
