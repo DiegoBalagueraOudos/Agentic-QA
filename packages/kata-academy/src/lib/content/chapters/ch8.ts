@@ -21,7 +21,7 @@ export const WORKFLOWS: WorkflowCard[] = [
     name: 'build',
     icon: '🔀',
     trigger: 'PR a main',
-    runs: 'types + lint + --list (sin ejecutar tests)',
+    runs: 'types + lint + gates de docs y skills + --list (sin ejecutar tests)',
     detail: [
       'Es el portero: ningún cambio entra a main sin compilar y pasar el linter.',
       'El flag --list solo enumera los tests: valida que carguen, sin gastarse en correrlos.',

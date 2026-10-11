@@ -90,8 +90,9 @@ Roles en una frase:
 5. **Locators inline** dentro del ATC. Se extraen a propiedad privada de la
    clase SOLO si se usan en 2+ ATCs. Prohibidos los archivos `locators/*.ts`.
 6. **Aserciones fijas dentro del ATC; aserciones de flujo en el spec.**
-7. **Helper vs ATC**: GET de solo lectura = helper (`@step`); acción que
-   cambia estado = ATC (`@atc`).
+7. **Helper vs ATC**: un GET que solo prepara datos = helper (`@step`); acción
+   que cambia estado, o GET cuya respuesta ES el resultado probado (datos, 401,
+   403, 404) = ATC (`@atc`). Fuente: `kata-architecture.md` §6 Rule 7.
 8. **Fail-fast en público, silencio en privado**: métodos públicos lanzan
    error descriptivo; utilidades privadas devuelven `null`.
 9. **Sin esperas mágicas** (`waitForTimeout` prohibido) y **sin retries**
@@ -155,7 +156,7 @@ punta a punta.
 CI (GitHub Actions; las suites viven en `.github/workflows/`, junto a `pages.yml` y `pages-squash.yml` que publican el sitio):
 | Workflow | Disparo | Qué corre |
 |---|---|---|
-| build | PR a main | types + lint + `--list` (sin ejecutar tests) |
+| build | PR a main | types + lint + gates de docs y skills + `--list` (sin ejecutar tests); los pasos exactos viven en `build.yml` |
 | regression | cron diario 00:00 + manual | integration → e2e → merge Allure → GitHub Pages (o portal privado si existe el secret `PORTAL_URL`) |
 | smoke | cron diario 02:00 + manual | solo tests `@critical` |
 | sanity | manual | tests filtrados por grep/archivo |

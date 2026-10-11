@@ -158,7 +158,7 @@ export const glossary: GlossaryEntry[] = [
     term: 'helper',
     aliases: ['@step', 'step', 'helpers'],
     short:
-      'Un método de apoyo de solo lectura (consultar, no cambiar): no es un caso de prueba, no lleva @atc ni ID de ticket. Se marca con @step solo para verse en el reporte.',
+      'Un método de apoyo que consulta o prepara datos para otro paso: no es un caso de prueba, no lleva @atc ni ID de ticket. Se marca con @step solo para verse en el reporte. Un GET cuya respuesta ES lo que se prueba (datos, 401, 403, 404) no es un helper, es un ATC.',
   },
   {
     term: 'lazy',

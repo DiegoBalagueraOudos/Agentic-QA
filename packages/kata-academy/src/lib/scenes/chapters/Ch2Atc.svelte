@@ -47,9 +47,11 @@
     <p class="kicker">contraste</p>
     <h2>ATC vs helper</h2>
     <p>
-      No todo método merece identidad. Un GET que <em>solo lee</em> — como consultar quién
-      está logueado — no cambia nada en el sistema: es un <strong>helper</strong>. Se marca
-      con <code>@step</code>, sin ID de ticket, y no se reporta al TMS.
+      No todo método merece identidad. Un GET que <em>solo prepara datos</em> — como consultar
+      quién está logueado para el paso siguiente — no es el resultado que se prueba: es un
+      <strong>helper</strong>. Se marca con <code>@step</code>, sin ID de ticket, y no se
+      reporta al TMS. Si la respuesta del GET <em>es</em> lo que se prueba (los datos
+      correctos, un 401, un 403, un 404), ese GET sí es un ATC.
     </p>
     <div class="contrast">
       <div class="contrast-col">
@@ -60,7 +62,7 @@
         </p>
       </div>
       <div class="contrast-col">
-        <span class="tag">helper — solo lectura</span>
+        <span class="tag">helper — prepara datos</span>
         <CodePane code={helperSample.code} title={helperSample.title} />
         <p class="mini">Solo pregunta. Sin ID, sin reporte: existe para servir a los ATCs.</p>
       </div>

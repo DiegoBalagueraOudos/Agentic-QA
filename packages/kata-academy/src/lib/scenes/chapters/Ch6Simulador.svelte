@@ -143,7 +143,8 @@
       La suite del simulador: dos <Term t="spec">specs</Term>, cuatro tests. Fíjate en
       <strong>PROJ-101</strong>: se ejecuta <strong>dos veces</strong> — una como caso del
       spec de integración y otra como precondición reutilizada dentro del E2E. Es a
-      propósito: al final verás qué hace KATA con ese duplicado.
+      propósito: al final verás qué hace KATA con ese duplicado. Es una suite de ejemplo: el
+      spec de integración existe en el repo, el E2E es inventado para el ejercicio.
     </p>
   </section>
 

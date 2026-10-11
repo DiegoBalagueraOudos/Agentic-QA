@@ -37,12 +37,12 @@ Layer 2 — Base Components
         |
         v
 Layer 1 — TestContext
-    Config, logger, faker, environment accessors
+    Playwright drivers (page, request), config, environment, DataFactory
 ```
 
 | Layer | Responsibility | Typical files |
 |-------|---------------|---------------|
-| 1 — TestContext | Global utilities (config, logger, faker, env) | `TestContext.ts` |
+| 1 — TestContext | Playwright drivers, config, env, DataFactory (faker-backed data) | `TestContext.ts` |
 | 2 — Base | HTTP and Playwright helpers | `ApiBase.ts`, `UiBase.ts` |
 | 3 — Domain | Business logic, ATCs | `UsersApi.ts`, `LoginPage.ts` |
 | 3.5 — Steps | Reusable ATC chains for preconditions | `AuthSteps.ts`, `CheckoutSteps.ts` |
@@ -126,7 +126,7 @@ interface TestContextOptions {
 }
 ```
 
-Responsibilities: select URLs/credentials from `config` based on `TEST_ENV`; expose `faker`; expose environment label; provide shared logger/attachment helpers.
+Responsibilities: hold the Playwright drivers (`page`, `request`); select URLs/credentials from `config` based on `TEST_ENV`; expose the environment label (`env`); expose `DataFactory` (the faker-backed test data, through `data`). It has no logger and no `faker` field of its own: faker lives inside `tests/data/DataFactory.ts`.
 
 Do not put Playwright-specific logic here (belongs in UiBase). Do not put HTTP-specific logic here (belongs in ApiBase).
 

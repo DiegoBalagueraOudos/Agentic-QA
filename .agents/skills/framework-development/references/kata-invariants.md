@@ -26,7 +26,7 @@ A higher layer may use a lower layer; never the inverse. Steps (3.5) is an optio
 
 | Layer | WHERE (file path) | WHAT (one-line responsibility) | WHY it cannot be collapsed |
 |-------|-------------------|--------------------------------|----------------------------|
-| 1 — TestContext | `tests/components/TestContext.ts` | Global config, faker, environment accessors, logger; agnostic to API/UI. | Shared baseline both ApiBase and UiBase extend. Collapsing into Base couples HTTP with browser. |
+| 1 — TestContext | `tests/components/TestContext.ts` | Playwright drivers, config, environment, DataFactory; agnostic to API/UI. | Shared baseline both ApiBase and UiBase extend. Collapsing into Base couples HTTP with browser. |
 | 2 — ApiBase | `tests/components/api/ApiBase.ts` | HTTP helpers (`apiGET`, `apiPOST`, `apiPUT`, `apiPATCH`, `apiDELETE`) returning typed tuples; auth token state; Allure attach. | Owns `APIRequestContext`. Without it, every Api component re-implements HTTP. |
 | 2 — UiBase | `tests/components/ui/UiBase.ts` | Playwright helpers (`interceptResponse`, `waitForApiResponse`, storage state, attachments). | Owns `Page`. Without it, every Page component re-implements Playwright wiring. |
 | 3 — Domain (`{Resource}Api`, `{Page}Page`) | `tests/components/api/*Api.ts`, `tests/components/ui/*Page.ts` | Business logic surface. ATCs (`@atc('TICKET-ID')`) live here exclusively. | Maps 1:1 to TMS tickets. Collapsing into Base loses traceability and groups unrelated resources. |

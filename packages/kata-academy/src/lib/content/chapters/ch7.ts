@@ -125,7 +125,7 @@ async submitOrderSuccessfully(order: OrderPayload) {
   },
   {
     id: 7,
-    title: 'Un GET de solo lectura con @atc',
+    title: 'Un GET que solo prepara datos con @atc',
     snippet: {
       title: 'AuthApi.ts',
       code: `@atc('PROJ-520')
@@ -137,7 +137,7 @@ async getCurrentUser(): Promise<[APIResponse, UserInfoResponse]> {
     valid: false,
     ruleNum: 7,
     ruleLabel: 'Helper vs ATC',
-    why: 'Solo lectura = helper con @step: sin ID de ticket y sin reporte al TMS. El @atc se reserva para acciones que cambian estado.',
+    why: 'Este GET no afirma ningún resultado de negocio: solo trae datos, así que es un helper disfrazado de ATC. Un GET es ATC cuando su respuesta ES lo que se prueba (datos, 401, 403, 404); si solo prepara datos, va con @step, sin ID de ticket y sin reporte al TMS.',
   },
   {
     id: 8,
@@ -200,7 +200,7 @@ export const goldenRules: string[] = [
   'Máximo 2 parámetros posicionales; con 3+ se pasa un objeto con nombres.',
   'Locators inline dentro del ATC (a propiedad privada solo si se usan en 2+ ATCs); prohibidos los archivos locators/*.ts.',
   'Aserciones fijas dentro del ATC; aserciones de flujo en el spec.',
-  'GET de solo lectura = helper (@step); acción que cambia estado = ATC (@atc).',
+  'Un GET que solo prepara datos = helper (@step); acción que cambia estado, o GET cuya respuesta es el resultado probado = ATC (@atc).',
   'Fail-fast en público (error descriptivo); silencio en privado (las utilidades devuelven null).',
   'Sin esperas mágicas (waitForTimeout prohibido) y sin retries (retries: 0).',
   'Cada test genera sus propios datos con faker — nada de estado compartido.',

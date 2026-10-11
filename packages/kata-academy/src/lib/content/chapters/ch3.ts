@@ -123,7 +123,7 @@ test.describe('UPEX-100: User session', () => {
     tenants: 'AuthApi · LoginPage · CheckoutPage',
     role: 'La lógica de negocio de CADA recurso o página. AQUÍ viven los ATCs, decorados con @atc(\'TICKET-ID\').',
     rules: [
-      'Acción que cambia estado = ATC (@atc); helper de solo lectura = @step (sin ID, no se reporta al TMS).',
+      'Acción que cambia estado = ATC (@atc); un GET cuya respuesta ES el resultado probado (datos, 401, 403, 404) también; helper = lectura que solo prepara datos (@step, sin ID, no se reporta al TMS).',
       'Locators inline dentro del ATC; se extraen solo si se usan en 2+ ATCs.',
     ],
     chainNode: 'AuthApi',

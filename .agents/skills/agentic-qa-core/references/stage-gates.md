@@ -124,7 +124,7 @@ governed — it is either unguided or uncorrected.
 
 Feedforward is cheap and pre-emptive, feedback is expensive and late, and the two
 trade off against each other. That is why **Automation** — a stage whose
-autonomy reaches 3 — is also the only stage with a mandatory separate verifier:
+autonomy rises from 2 to 3 inside the approved plan — is also the only stage with a mandatory separate verifier:
 more rope on the way in is paid for with a harder check on the way out.
 
 ---
