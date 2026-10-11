@@ -47,7 +47,7 @@ A project scaffolded before this layout may still hold `business/`, `PRD/`, `SRS
 
 - They stay tracked. An ignore rule never untracks a file already committed.
 - Where a context skill replaces one, its generator reads the old file as input the first time it builds the map (each skill's `legacy` list in `CONTEXT_MAP_SKILLS`). After that, the map is the one to read.
-- Nothing upstream ships deletes them: `bun run up` and `bun run setup:doctor` only name them in an informational line. Removing them is the project's own decision, made after the matching map is generated.
+- Nothing upstream ships deletes them: `bun sync` and `bun run setup:doctor` only name them in an informational line. Removing them is the project's own decision, made after the matching map is generated.
 
 The outputs that were retired without a replacement file (`PRD/executive-summary.md`, `risk-assessment.md`, `PBI/ACCESS.md`) have no reader any more: product risks travel in the Master Test Plan in Jira, and the backlog recipe is `PBI/README.md` plus `.agents/instructions/agent-local-context-pbi.md`.
 

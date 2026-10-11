@@ -147,7 +147,7 @@ Repository Settings → Secrets and variables → Actions → **Variables** tab:
 |----------|-------|
 | `TMS_PROVIDER` | `xray` (default when unset) / `jira` / `none`. It must be a VARIABLE because the `XrayImport` job gates on it in a job-level `if:`, and that context can read `vars` but never `secrets` |
 
-`bun run setup --variables` **cannot** push this one: that path only writes secrets (the variables flow pushes secrets only; check `cli/lib/variables-flow.ts`). Set `TMS_PROVIDER` by hand in Settings → Secrets and variables → Actions → Variables.
+`bun setup --variables` **cannot** push this one: that path only writes secrets (the variables flow pushes secrets only; check `cli/lib/variables-flow.ts`). Set `TMS_PROVIDER` by hand in Settings → Secrets and variables → Actions → Variables.
 
 There is **no `BASE_URL` / `API_BASE_URL` secret and no `TEST_USER_*` pair**: URLs are not secrets — they resolve from the versioned `.agents/project.yaml` through `config/variables.ts`, selected by `TEST_ENV`.
 

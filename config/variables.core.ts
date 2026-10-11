@@ -1,7 +1,7 @@
 /**
  * KATA Architecture — SYNCED CORE of the variables module.
  *
- * `bun run up` OVERWRITES this file. The project's own half is
+ * `bun sync` OVERWRITES this file. The project's own half is
  * `config/variables.ts`, which imports from here and is never overwritten.
  *
  * WHY THE SPLIT EXISTS. `config/variables.ts` is on the updater's protected

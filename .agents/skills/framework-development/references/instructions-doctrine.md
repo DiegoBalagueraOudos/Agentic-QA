@@ -63,7 +63,7 @@ Q4  Which REQUEST KIND needs it? Find the ROUTER row whose kind covers it and
 - **L0 never grows by prose.** A paragraph that explains a rule belongs in the rule's full text; a paragraph that explains a topic belongs in its section. L0 keeps the sentence that binds.
 - **A `NEVER` / `MUST` line must stay reachable** from where the actor always looks: verbatim in L0, under a numbered heading of `agent-critical-rules.md`, or tagged `Rule #N`, binding: `/<skill>` (whose compact rules carry it) or enforced: `bun run <script>`. `instructions:check` fails an orphan.
 - **Committed prose names the source of truth, never its current value** (Rule #17): no counts of sections, prompts or rows, no measured size, no claim about the present state.
-- **A synced file never holds a project fact.** Every section but `agent-project.md` is overwritten by `bun run up`; a project's rule, pointer or skill row goes in `agent-project.md`.
+- **A synced file never holds a project fact.** Every section but `agent-project.md` is overwritten by `bun sync`; a project's rule, pointer or skill row goes in `agent-project.md`.
 - **A trigger miss is fixed in `triggers:`, never by relabelling the eval set.** A false hit is fixed by narrowing the trigger. The set grows with every miss found.
 - **A new section ships complete**: frontmatter (`id`, `title`, `load_when`, `triggers`, `paths`), a ROUTER row (which is an ADR, see Q4), at least three labelled prompts that expect its `id`, and a row in the `## Sections` table of `.agents/instructions/README.md`. `instructions:check` fails each missing piece.
 
@@ -80,7 +80,7 @@ A workflow skill whose own flow records a project fact (a context pointer after 
 5. **"Prompts about Allure reports do not get the tool-resolution section."** Q4, a trigger miss: widen the `triggers:` of `agent-tool-resolution.md`, add the missed prompts (both languages) to `cli/lib/fixtures/instruction-router-eval.json` with the ids a careful reader would load, run `bun run instructions:check`: the eval scores the change in the same call and fails if the new trigger floods other prompts.
 6. **"We need a ROUTER row for performance testing."** Q4: performance testing is a testing request; the `agent-context-map.md` row ("any workflow task") and the stage skills already cover it. Grow that section's task map and its `triggers:`. A row is added only when no kind fits, through an ADR and `--accept-router`.
 7. **"A teammate pasted thirty lines explaining our branching model into `AGENTS.md`."** Undo it: the git section (`agent-git.md`) is a pointer, the strategy itself is `git_strategy:` in `.agents/project.yaml`, and `git-flow-master` owns the policy. L0 keeps nothing of it.
-8. **"Our team calls a story 'card'; the agent should understand both words."** Q2: project vocabulary is knowledge about the system under test: the `business-domain-context` map gets the term. If prompts that say "card" then miss a project rule, the trigger goes in `agent-project.md`'s own `triggers:`, which the project owns; a synced section's `triggers:` are upstream's and the next `bun run up` would drop the edit.
+8. **"Our team calls a story 'card'; the agent should understand both words."** Q2: project vocabulary is knowledge about the system under test: the `business-domain-context` map gets the term. If prompts that say "card" then miss a project rule, the trigger goes in `agent-project.md`'s own `triggers:`, which the project owns; a synced section's `triggers:` are upstream's and the next `bun sync` would drop the edit.
 
 ## 6. Measuring the routes
 

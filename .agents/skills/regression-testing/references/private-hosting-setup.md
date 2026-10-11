@@ -33,7 +33,7 @@ CI (this repo)                                  Portal (deployed once per org)
 - The publish step in `regression.yml` / `smoke.yml` / `sanity.yml` is already
   dual-mode: portal **iff the `PORTAL_URL` secret exists**, else public Pages.
 - Publisher: `scripts/ci/publish-allure-portal.ts` (synced downstream by
-  `bun run up`). Retention is server-side (portal cron).
+  `bun sync`). Retention is server-side (portal cron).
 - In portal mode gh-pages is unused: after verification, disable Pages
   serving (Settings → Pages → Source: None); deleting the gh-pages branch
   requires explicit user confirmation (Critical Rule #6).
@@ -218,7 +218,7 @@ portal root → login page renders; login with admin credentials → dashboard.
 |---|---|---|
 | `Missing required environment variable: PORTAL_*` in CI | Secret not set | Part B step 2 |
 | `401 Invalid credentials` on history/runs | Wrong `PORTAL_API_KEY` / slug mismatch | Re-run create-project (rotates key), update secret |
-| `400 reportPrefix must be ...` | Publisher/portal contract drift | `bun run up` in the consuming repo |
+| `400 reportPrefix must be ...` | Publisher/portal contract drift | `bun sync` in the consuming repo |
 | Report iframe 404s assets | Sync hit wrong bucket/prefix | Check `R2_BUCKET` secret + CI log line `r2://...` |
 | `aws s3 ls` in A2 fails with 403 | Token policy not scoped to the bucket / wrong secret derivation | Recreate token; secret = SHA-256 of the token VALUE, not the id |
 | OAuth login rejects a valid teammate | Domain missing in `AUTHORIZED_EMAIL_DOMAINS` | Add + redeploy |

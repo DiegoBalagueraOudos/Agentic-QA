@@ -84,4 +84,4 @@ Style is diagram-design's business. Its own `.diagram-design` marker at the repo
 
 ## 9 · Delivery and the updater
 
-The context map skills listed in `CONTEXT_MAP_SKILLS` are the one exception to "every `<aspect>-context` is project-local" (`isProjectLocalSkillPath`): `bun run up` DELIVERS a skill's folder once when it is absent, then never overwrites or deletes anything inside it. A missing or placeholder map, and any legacy file of its `legacy` list beside it, produce an informational row (never blocking), and `bun run setup:doctor` prints the same line.
+The context map skills listed in `CONTEXT_MAP_SKILLS` are the one exception to "every `<aspect>-context` is project-local" (`isProjectLocalSkillPath`): `bun sync` DELIVERS a skill's folder once when it is absent, then never overwrites or deletes anything inside it. A missing or placeholder map, and any legacy file of its `legacy` list beside it, produce an informational row (never blocking), and `bun run setup:doctor` prints the same line.

@@ -43,7 +43,7 @@ storage-state-*.json
 /allure-report/
 /.allure/
 
-# ===== Auto-generated AI prompts (single-use, written by bun run update) =====
+# ===== Auto-generated AI prompts (single-use, written by bun sync) =====
 /.agents/prompts/
 
 # ===== Custom Reports =====
@@ -121,11 +121,11 @@ build/
 # state written by cli/install.ts — must never enter the repo).
 # `.template/claude-md.upstream.sha` is GITIGNORED (per-dev runtime marker —
 # preserves the historical instruction-file marker now used for AGENTS.md, so
-# the merge nudge fires once per upstream change, not every `bun up`).
+# the merge nudge fires once per upstream change, not every `bun sync`).
 # `.template/upstream-sha/` is the same idea generalized: one marker per entry
 # of PROTECTED_WATCHLIST, written by the protected-file drift hook.
 # `.template/pre-agents-migration/` is GITIGNORED (per-dev safety copy written
-# once by the cross-harness preflight in `bun run up`: the project's original
+# once by the cross-harness preflight in `bun sync`: the project's original
 # CLAUDE.md plus any legacy skill whose name .agents/skills already owned. Local
 # recovery material, never repo content — review it, then delete it).
 .template/pre-agents-migration/
@@ -134,7 +134,7 @@ build/
 # re-surfaces the row until the text is actually present, so it is state, not content).
 .template/doctrine-ledger.json
 # `.template/last-apply.json` is GITIGNORED (per-dev record of what the last
-# `bun run up` wrote, with hashes: the next run's dirty-tree guard recognises
+# `bun sync` wrote, with hashes: the next run's dirty-tree guard recognises
 # that uncommitted output as its own instead of aborting on it).
 .template/last-apply.json
 .template/installer.state.json
@@ -149,7 +149,7 @@ build/
 .mcp.local.json
 opencode.local.jsonc
 dbhub.local.toml
-# Installer state (cli/install.ts) — gitignored; tracks what bun run setup
+# Installer state (cli/install.ts) — gitignored; tracks what bun setup
 # already did so re-runs are idempotent.
 .template/installer.state.json
 

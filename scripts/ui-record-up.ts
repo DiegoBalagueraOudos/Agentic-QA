@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @fileoverview Records a real `bun run up` run as a page journal.
+ * @fileoverview Records a real `bun sync` run as a page journal.
  *
  *   bun scripts/ui-record-up.ts --repo <consumer checkout> [--name <project>] [--out <journal.json>] [--transcript <lines.json>] [-- <updater args>]
  *

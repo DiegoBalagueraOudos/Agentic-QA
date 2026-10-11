@@ -61,7 +61,7 @@ One row per section file, so a reader finds a topic's home without opening every
 
 ## Ownership
 
-| File | Owner | On `bun run up` |
+| File | Owner | On `bun sync` |
 |---|---|---|
 | `AGENTS.md` | the project | parity rows, never overwritten |
 | every section here except `agent-project.md` | upstream | synced like a skill: overwritten, a project edit saved to `.backups/` with an "overwritten edit" parity row; list the path in `updater.protected_paths` to keep a merge |

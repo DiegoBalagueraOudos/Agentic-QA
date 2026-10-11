@@ -4,7 +4,7 @@
  * Everything in this file is GENERIC: CLI parsing, environment selection,
  * `--role` / `--profile`, token storage, freshness metadata and `--help`.
  * It is a normally SYNCED file, so improvements made upstream reach every
- * consumer project through `bun run up`.
+ * consumer project through `bun sync`.
  *
  * Everything PROJECT-SPECIFIC (how the auth request is shaped, how the token
  * is read back out of the response, which environments exist) lives in

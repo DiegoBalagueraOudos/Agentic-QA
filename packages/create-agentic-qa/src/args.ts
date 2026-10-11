@@ -131,7 +131,7 @@ export function printHelp(): void {
     ['--template-repo <owner/repo>', 'Override template upstream (default: upex-galaxy/agentic-qa-boilerplate).'],
     ['--project-key <KEY>', 'Jira project key (optional; prompted if omitted).'],
     ['--no-install', 'Skip "bun install".'],
-    ['--no-setup', 'Skip "bun run setup".'],
+    ['--no-setup', 'Skip "bun setup".'],
     ['--no-git', 'Skip git init + initial commit.'],
     ['--non-interactive', 'Use safe defaults; no prompts.'],
     ['--menu', 'Force the interactive menu even when args are provided.'],

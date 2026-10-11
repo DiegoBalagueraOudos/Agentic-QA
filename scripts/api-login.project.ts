@@ -3,7 +3,7 @@
  * ║  PROJECT-SPECIFIC AUTHENTICATION ADAPTER                        ║
  * ║  THIS is the only file to adapt to YOUR project's auth flow.     ║
  * ║  It ships once with the scaffold and is never overwritten by     ║
- * ║  `bun run up` - the CLI around it (scripts/lib/api-login-core.ts) ║
+ * ║  `bun sync` - the CLI around it (scripts/lib/api-login-core.ts) ║
  * ║  keeps syncing, so upstream improvements arrive without          ║
  * ║  clobbering this adaptation.                                     ║
  * ╚══════════════════════════════════════════════════════════════════╝

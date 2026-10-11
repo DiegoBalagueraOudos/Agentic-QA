@@ -171,10 +171,10 @@ describe('the report event', () => {
     expect(r.tiles.map(t => t.n)).toEqual(['3', '0', '0', '0']);
   });
 
-  test('--auto with deferred files is pending and tells to run bun run up; a blocking finding is bad', () => {
+  test('--auto with deferred files is pending and tells to run bun sync; a blocking finding is bad', () => {
     const pending = buildUpdaterReport(reportInput({ auto: true, skipped: 2 }), 'en');
     expect(pending.tone).toBe('warn');
-    expect(pending.next[0]).toMatchObject({ cmd: 'bun run up' });
+    expect(pending.next[0]).toMatchObject({ cmd: 'bun sync' });
     const bad = buildUpdaterReport(reportInput({ findings: [{ id: 1, surface: 'Hooks', path: '.claude/settings.json', evidence: 'missing <hook>', suggested: 'merge', blocking: true, side: 'kept' }], prompt: 'P', promptPath: '.agents/prompts/parity-plan.md' }), 'es');
     expect(bad.tone).toBe('bad');
     expect(bad.findings[0]).toMatchObject({ now: 'tuyo', evidence: 'missing &lt;hook&gt;', blocking: true });

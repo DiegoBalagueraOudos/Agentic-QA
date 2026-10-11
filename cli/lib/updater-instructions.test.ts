@@ -260,7 +260,7 @@ describe('the rename to agent- names', () => {
     }
   });
 
-  test('bun run up retires the numbered copies with a backup, after a dry-run that touches nothing', () => {
+  test('bun sync retires the numbered copies with a backup, after a dry-run that touches nothing', () => {
     const project = numberedProject();
     const cfg = { deprecatedFiles: RETIRED_SECTION_FILES } as unknown as UpdaterConfig;
     let backupDir: string | null = null;

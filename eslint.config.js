@@ -1,5 +1,5 @@
 /**
- * @fileoverview PROJECT-OWNED — `bun run up` never overwrites this file.
+ * @fileoverview PROJECT-OWNED — `bun sync` never overwrites this file.
  *
  * `eslint.config.base.js` is the synced half: the shared options and the
  * `cli/` import-closure block that guards the updater's self-update. Override

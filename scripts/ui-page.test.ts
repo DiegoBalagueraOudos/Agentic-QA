@@ -268,7 +268,7 @@ describe.skipIf(!HAVE_CHROMIUM)('installer page in a browser', () => {
     const { page, errors } = await open(sink.url);
     for (const e of entries) { journal.appendRecorded(e); }
     await pw(page.locator('#state')).toHaveText('Terminado');
-    await pw(page.locator('#cmd')).toContainText('bun run up --dry-run');
+    await pw(page.locator('#cmd')).toContainText('bun sync --dry-run');
     await pw(page.locator('.ph.done, .ph.warn')).toHaveCount(6);
     await pw(page.locator('.banner.good')).toContainText('Reconectado');
     await pw(page.locator('table.rep').last().locator('tbody tr')).toHaveCount(3);

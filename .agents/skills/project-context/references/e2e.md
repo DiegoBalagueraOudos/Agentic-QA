@@ -52,7 +52,7 @@ Exhaust every source. Do not rely on code alone — cross-reference with DB, API
 
 ```
 bun run context:map business-e2e-context --list
-  → skill folder missing:   STOP. The skill is delivered by `bun run up`
+  → skill folder missing:   STOP. The skill is delivered by `bun sync`
                             (or scaffolded from the boilerplate); never create it here.
   → placeholder notice:     CREATE mode — build every section from the sources.
   → a list of sections:     UPDATE mode — staleness check per section

@@ -35,7 +35,7 @@
  * `@import(./.env.provider.schema, allowMissing=true)`: the hook a project
  * uses when it keeps its secrets in a manager (ADR-0010). Absent overlay = a
  * no-op, so every project without one loads unchanged. Placed HERE, in the
- * synced half, so an existing project gains the hook with `bun run up` and
+ * synced half, so an existing project gains the hook with `bun sync` and
  * never has to edit its own `.env.schema`. Measured: an overlay item beats both
  * this file's empty declaration and a project re-declaration with an empty
  * value. The overlay itself is `cli/lib/secret-providers.ts`.
@@ -124,7 +124,7 @@ export const RUNTIME_KNOBS: readonly RuntimeKnob[] = [
  * That has a price, measured with the pinned varlock: an UNDECLARED key that
  * is present and EMPTY in `.env` fails `varlock load` ("Value is required but
  * is currently empty"); one with a value passes. So the cleanup runs BEFORE
- * any validation: `bun run setup` and `bun run setup:doctor` find the lines
+ * any validation: `bun setup` and `bun run setup:doctor` find the lines
  * (`retiredEnvKeysIn`) and offer to delete them with one confirmation
  * (`removeRetiredEnvLines`), and the doctor's own validation neutralizes the
  * ones still there (`neutralizeRetiredKeys`) so a declined cleanup or a
@@ -318,7 +318,7 @@ export function generateCoreSchema(
     '# provider resolve the sensitive ones. Validate: bunx varlock load --agent',
     '#',
     `# The import below is the OPTIONAL secret-manager overlay (${PROVIDER_SCHEMA_FILE},`,
-    '# references only, written by `bun run setup` when a project opts in). Absent',
+    '# references only, written by `bun setup` when a project opts in). Absent',
     '# = nothing changes: values come from .env / .env.local.',
     `# @import(./${PROVIDER_SCHEMA_FILE}, allowMissing=true)`,
     '#',
@@ -393,7 +393,7 @@ export function projectSchemaTemplate(): string {
     '# ============================================================================',
     `# ${PROJECT_SCHEMA_FILE} - project-owned env schema (varlock, env-spec)`,
     '# ============================================================================',
-    '# Delivered once by the boilerplate, then yours: bun run up never overwrites',
+    '# Delivered once by the boilerplate, then yours: bun sync never overwrites',
     `# it. The framework half lives in ${CORE_SCHEMA_FILE} (generated + synced) and`,
     '# is pulled in by the import below. Add the variables YOUR project-under-test',
     '# needs under "Project variables"; keep values out of this file.',

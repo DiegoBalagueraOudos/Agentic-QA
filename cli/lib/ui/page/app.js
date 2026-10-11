@@ -262,7 +262,7 @@
   /* ---------------- rendering one entry ---------------- */
   const handlers = {
     'run.start': (e) => {
-      const cmd = `bun run ${e.cmd}${e.args.length ? ` ${e.args.join(' ')}` : ''}`;
+      const cmd = `bun ${e.cmd === 'up' ? 'sync' : e.cmd}${e.args.length ? ` ${e.args.join(' ')}` : ''}`;
       $('#cmd').replaceChildren(h('span', { class: 'p' }, '$'), ` ${cmd} `, h('span', { class: 'repo' }, `· ${e.repo}`));
       document.title = `${cmd} · ${CFG.brand.name}`;
       buildRail(e.phases);

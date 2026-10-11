@@ -50,7 +50,7 @@ Exhaust every source. Prefer existing context files over re-deriving from code.
 
 ```
 bun run context:map business-api-context --list
-  → skill folder missing:   STOP. The skill is delivered by `bun run up`
+  → skill folder missing:   STOP. The skill is delivered by `bun sync`
                             (or scaffolded from the boilerplate); never create it here.
   → placeholder notice:     CREATE mode — build every section from the sources.
   → a list of sections:     UPDATE mode — staleness check per section

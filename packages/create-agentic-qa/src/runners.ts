@@ -104,7 +104,7 @@ export function runBunInstall(cwd: string): void {
       'INSTALL',
       `bun install failed (exit ${res.status}).`,
       'The project itself is already scaffolded — only dependency install failed.\n'
-      + `Recover with:\n  cd ${cwd}\n  bun install --force\n  bun run setup\n`
+      + `Recover with:\n  cd ${cwd}\n  bun install --force\n  bun setup\n`
       + 'On WSL: make sure the project lives under the Linux filesystem (e.g. ~/projects), '
       + 'not under /mnt/c — Bun cannot create its bin shims on the Windows drive mount.',
     );
@@ -112,7 +112,7 @@ export function runBunInstall(cwd: string): void {
 }
 
 export function runBunSetup(cwd: string, opts: { nonInteractive: boolean }): void {
-  log.info('Handing off to the boilerplate installer (bun run setup)…');
+  log.info('Handing off to the boilerplate installer (bun setup)…');
   const args = ['run', 'setup'];
   if (opts.nonInteractive) { args.push('--', '--non-interactive'); }
 
@@ -123,13 +123,13 @@ export function runBunSetup(cwd: string, opts: { nonInteractive: boolean }): voi
       ...(opts.nonInteractive ? { NON_INTERACTIVE: '1' } : {}),
     },
   });
-  assertLaunched(res, 'bun run setup');
+  assertLaunched(res, 'bun setup');
 
   if (res.status !== 0) {
     throw new CliError(
       'SETUP',
-      `bun run setup failed (exit ${res.status}).`,
-      `The project is scaffolded and its dependencies are installed. Re-run the installer with:\n  cd ${cwd}\n  bun run setup`,
+      `bun setup failed (exit ${res.status}).`,
+      `The project is scaffolded and its dependencies are installed. Re-run the installer with:\n  cd ${cwd}\n  bun setup`,
     );
   }
 }

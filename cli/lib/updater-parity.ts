@@ -1,5 +1,5 @@
 /**
- * @fileoverview Parity report after `bun run up`: ONE table of what still
+ * @fileoverview Parity report after `bun sync`: ONE table of what still
  * differs from upstream per surface, with concrete evidence, and ONE prompt the
  * user hands to their AI so every row gets a decision (keep project | take
  * upstream | merge) BEFORE anything is edited.
@@ -1930,7 +1930,7 @@ export function buildParityPrompt(findings: ParityFinding[], meta: ParityMeta): 
   const isGitHubHandle = /^[\w.-]+\/[\w.-]+$/.test(meta.templateRepo);
   const copies = isGitHubHandle ? `; upstream copies: https://raw.githubusercontent.com/${meta.templateRepo}/main/<path>` : '';
   return [
-    `Parity review after \`bun run up${dryRun ? ' --dry-run' : ''}\` (upstream ${meta.templateRepo}@${upstream}, project lock ${lock}).`,
+    `Parity review after \`bun sync${dryRun ? ' --dry-run' : ''}\` (upstream ${meta.templateRepo}@${upstream}, project lock ${lock}).`,
     'Present the table below to the user, one row per finding, and WAIT for a decision per row',
     '(keep project | take upstream | merge) BEFORE editing anything. Then apply only the chosen rows,',
     'run tests -> types -> lint, and report.',
@@ -1964,7 +1964,7 @@ export function buildParityFileBody(findings: ParityFinding[], meta: ParityMeta)
   return [
     '# Parity plan — AI review prompt',
     '',
-    `> **AUTO-GENERATED, SINGLE-USE.** Written by \`bun run up\` on ${today}.`,
+    `> **AUTO-GENERATED, SINGLE-USE.** Written by \`bun sync\` on ${today}.`,
     '> Paste the prompt below into your AI session, then delete this file.',
     '> It is regenerated (overwritten) on every run that ends with findings.',
     '',

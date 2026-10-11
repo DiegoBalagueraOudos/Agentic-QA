@@ -6,7 +6,7 @@
  * package's own `src/installer-manifest.json` — the catalogue rendered by
  * `bunx create-agentic-qa --inspect`. Reads the authoritative skill / MCP /
  * CLI declarations from the boilerplate's `cli/install.ts` (two levels up)
- * so the published CLI stays in sync with what `bun run setup` actually
+ * so the published CLI stays in sync with what `bun setup` actually
  * installs.
  *
  * Why it does NOT live in the boilerplate's root `scripts/`:

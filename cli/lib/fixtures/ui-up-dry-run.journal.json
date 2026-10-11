@@ -711,7 +711,7 @@
       {
         "title": "Aplicar esta actualización",
         "text": "La corrida real escribe estos cambios y regenera lo que la vista previa marca como resuelto al aplicar.",
-        "cmd": "bun run up"
+        "cmd": "bun sync"
       },
       {
         "title": "Resolver los hallazgos de paridad",

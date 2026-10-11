@@ -10,7 +10,7 @@
  * Usage:
  *   bun run setup:doctor              # human-readable summary
  *   bun run setup:doctor --json       # machine-readable JSON
- *   bun run setup:doctor --preflight  # blocker-only gate for `bun run setup`
+ *   bun run setup:doctor --preflight  # blocker-only gate for `bun setup`
  *
  * --preflight mode: minimal pre-install gate. Checks only the things that
  * would crash `cli/install.ts` at module-load time (Bun runtime present and
@@ -355,7 +355,7 @@ interface DoctorReport {
    *
    * NEVER a failure. Being behind upstream is not a broken repo, and the moment
    * an upstream key addition turns a project's own checks red, the project
-   * learns to skip them. `bun run up` is where it becomes actionable; here it
+   * learns to skip them. `bun sync` is where it becomes actionable; here it
    * is the answer to "why is my project behaving oddly".
    */
   project_schema: ProjectSchemaDiagnostic
@@ -575,7 +575,7 @@ export function diagnoseAgentCompatibility(
 }
 
 // ----------------------------------------------------------------------------
-// Preflight (blocker-only gate for `bun run setup`)
+// Preflight (blocker-only gate for `bun setup`)
 // ----------------------------------------------------------------------------
 
 /**
@@ -618,7 +618,7 @@ function projectSchemaDiagnostic(): ProjectSchemaDiagnostic {
   if (!existsSync(sourcePath)) { return { gaps: [], exempt: [], note: `${SCHEMA_SOURCE} not found`, copied_template: false }; }
   const sourceText = readFileSync(sourcePath, 'utf8');
   const copied_template = classifyProjectYaml(sourceText, gitOrigin()) === 'copied-template';
-  if (!existsSync(schemaPath)) { return { gaps: [], exempt: [], note: `${SCHEMA_FILE} not found — run \`bun run up\` to receive it`, copied_template }; }
+  if (!existsSync(schemaPath)) { return { gaps: [], exempt: [], note: `${SCHEMA_FILE} not found — run \`bun sync\` to receive it`, copied_template }; }
   try {
     const delta = projectDelta(sourceText, readFileSync(schemaPath, 'utf8'));
     return { gaps: delta.gaps, exempt: delta.exempt, note: delta.error, copied_template };
@@ -753,7 +753,7 @@ function runPreflight(): never {
   if (!bunVersion) {
     preflightFail(
       'Bun runtime not detected (process.versions.bun is undefined).',
-      'Install Bun from https://bun.sh, then re-run `bun run setup`.',
+      'Install Bun from https://bun.sh, then re-run `bun setup`.',
     );
   }
   const parsed = parseBunVersion(bunVersion);
@@ -784,7 +784,7 @@ function runPreflight(): never {
   if (!existsSync(INQUIRER_MARKER)) {
     preflightFail(
       'Project dependencies not installed (node_modules/@inquirer/prompts missing).',
-      'Run `bun install` first, then re-run `bun run setup`.',
+      'Run `bun install` first, then re-run `bun setup`.',
     );
   }
   process.stdout.write(`Preflight OK (Bun ${bunVersion}, Node ${nodeVersion}, deps installed)\n`);
@@ -1284,7 +1284,7 @@ function printHuman(report: DoctorReport): void {
     ? `standalone binary${es.binary_version ? ` ${es.binary_version}` : ''}`
     : es.binary === 'devDependency'
       ? `devDependency${es.binary_version ? ` ${es.binary_version}` : ''} (enough: the MCP .env loader runs it through bunx)`
-      : 'not found; run bun install (devDependency) or see bun run setup for the standalone binary';
+      : 'not found; run bun install (devDependency) or see bun setup for the standalone binary';
   process.stdout.write(`  ${tui.statusIcon(es.schema_present ? 'ok' : 'fail')} schema files ${es.schema_present ? 'present' : 'missing (bun run vars:schema)'}\n`);
   process.stdout.write(`  ${tui.statusIcon(es.binary === 'missing' ? 'fail' : 'ok')} varlock: ${binaryNote}\n`);
   if (es.validation === 'ok') {
@@ -1320,7 +1320,7 @@ function printHuman(report: DoctorReport): void {
       for (const gap of report.project_schema.gaps) {
         process.stdout.write(`  ${gap.block}${gap.wholeBlock ? ' (whole block)' : ''}: ${gap.paths.join(', ')}\n`);
       }
-      process.stdout.write('  Fix: bun run up  (offers to insert them, one prompt per block, insert-only)\n');
+      process.stdout.write('  Fix: bun sync  (offers to insert them, one prompt per block, insert-only)\n');
     }
     if (report.project_schema.exempt.length > 0) {
       process.stdout.write(`  silenced via updater.schema_exempt: ${report.project_schema.exempt.join(', ')}\n`);
@@ -1340,8 +1340,8 @@ function printHuman(report: DoctorReport): void {
     const note: Record<CommunitySkillRow['status'], string> = {
       'current': 'up to date with upstream',
       'outdated': 'upstream has moved since install',
-      'not-installed': 'declared but absent — run bun run setup',
-      'untracked': 'installed before the baseline existed; re-run bun run setup to start tracking',
+      'not-installed': 'declared but absent — run bun setup',
+      'untracked': 'installed before the baseline existed; re-run bun setup to start tracking',
       'unknown': 'remote unreachable — no verdict',
     };
     const rows = report.community_skills.map(skill => [

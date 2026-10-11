@@ -8,7 +8,7 @@
  * is synced, so anything `cli/` imports must travel with `cli/`. When this
  * module lived in `scripts/`, a repo several releases behind downloaded the new
  * `cli/`, re-exec'd, and died on `Cannot find module '../scripts/…'` — with
- * `bun run up`, `--rollback`, `setup` and `setup:doctor` all dead at once,
+ * `bun sync`, `--rollback`, `setup` and `setup:doctor` all dead at once,
  * because the failure is at module load.
  *
  * The invariant is enforced by the `no-restricted-imports` block scoped to
@@ -234,7 +234,7 @@ function lstatIfPresent(path: string): Stats | null {
  * `bunx skills add` (project level) installs the skill body into `.agents/skills/<slug>/`
  * and then, for Claude Code compatibility, creates `.claude/skills/` as a REAL directory
  * containing one symlink per skill. That collides head-on with our single directory-level
- * alias: `bun run setup` installs community skills BEFORE repairing compatibility, so a
+ * alias: `bun setup` installs community skills BEFORE repairing compatibility, so a
  * clean clone hit "Refusing to replace" and the install aborted.
  *
  * Reclaiming that specific shape is lossless — every entry is a pointer, the bodies live
@@ -462,7 +462,7 @@ export interface AgentSurfaceRepair {
 }
 
 /**
- * What `bun run up` does after every apply, and `bun run agents:compat` on
+ * What `bun sync` does after every apply, and `bun run agents:compat` on
  * demand: repair the alias, move any command that shadows a skill out of the
  * way, run the check.
  *

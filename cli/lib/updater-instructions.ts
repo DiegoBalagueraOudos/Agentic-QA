@@ -21,7 +21,7 @@
  *    each old heading to the section that now carries it, and naming the
  *    headings that are its own and belong in `agent-project.md`.
  *
- * Both deliveries of the stub (this module for `bun run up`, the scaffolder in
+ * Both deliveries of the stub (this module for `bun sync`, the scaffolder in
  * `packages/create-agentic-qa`) and `instructions:check` refuse a stub that
  * carries the boilerplate's identity: `stubLeaks` is that gate.
  */
@@ -59,7 +59,7 @@ export const RENAMED_SECTION_FILES: Readonly<Record<string, string>> = {
 };
 /** Why a numbered copy is removed (the `deprecatedFiles` reason line). */
 export const RETIRED_SECTION_REASON = 'instruction sections renamed to readable agent-<topic> names; the new file arrived synced and the old copy is saved under .backups/';
-/** The numbered copies `bun run up` retires, each saved to `.backups/` first. */
+/** The numbered copies `bun sync` retires, each saved to `.backups/` first. */
 export const RETIRED_SECTION_FILES = Object.keys(RENAMED_SECTION_FILES).map(name => ({
   path: `${INSTRUCTIONS_DIR}/${name}`,
   component: 'instructions',

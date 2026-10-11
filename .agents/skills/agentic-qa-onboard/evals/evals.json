@@ -4,7 +4,7 @@
       "name": "should-trigger-first-time-orientation",
       "prompt": "I just cloned this QA repo. First time using it — where do I start?",
       "expected_skill": "agentic-qa-onboard",
-      "expected_behavior": "Activates agentic-qa-onboard. Explains the stack (Playwright + KATA + Allure + Xray), points at `bun run setup` for installation, walks through the IQL stages by name, never by number (Shift-Left in /shift-left-testing; Planning, Execution and Reporting in /sprint-testing; Documentation in /test-documentation; Automation in /test-automation; Regression in /regression-testing) and the /framework-development hand-off for boilerplate evolution, names `.mcp.json` as the source of the MCP set instead of counting servers, lists critical env vars, and ends with a checklist of next steps. Does NOT start testing or implementing anything.",
+      "expected_behavior": "Activates agentic-qa-onboard. Explains the stack (Playwright + KATA + Allure + Xray), points at `bun setup` for installation, walks through the IQL stages by name, never by number (Shift-Left in /shift-left-testing; Planning, Execution and Reporting in /sprint-testing; Documentation in /test-documentation; Automation in /test-automation; Regression in /regression-testing) and the /framework-development hand-off for boilerplate evolution, names `.mcp.json` as the source of the MCP set instead of counting servers, lists critical env vars, and ends with a checklist of next steps. Does NOT start testing or implementing anything.",
       "category": "positive"
     },
     {
@@ -25,7 +25,7 @@
       "name": "should-trigger-spanish-first-time",
       "prompt": "Es la primer vez que uso este repo de QA, qué tengo que correr primero?",
       "expected_skill": "agentic-qa-onboard",
-      "expected_behavior": "Activates agentic-qa-onboard. Points at `bun run setup` first, then walks through the workflow split, MCPs, env vars, and the next-steps checklist. Hands off to /sprint-testing once foundation is green. May respond in Spanish to mirror the user.",
+      "expected_behavior": "Activates agentic-qa-onboard. Points at `bun setup` first, then walks through the workflow split, MCPs, env vars, and the next-steps checklist. Hands off to /sprint-testing once foundation is green. May respond in Spanish to mirror the user.",
       "category": "positive"
     },
     {

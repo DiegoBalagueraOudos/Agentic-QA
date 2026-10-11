@@ -18,7 +18,7 @@ Phase 2 writes into ONE file: `.agents/skills/infra-context/references/infra-map
 
 ```
 bun run context:map infra-context --list
-  → skill folder missing:   STOP. The skill is delivered by `bun run up`
+  → skill folder missing:   STOP. The skill is delivered by `bun sync`
                             (or scaffolded from the boilerplate); never create it here.
   → placeholder notice:     CREATE: build every Phase 2 section from the sources.
   → a list of sections:     UPDATE: staleness check per section

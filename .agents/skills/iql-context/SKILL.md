@@ -104,7 +104,7 @@ Each row states ONE invariant and cites where it comes from. "web" = the anchor 
 
 | Kind of adaptation | Seam | Mechanism |
 |---|---|---|
-| Values: which stages the project runs, gate strictness, execution profile | `.agents/project.yaml` → `qa.methodology` | the yaml is bootstrap-only and schema-diffed, so a key upstream adds later is offered insert-only by `bun run up` |
+| Values: which stages the project runs, gate strictness, execution profile | `.agents/project.yaml` → `qa.methodology` | the yaml is bootstrap-only and schema-diffed, so a key upstream adds later is offered insert-only by `bun sync` |
 | Prose: a project rule, a local exception, a renamed artifact | `references/project-overrides.md` | delivered once when missing, never overwritten (bootstrap-only), project-owned |
 | The skill body and the other references | none | synced verbatim; a direct edit gets a parity row on the next sync, and the fix is a refinement proposal upstream |
 

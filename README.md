@@ -53,15 +53,15 @@ bunx create-agentic-qa@latest <your-repo-name>
 
 ## Prerequisites
 
-Before running `bunx create-agentic-qa@latest` or `bun install && bun run setup`, install the **hard blockers**. The installer detects everything else and prints exact install URLs when something is missing — but front-loading these saves a fail-and-retry loop.
+Before running `bunx create-agentic-qa@latest` or `bun install && bun setup`, install the **hard blockers**. The installer detects everything else and prints exact install URLs when something is missing — but front-loading these saves a fail-and-retry loop.
 
 ### Hard blockers (installer exits 1 if missing)
 
 | Tool                                                                                                                   | Min version | Why                                                                                                         | Install                                                                                |
 | ---------------------------------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **Bun**                                                                                                                | the floor `bun run setup:doctor --preflight` enforces | Runtime for every script (`bun install`, `bun run setup`, `bun run test`, `bun xray`, `bun run setup:doctor`) | macOS/Linux/WSL: `curl -fsSL https://bun.sh/install \| bash` · Windows: `powershell -c "irm bun.sh/install.ps1 \| iex"` · [docs](https://bun.sh/docs/installation) |
-| **Node**                                                                                                               | the floor `bun run setup:doctor --preflight` enforces (`MIN_NODE_MAJOR` in `cli/doctor.ts`) | Hooks run `node .agents/hooks/personality-reinject.mjs`; checked by the scaffolder doctor and the `bun run setup` preflight | [nodejs.org](https://nodejs.org)                                                       |
-| **An agent** — [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenCode](https://opencode.ai/docs) **or** [Codex](https://developers.openai.com/codex/) | latest      | `bun run setup` step `4-agent-detect` detects all three (`~/.claude/` or `claude` on PATH · `~/.config/opencode/` or `opencode` on PATH · `codex` on PATH or `.codex/config.toml` in the repo) and lets you pick which to configure; exits 1 only if none is found | See each project's official docs                           |
+| **Bun**                                                                                                                | the floor `bun run setup:doctor --preflight` enforces | Runtime for every script (`bun install`, `bun setup`, `bun run test`, `bun xray`, `bun run setup:doctor`) | macOS/Linux/WSL: `curl -fsSL https://bun.sh/install \| bash` · Windows: `powershell -c "irm bun.sh/install.ps1 \| iex"` · [docs](https://bun.sh/docs/installation) |
+| **Node**                                                                                                               | the floor `bun run setup:doctor --preflight` enforces (`MIN_NODE_MAJOR` in `cli/doctor.ts`) | Hooks run `node .agents/hooks/personality-reinject.mjs`; checked by the scaffolder doctor and the `bun setup` preflight | [nodejs.org](https://nodejs.org)                                                       |
+| **An agent** — [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenCode](https://opencode.ai/docs) **or** [Codex](https://developers.openai.com/codex/) | latest      | `bun setup` step `4-agent-detect` detects all three (`~/.claude/` or `claude` on PATH · `~/.config/opencode/` or `opencode` on PATH · `codex` on PATH or `.codex/config.toml` in the repo) and lets you pick which to configure; exits 1 only if none is found | See each project's official docs                           |
 | `git`                                                                                                                  | any         | Scaffolder runs `git init`; pre-commit hooks (Husky) require git                                            | [git-scm.com/downloads](https://git-scm.com/downloads)                                 |
 | `tar`                                                                                                                  | any         | Scaffolder extracts the template tarball. Either flavour works — GNU tar (Linux, WSL, Git Bash) or bsdtar   | Ships with macOS, Linux, and Windows 10 1803+ / Windows 11 (`C:\Windows\System32\tar.exe`) |
 
@@ -77,7 +77,7 @@ Before running `bunx create-agentic-qa@latest` or `bun install && bun run setup`
 
 These are **not optional** for the workflow — each one is required by a specific skill. They are non-blocking at setup time because the installer cannot guess which skills you will actually use. Install them up front if you plan to use the whole stack, or lazily when the skill that uses them surfaces a missing-binary error.
 
-The list is `EXTERNAL_CLIS` in `cli/install.ts`: each entry names the skill that needs it, a cross-platform install hint when one exists, and the official docs URL. `bun run setup` prints that table with a found / missing status per tool, and `bun run setup:doctor` re-checks it any time. Repo search (`rg`) is not on it: Claude Code bundles its own, OpenCode and Codex use the system binary (`brew install ripgrep` · `apt install ripgrep` · `winget install BurntSushi.ripgrep.MSVC`).
+The list is `EXTERNAL_CLIS` in `cli/install.ts`: each entry names the skill that needs it, a cross-platform install hint when one exists, and the official docs URL. `bun setup` prints that table with a found / missing status per tool, and `bun run setup:doctor` re-checks it any time. Repo search (`rg`) is not on it: Claude Code bundles its own, OpenCode and Codex use the system binary (`brew install ripgrep` · `apt install ripgrep` · `winget install BurntSushi.ripgrep.MSVC`).
 
 ### Variables and MCP credentials (`.env` keys)
 
@@ -113,12 +113,12 @@ Nothing blocks install, update or `setup:doctor`: a value is validated by the co
 | Goal                                                  | What to read / run                                                                                                                                                                                     |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Start a new project — magic command (recommended)** | `bunx create-agentic-qa@latest <your-repo-name>` — official scaffolder ([npm](https://www.npmjs.com/package/create-agentic-qa))                                                                               |
-| **Start a new project — GitHub "Use this template"**  | Click [**Use this template**](https://github.com/upex-galaxy/agentic-qa-boilerplate/generate) → clone your new repo → `bun install && bun run setup` (see [Other ways to start](#other-ways-to-start)) |
-| **Contribute to the boilerplate itself**              | `git clone …` then `bun install && bun run setup` (see [Other ways to start](#other-ways-to-start))                                                                                                    |
+| **Start a new project — GitHub "Use this template"**  | Click [**Use this template**](https://github.com/upex-galaxy/agentic-qa-boilerplate/generate) → clone your new repo → `bun install && bun setup` (see [Other ways to start](#other-ways-to-start)) |
+| **Contribute to the boilerplate itself**              | `git clone …` then `bun install && bun setup` (see [Other ways to start](#other-ways-to-start))                                                                                                    |
 | **Get oriented before installing**                    | `bun run onboarding` — opens the docs site on its "Empezar aquí" page (`docs/core/empezar-aqui.html`)                                                                                                   |
 | **Understand the methodology**                        | `bun run docs` → Metodología ([IQL](docs/core/metodologia/iql.html), [how this repo implements it](docs/core/metodologia/este-repo.html)); official site: [upexgalaxy.com/metodologia](https://www.upexgalaxy.com/metodologia) |
 | **Browse the human docs**                             | `bun run docs` — local HTML site (setup guides, methodology, exploration); add your own pages under any `docs/` folder except `docs/core/`                                                                |
-| **See what `bun run setup` configures**               | [`INSTALLER.md`](INSTALLER.md) — run `bun run setup:doctor` after setup                                                                                                                               |
+| **See what `bun setup` configures**               | [`INSTALLER.md`](INSTALLER.md) — run `bun run setup:doctor` after setup                                                                                                                               |
 | **You're an AI agent**                                | [`AGENTS.md`](AGENTS.md) (auto-loaded each session on every supported harness; it routes to `.agents/instructions/`)                                                                                    |
 
 > First-timers, use the scaffolder. It handles tarball download, git scrub, rename, `bun install`, and the interactive installer in one shot. The manual clone is for people hacking on the boilerplate itself.
@@ -146,7 +146,7 @@ What it does:
 2. Rewrites `package.json` name + `.agents/project.yaml` `project.project_name` (and `project.project_key` when `--project-key` is passed).
 3. Initializes a fresh `git init -b main` with an initial commit.
 4. Runs `bun install`.
-5. Hands off to `bun run setup` — Engram memory, the committed skills under `.agents/skills/`, community skills, the MCP servers `.mcp.json` declares, where secrets live (`.env` by default, or a secret manager), `.env`, optional `gh repo create`. It records the agents you pick in `harnesses:` (`.agents/project.yaml`) and offers to delete the files of the harnesses you left out, and its last step retires plaintext MCP credential copies an older version left.
+5. Hands off to `bun setup` — Engram memory, the committed skills under `.agents/skills/`, community skills, the MCP servers `.mcp.json` declares, where secrets live (`.env` by default, or a secret manager), `.env`, optional `gh repo create`. It records the agents you pick in `harnesses:` (`.agents/project.yaml`) and offers to delete the files of the harnesses you left out, and its last step retires plaintext MCP credential copies an older version left.
 
 Useful flags (full list in [`packages/create-agentic-qa/README.md`](packages/create-agentic-qa/README.md)):
 
@@ -179,7 +179,7 @@ bunx -y ccstatusline@latest
 /regression-testing     # CI execution + GO / CAUTION / NO-GO
 ```
 
-> Don't chain `bun run onboarding && bun run setup` — the docs server is blocking and the chain deadlocks. Run them as separate steps.
+> Don't chain `bun run onboarding && bun setup` — the docs server is blocking and the chain deadlocks. Run them as separate steps.
 
 > `bunx -y ccstatusline@latest` is Claude Code-only and optional. Run it from a plain terminal with NO agent running — concurrent TUIs fight over stdin and the configurator silently breaks. OpenCode users can add the `opencode-subagent-statusline` plugin to their own global config instead (OpenCode 1 only; see `INSTALLER.md`); the shared `opencode.jsonc` carries no cosmetic plugins.
 
@@ -225,7 +225,7 @@ Prefer to start your project **on GitHub from day one** (your own repo, your own
 
    ```bash
    bun install
-   bun run setup        # Engram, skills, community skills, .env wiring, MCPs
+   bun setup        # Engram, skills, community skills, .env wiring, MCPs
    ```
 
    The template copies the boilerplate's own filled `.agents/project.yaml` (its `MAINTAINER COPY:` header line says so). The project-metadata step (`bun run agents:setup`) detects it and offers to replace it with the blank template before asking anything; accept. Without a TTY, pass the consent explicitly: `bun run agents:setup --non-interactive --reseed`.
@@ -256,7 +256,7 @@ cp .env.example .env   # fill in the values, then restart the agent session
 bun run onboarding
 
 # 6. Run the interactive setup (Engram, skills, MCPs, .env)
-bun run setup
+bun setup
 
 # 7. Validate the install
 bun run setup:doctor
@@ -307,7 +307,7 @@ Both are needed. Skip neither.
 
 Copy `.env.example` to `.env` and fill in what your project uses. Secrets are typed by you (or live in the secret manager); the AI writes a non-sensitive value only through `bun run env:set KEY=value`, which refuses any `@sensitive` or secret-looking key. `.env.example` is the annotated template, one comment per variable and the defaults of the optional ones as commented lines; `cli/lib/variables-manifest.ts` declares each known variable's scope (framework, tooling, project-under-test) and the feature switch that makes it required. `bun run setup:doctor` reports which ones are still missing.
 
-Every variable also has a **typed schema**, read by [varlock](https://varlock.dev): `.env.core.schema` (generated from `cli/lib/variables-manifest.ts`, synced by `bun run up`) plus `.env.schema` (yours: root decorators and the variables your project-under-test adds). Neither holds a value. Validate your `.env` against it with sensitive values redacted:
+Every variable also has a **typed schema**, read by [varlock](https://varlock.dev): `.env.core.schema` (generated from `cli/lib/variables-manifest.ts`, synced by `bun sync`) plus `.env.schema` (yours: root decorators and the variables your project-under-test adds). Neither holds a value. Validate your `.env` against it with sensitive values redacted:
 
 ```bash
 bunx varlock load --agent      # exit 0 = every required item for your TEST_ENV is set
@@ -319,7 +319,7 @@ The schema is a gate (pre-commit freshness, pre-push warn-only, first step of `b
 
 Quote any value that contains a `#` (`PASSWORD="pass#word"`): varlock cuts an unquoted value at the first `#`.
 
-**Secret manager (advanced, optional).** `.env` stays the default. A team that keeps its secrets in a vault picks 1Password in `bun run setup`, which records `secrets:` in `.agents/project.yaml` and writes `.env.provider.schema`: committed `op://` references, never values, imported by `.env.core.schema` only when present. Desktop-app auth on laptops, a service account in CI; a non-empty `.env` value still wins. Bun's own `.env` autoload does not resolve the vault references, so a script that needs a vault secret runs through `bunx varlock run -- <cmd>`. Steps: `INSTALLER.md` ("Secret manager (advanced)"); decision: `.context/ADR/ADR-0010-secret-manager-advanced-option.md`.
+**Secret manager (advanced, optional).** `.env` stays the default. A team that keeps its secrets in a vault picks 1Password in `bun setup`, which records `secrets:` in `.agents/project.yaml` and writes `.env.provider.schema`: committed `op://` references, never values, imported by `.env.core.schema` only when present. Desktop-app auth on laptops, a service account in CI; a non-empty `.env` value still wins. Bun's own `.env` autoload does not resolve the vault references, so a script that needs a vault secret runs through `bunx varlock run -- <cmd>`. Steps: `INSTALLER.md` ("Secret manager (advanced)"); decision: `.context/ADR/ADR-0010-secret-manager-advanced-option.md`.
 
 ### (b) Runtime URLs — `config/variables.ts`
 
@@ -351,7 +351,7 @@ Every supported harness (Claude Code, OpenCode, Codex) resolves `{{VAR}}` refere
 bun run agents:setup
 ```
 
-This populates project identity (`project.project_name`, `project.project_key`), `issue_tracker.atlassian_url` and the per-environment leaves under `environments.<env>`; the full key set is `.agents/project.schema.yaml`. `bun run setup` also writes `harnesses:` (the harnesses the gates check) and `secrets:` (where secret values live). See `.agents/README.md` for the convention.
+This populates project identity (`project.project_name`, `project.project_key`), `issue_tracker.atlassian_url` and the per-environment leaves under `environments.<env>`; the full key set is `.agents/project.schema.yaml`. `bun setup` also writes `harnesses:` (the harnesses the gates check) and `secrets:` (where secret values live). See `.agents/README.md` for the convention.
 
 <br />
 
@@ -439,7 +439,7 @@ bun run test:smoke         # smoke / @critical tests
 ├── cli/                          # install.ts, doctor.ts, update-boilerplate.ts consumed by bun scripts
 │
 ├── playwright.config.ts          # Playwright configuration
-├── INSTALLER.md                  # Contract for bun run setup — what each installer layer does
+├── INSTALLER.md                  # Contract for bun setup — what each installer layer does
 ├── AGENTS.md                     # AI memory, always-on layer: binding rules, behaviour and the ROUTER, loaded by all three harnesses
 ├── CLAUDE.md                     # One-line shim (`@AGENTS.md`) so Claude Code reaches it. Never holds prose
 ├── .mcp.json                     # MCP config — Claude Code
@@ -536,7 +536,7 @@ The updater, Xray CLI, OpenAPI sync, KATA manifest, `.agents/` setup and linting
 
 ## Keeping your project in sync with the boilerplate
 
-`bun run up` keeps your project aligned with the official template by tracking which upstream commit each piece of the framework (`.agents/skills/`, `scripts/`, `cli/`, `.husky/`, ...) was last synced from. Instead of overwriting framework files blindly, it:
+`bun sync` keeps your project aligned with the official template by tracking which upstream commit each piece of the framework (`.agents/skills/`, `scripts/`, `cli/`, `.husky/`, ...) was last synced from. Instead of overwriting framework files blindly, it:
 
 1. Reads `.template/boilerplate.lock.json` (committed in your repo) to find the last-synced SHA per component
 2. Clones the template lazily (sparse checkout, only the dirs that get synced)
@@ -564,9 +564,9 @@ Without a TTY on stdin and no `--auto` / `--interactive`, the run assumes `--aut
 
 **What a run leaves behind.** Every run ends with a single "Estado por superficie" table (one row per surface, one ok or warn glyph per row) followed by ONE parity prompt, also saved to `.agents/prompts/parity-plan.md` (gitignored, single-use). The prompt lists every difference between the project and upstream as a numbered row with concrete evidence (headings added or removed in `AGENTS.md`, hunk counts, server ids missing from a host, archived skill collisions) and asks the AI to present the table and WAIT for a per-row decision, `keep project | take upstream | merge`, before editing anything. One row per path: a watched file that also fails a compat contract (say `.codex/config.toml` missing a server) is one blocking row carrying both pieces of evidence. `take upstream` is suggested only where the project lacks the content entirely; a row naming project-only servers, keys, headings or edits says `merge`, and every `merge` on a watched file says what to port and what to keep (`port upstream additions only: <keys>; keep project-only: <keys>`). Rows on `package.json` (a key kept at the project's value, both values in the saved file) and on `Verificación` (a gate that failed: exit code, first error lines, which applied files it names) are informational, never blocking.
 
-**Protected files and `updater.protected_paths`.** The protected watchlist (`PROTECTED_WATCHLIST` in `cli/update-boilerplate.ts`: `AGENTS.md`, `.mcp.json` and the rest) is never overwritten (also under `--auto` and `--force`): they only appear in the parity report, one drift row per upstream change. `.claude/settings.json`, `.codex/` and the husky hooks are delivered once when missing (bootstrap-only); after that the `permissions.allow` and `permissions.deny` lists and the `hooks` of `.claude/settings.json` only grow (upstream entries the project lacks are appended, a missing hook command as a new group after the project's own; a deny the project does not want is declined in `updater.declined_denies`, a hook command in `updater.declined_hooks`), so a hook group `agents:compat:check` starts requiring arrives with the same `bun run up`, and `opencode.jsonc` gets a paste row for the deny rules it lacks instead of a write. The files of a harness the project left out of `harnesses:` are never delivered, and a leftover `.envrc` gets one informational row saying it can be deleted. A project protects any other synced file it merged by hand through `updater.protected_paths` in `.agents/project.yaml` (repo-relative file paths, same semantics; a path outside the repo, under `.git`, a directory or a non-string is reported and ignored). The row for an overwritten project edit names its `.backups/` copy and ends with that fix; the saved prompt repeats it as the YAML to paste. `.agents/project.yaml` and `.agents/jira-required.yaml` are compared by structure only: an `informational` row for keys upstream added, no row for value differences (project identity).
+**Protected files and `updater.protected_paths`.** The protected watchlist (`PROTECTED_WATCHLIST` in `cli/update-boilerplate.ts`: `AGENTS.md`, `.mcp.json` and the rest) is never overwritten (also under `--auto` and `--force`): they only appear in the parity report, one drift row per upstream change. `.claude/settings.json`, `.codex/` and the husky hooks are delivered once when missing (bootstrap-only); after that the `permissions.allow` and `permissions.deny` lists and the `hooks` of `.claude/settings.json` only grow (upstream entries the project lacks are appended, a missing hook command as a new group after the project's own; a deny the project does not want is declined in `updater.declined_denies`, a hook command in `updater.declined_hooks`), so a hook group `agents:compat:check` starts requiring arrives with the same `bun sync`, and `opencode.jsonc` gets a paste row for the deny rules it lacks instead of a write. The files of a harness the project left out of `harnesses:` are never delivered, and a leftover `.envrc` gets one informational row saying it can be deleted. A project protects any other synced file it merged by hand through `updater.protected_paths` in `.agents/project.yaml` (repo-relative file paths, same semantics; a path outside the repo, under `.git`, a directory or a non-string is reported and ignored). The row for an overwritten project edit names its `.backups/` copy and ends with that fix; the saved prompt repeats it as the YAML to paste. `.agents/project.yaml` and `.agents/jira-required.yaml` are compared by structure only: an `informational` row for keys upstream added, no row for value differences (project identity).
 
-**Safe re-runs and aborts.** The sync leaves its files uncommitted on purpose (review the prompt first). The run records what it wrote in `.template/last-apply.json` (gitignored, hashed), and the dirty-tree guard recognises those paths while their hash still matches, so `bun run up` twice in a row without committing is a no-op instead of an abort. A synced path edited by hand since, or an unrelated dirty synced path, still aborts, naming `Commit sugerido` and the prompt path. Uncommitted changes outside the paths the updater writes (your tests, your code, protected files) never block. A run that applies nothing leaves the tree byte-identical (the lock is not rewritten). An aborted run (dirty tree, corrupt lock, failed clone, declined migration or self-update) prints `Abortado.` and exits 1, never a success line.
+**Safe re-runs and aborts.** The sync leaves its files uncommitted on purpose (review the prompt first). The run records what it wrote in `.template/last-apply.json` (gitignored, hashed), and the dirty-tree guard recognises those paths while their hash still matches, so `bun sync` twice in a row without committing is a no-op instead of an abort. A synced path edited by hand since, or an unrelated dirty synced path, still aborts, naming `Commit sugerido` and the prompt path. Uncommitted changes outside the paths the updater writes (your tests, your code, protected files) never block. A run that applies nothing leaves the tree byte-identical (the lock is not rewritten). An aborted run (dirty tree, corrupt lock, failed clone, declined migration or self-update) prints `Abortado.` and exits 1, never a success line.
 
 **Generated surfaces.** `CLAUDE.md` (the `@AGENTS.md` shim), `.claude/skills` (the alias), `.agents/skills/REGISTRY.md` and `kata-manifest.json` are rebuilt after every sync and never reported as drift. On the run that migrates a Claude-era project, the `.claude/skills` alias is deliberately NOT created (git cannot rewrite the staged `.claude/skills/*` deletions behind a symlink, so the pre-commit hook would fail): commit the migration, then `bun run agents:compat` creates it; the closing box says so, and any re-run before that commit keeps deferring it.
 
@@ -575,11 +575,11 @@ Without a TTY on stdin and no `--auto` / `--interactive`, the run assumes `--aut
 **Polish behaviours.** A heading changed only by punctuation (em dash, en dash, hyphen, colon) counts as unchanged; the skills registry regenerates after the parity report (the KATA manifest hook keeps its own place ahead of the gates), and an overwritten `.agents/skills/` row says to rerun it once restored; a watched file with no marker yet whose upstream copy has not changed since the lock cursor seeds silently instead of firing a row; and the closing box names why gates did not run, `Gates: omitidas (sin cambios)` or `omitidas (--no-gates)`, instead of dropping the line. The release history behind these behaviours is recorded in `.context/ADR/ADR-0006-forensic-measurements-ledger.md`.
 
 ```bash
-bun run up                # interactive
-bun run up --auto         # unattended, no deletions
-bun run up --dry-run      # preview (parity table included)
-bun run up --strict       # CI: exit 1 on a blocking parity finding
-bun run up --rollback     # restore the latest backup
+bun sync                # interactive
+bun sync --auto         # unattended, no deletions
+bun sync --dry-run      # preview (parity table included)
+bun sync --strict       # CI: exit 1 on a blocking parity finding
+bun sync --rollback     # restore the latest backup
 ```
 
 The `.template/boilerplate.lock.json` file is committable: commit it so your team and CI know exactly which template version each component is on.
@@ -620,7 +620,7 @@ The catalogue is `.agents/skills/REGISTRY.md` (generated by `bun run skills:regi
 
 Everything else (onboarding, discovery, framework adaptation, git, Jira administration, orchestration, review, the CLI wrappers) is a support skill: its row in the registry says when it loads.
 
-### Reusable community skills (installed by `bun run setup`)
+### Reusable community skills (installed by `bun setup`)
 
 These aren't committed in this repo. The installer fetches them via `bunx skills add` from upstream community repositories. The exact list lives in `cli/install.ts` — source of truth, changes faster than this README, consult the file directly.
 
@@ -811,7 +811,7 @@ bun run agents:compat         # regenerate every derived harness artifact, then 
 bun run agents:compat:check   # validate the whole contract (also runs in repo:check + pre-push)
 ```
 
-**Project-owned slash commands** are plain harness command files the project writes and edits by hand (`.claude/commands/`, `.opencode/commands/`); nothing generates them and `bun run up` never overwrites them. The old overlay `.agents/compatibility/command-aliases.project.json` is inert: nothing reads it, and `bun run up` names it once in an informational row. One rule still applies: a command named like a repo skill (say `.claude/commands/sprint-testing.md`) would hide the skill's instructions, so `agents:compat:check` fails on it and `bun run agents:compat` (also run by `bun run up` and `bun run setup`) moves it to `.backups/shadowing-commands/<same path>`, gitignored and recoverable.
+**Project-owned slash commands** are plain harness command files the project writes and edits by hand (`.claude/commands/`, `.opencode/commands/`); nothing generates them and `bun sync` never overwrites them. The old overlay `.agents/compatibility/command-aliases.project.json` is inert: nothing reads it, and `bun sync` names it once in an informational row. One rule still applies: a command named like a repo skill (say `.claude/commands/sprint-testing.md`) would hide the skill's instructions, so `agents:compat:check` fails on it and `bun run agents:compat` (also run by `bun sync` and `bun setup`) moves it to `.backups/shadowing-commands/<same path>`, gitignored and recoverable.
 
 `agents:compat:check` covers, for the harnesses in use (a `Harnesses checked:` line, one `NOTE:` per skipped harness), the shim bytes, the alias target, no project command named like a skill, the hook adapters, MCP parity, and the eslint block wiring. It prints the alias status line on every run (created, OK, deferred until the migration commit, missing) and groups the errors per surface (`COMPATIBILITY_GROUP_ORDER` in `cli/lib/agent-compatibility.ts`), so "alias pending commit" and "MCP drift" never read as one flat failure. It runs inside `bun run repo:check`, in the pre-push hook, and conditionally in pre-commit. `bun run setup:doctor` reports the same surfaces for the same harnesses (the server count comes from `.mcp.json`) plus **Codex repository trust**: project `.codex/` config and hooks load only in a trusted repo, and that is runtime state no file read can verify.
 

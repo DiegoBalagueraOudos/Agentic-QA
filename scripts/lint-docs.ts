@@ -400,7 +400,7 @@ export function lintRoster(root: string): DocFinding[] {
   if (router === null) {
     return [{ file: source.rel, line: 1, kind: 'roster', target: 'skill router table (### Skills heading not found)' }];
   }
-  // A skill the project authored is routed from its own `agent-project.md` table, which `bun run up` never overwrites.
+  // A skill the project authored is routed from its own `agent-project.md` table, which `bun sync` never overwrites.
   for (const row of projectSkillRows(root) ?? []) { router.add(row.slug); }
   for (const slug of skills) {
     if (!router.has(slug)) { findings.push({ file: source.rel, line: 1, kind: 'roster', target: slug }); }

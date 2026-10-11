@@ -237,7 +237,7 @@ export const DEPRECATED_FILES: DeprecatedFile[] = [...RETIRED_COMMAND_WRAPPERS, 
 
 export const COMPONENTS: Component[] = [
   // `skills` stays its own component (not folded into `agent-compatibility` as
-  // upstream dev does): `bun run up skills --skill a,b` narrows it by subdirectory.
+  // upstream dev does): `bun sync skills --skill a,b` narrows it by subdirectory.
   { name: 'skills', type: 'directory', paths: [SKILLS_CANONICAL_DIR] },
   // The progressive-disclosure sections behind the AGENTS.md ROUTER. Synced
   // like a skill (overwrite, `.backups/` copy, an "overwritten edit" row,
@@ -358,7 +358,7 @@ const HELP_TEXT = `
 UPEX QA Boilerplate Updater v${CLI_VERSION} — Ayuda
 
 USO:
-  bun up [comando] [flags]
+  bun sync [comando] [flags]
 
 COMPONENTES: ${COMPONENTS.map(c => c.name).join(', ')}
 ATAJOS:      all, rollback, help
@@ -492,19 +492,31 @@ ENV:
                          un consumidor.
 
 EJEMPLOS:
-  bun up                                 # Flujo interactivo (5 fases)
-  bun up skills                          # Solo agent skills
-  bun up skills --skill a,b,c            # Skills especificos
-  bun up --list                          # Listar skills disponibles
-  bun up scripts docs                    # Multiples componentes
-  bun up codex-config                    # Solo el adaptador de Codex
-  bun up --auto                          # CI mode (seguro, preserva lo tuyo)
-  bun up --force                         # Forzar todo del upstream (sin preguntar)
-  bun up --dry-run                       # Preview (con el updater nuevo si hay self-update)
-  bun up --auto --strict                 # CI: falla si queda un contrato roto
-  bun up --auto --no-gates               # Sin gates al final
-  bun up --rollback                      # Restaurar backup
+  bun sync                               # Flujo interactivo (5 fases)
+  bun sync skills                        # Solo agent skills
+  bun sync skills --skill a,b,c          # Skills especificos
+  bun sync --list                        # Listar skills disponibles
+  bun sync scripts docs                  # Multiples componentes
+  bun sync codex-config                  # Solo el adaptador de Codex
+  bun sync --auto                        # CI mode (seguro, preserva lo tuyo)
+  bun sync --force                       # Forzar todo del upstream (sin preguntar)
+  bun sync --dry-run                     # Preview (con el updater nuevo si hay self-update)
+  bun sync --auto --strict               # CI: falla si queda un contrato roto
+  bun sync --auto --no-gates             # Sin gates al final
+  bun sync --rollback                    # Restaurar backup
 `;
+
+// --- RENAMED COMMAND ---
+// The updater was `bun up` until 2026-10 and is `bun sync` now. `up` stays a
+// hidden alias: a project whose package.json only has `up` runs it once, and
+// the `scripts` key sync adds `sync`. The env flag keeps the self-update
+// re-exec child, which inherits npm_lifecycle_event, from repeating the line.
+const RENAMED_NOTICE_ENV = 'UPEX_SYNC_RENAME_NOTICED';
+function noticeRenamedCommand(): void {
+  if (process.env.npm_lifecycle_event !== 'up' || process.env[RENAMED_NOTICE_ENV] === '1') { return; }
+  process.env[RENAMED_NOTICE_ENV] = '1';
+  tui.log.info('Este comando ahora se llama `bun sync`; `bun up` sigue funcionando como alias.');
+}
 
 // --- PREREQ ---
 // The git version, gh session and network checks of a run live in the preflight
@@ -603,7 +615,7 @@ const runFacts: RunFacts = { compat: null, envNewKeys: [], migration: null, migr
 // `.env.example` declares against what the target already has locally (`.env` +
 // local `.env.example`) and surface any upstream-added keys the target is missing.
 //
-// D3: this only PRINTS and OFFERS to run `bun run setup --variables` — it NEVER
+// D3: this only PRINTS and OFFERS to run `bun setup --variables` — it NEVER
 // auto-runs the remote push, and in non-interactive / CI mode it just prints
 // the warning (no prompt, no action).
 
@@ -663,23 +675,23 @@ async function detectEnvVarDrift(
 
   // CI / non-interactive: print only — never prompt, never touch remote (D3).
   if (nonInteractive) {
-    sink.step('Modo --auto: ejecuta `bun run setup --variables` manualmente para poblarlas.');
+    sink.step('Modo --auto: ejecuta `bun setup --variables` manualmente para poblarlas.');
     return;
   }
 
   const proceed = await sink.confirm(
-    'Ejecutar `bun run setup --variables` ahora para poblar las variables faltantes?',
+    'Ejecutar `bun setup --variables` ahora para poblar las variables faltantes?',
     false,
   );
   if (!proceed) {
-    sink.step('Omitido. Puedes ejecutar `bun run setup --variables` cuando quieras.');
+    sink.step('Omitido. Puedes ejecutar `bun setup --variables` cuando quieras.');
     return;
   }
 
-  sink.step('Lanzando `bun run setup --variables`…');
+  sink.step('Lanzando `bun setup --variables`…');
   const res = spawnSync('bun', ['run', 'setup', '--variables'], { stdio: 'inherit' });
   if (res.status !== 0) {
-    sink.warn('`bun run setup --variables` terminó con error o fue cancelado.');
+    sink.warn('`bun setup --variables` terminó con error o fue cancelado.');
   }
 }
 
@@ -882,7 +894,7 @@ export function makeAgentCompatibilityHook(
 // (`scripts/kata-manifest.ts`) and the test tree it scans (`tests/`) do travel
 // through the sync. When either changed this run, regenerate the manifest in
 // the consumer repo so the `kata:manifest:check` gate (and the pre-commit
-// staleness check) does not flag it after a routine `bun run up`. Best-effort:
+// staleness check) does not flag it after a routine `bun sync`. Best-effort:
 // a failure warns (e.g. bun missing from PATH), never aborts.
 function makeKataManifestHook(sink: ReportSink): (summary: RunSummary) => Promise<void> {
   return async (summary: RunSummary): Promise<void> => {
@@ -1207,7 +1219,7 @@ async function listAvailableSkills(): Promise<void> {
   process.stdout.write(`\n${pc.bold('Skills disponibles:')}\n`);
   for (const skill of skills) { process.stdout.write(`  ${pc.cyan(skill)}\n`); }
   process.stdout.write(`\n${pc.dim(`Total: ${skills.length} skill${skills.length === 1 ? '' : 's'}`)}\n`);
-  tui.log.info('Uso: bun run up skills --skill <nombre[,nombre,...]>');
+  tui.log.info('Uso: bun sync skills --skill <nombre[,nombre,...]>');
   cleanupTempDir(TEMP_DIR);
 }
 
@@ -1767,7 +1779,7 @@ function runHarnessMigration(sink: ReportSink, dryRun: boolean): HarnessMigratio
   }
   catch (error) {
     tui.log.error(error instanceof Error ? error.message : String(error));
-    tui.log.warn('El update se detuvo ANTES de tocar nada. Resuelve lo anterior y vuelve a correr `bun run up`.');
+    tui.log.warn('El update se detuvo ANTES de tocar nada. Resuelve lo anterior y vuelve a correr `bun sync`.');
     pageNote('error', error instanceof Error ? error.message : String(error));
     throw Object.assign(new Error('El update se detuvo ANTES de tocar nada.'), { name: 'UpdaterAbort', exitCode: 1 });
   }
@@ -2017,13 +2029,14 @@ function buildSink(signal: () => AbortSignal | undefined = () => undefined): Rep
 export function worktreeRefusal(cwd = process.cwd()): string | null {
   const roots = checkoutRoots(cwd);
   if (roots === null || !roots.linked) { return null; }
-  return 'Este checkout es un worktree. `bun run up` guarda backups (para --rollback), marcadores y prompts '
-    + 'dentro del checkout, y en un worktree se pierden al borrarlo. Ejecuta `bun run up` en el checkout '
+  return 'Este checkout es un worktree. `bun sync` guarda backups (para --rollback), marcadores y prompts '
+    + 'dentro del checkout, y en un worktree se pierden al borrarlo. Ejecuta `bun sync` en el checkout '
     + `principal: ${roots.primaryRoot}`;
 }
 
 async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2));
+  noticeRenamedCommand();
 
   if (parsed.help) { process.stdout.write(HELP_TEXT); process.exit(0); }
   const refusal = worktreeRefusal();
@@ -2092,7 +2105,7 @@ async function main(): Promise<void> {
   }
   const nonInteractive = parsed.auto || parsed.force;
 
-  // Filter components if sub-commands passed (e.g. `bun run up scripts`).
+  // Filter components if sub-commands passed (e.g. `bun sync scripts`).
   let components = COMPONENTS;
   if (parsed.commands.length > 0 && !parsed.commands.includes('all')) {
     const requested = new Set(parsed.commands);
@@ -2122,7 +2135,7 @@ async function main(): Promise<void> {
   if (migration?.applied && runFacts.migration === null) { runFacts.migration = migration; }
   // What the preflight just wrote is the updater's own dirt: the dirty-tree
   // guard in runUpdate (and in the self-update re-exec child) must not refuse
-  // a tree that was clean before `bun run up` started.
+  // a tree that was clean before `bun sync` started.
   const updaterOwnedPaths = migration ? harnessMigrationTouchedPaths(migration) : [];
   // Lock cursor BEFORE this run advances it: the parity prompt names both shas.
   const priorLockSha = readLock(process.cwd()).templateCommit;
@@ -2145,7 +2158,7 @@ async function main(): Promise<void> {
     // component is synced wholesale and imports picocolors / yaml / boxen /
     // cli-table3 / figures / @clack/prompts / @inquirer/prompts at RUNTIME,
     // all declared only there — syncing the code without the package leaves
-    // `bun run up` crashing on import. `lint-staged` is here because
+    // `bun sync` crashing on import. `lint-staged` is here because
     // `.husky/pre-commit` shells out to `bunx lint-staged`, which reads its
     // config from this file.
     packageJsonSpecs: [
@@ -2203,7 +2216,7 @@ async function main(): Promise<void> {
     // without this every consumer project inherits our proposals and backlogs as
     // if they were framework documentation. Mirrored in TEMPLATE_EXCLUDES
     // (packages/create-agentic-qa/src/prepare.ts) — the scaffold prunes them on
-    // first install and this keeps `bun run up` from putting them back.
+    // first install and this keeps `bun sync` from putting them back.
     //
     // `.context/ADR/` needs no entry here: `.context` is not a synced component,
     // so ADRs only ever travel through the scaffold tarball, which prunes them.

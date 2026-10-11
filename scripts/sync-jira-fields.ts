@@ -109,7 +109,7 @@ const MANIFEST_PATH = join(REPO_ROOT, '.agents', 'jira-required.yaml');
  * `jira-fields.json` even though it reflects upex-galaxy's workspace, not theirs.
  *
  * Hardcoded per-repo (QA vs DEV) so the update path is trivial:
- * `bun up` re-syncs this script from upstream and the URL travels with it.
+ * `bun sync` re-syncs this script from upstream and the URL travels with it.
  *
  * Pinned to `main` so `--upex` always means "current UPEX standard".
  */

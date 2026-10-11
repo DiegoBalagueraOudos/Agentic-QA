@@ -167,7 +167,7 @@ describe('lint-docs roster and scripts', () => {
     ]);
   });
 
-  test('a skill the project added is routed from its own agent-project.md table, which bun run up never overwrites', () => {
+  test('a skill the project added is routed from its own agent-project.md table, which bun sync never overwrites', () => {
     skill('alpha-flow');
     skill('beta-flow');
     skill('ghost-flow');

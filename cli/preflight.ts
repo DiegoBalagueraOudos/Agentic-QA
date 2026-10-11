@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @fileoverview The preflight of `bun run up` (installer-ui `preflight.md` §3):
+ * @fileoverview The preflight of `bun sync` (installer-ui `preflight.md` §3):
  * everything that would make the update fail halfway, checked in seconds,
  * before any question and any write.
  *

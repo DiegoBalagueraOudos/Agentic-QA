@@ -169,7 +169,7 @@ export function buildPbiPromptFileContent(outOfAllowlist: string[]): string {
   return [
     '# PBI cache migration recipe (AI agent prompt)',
     '',
-    `> **AUTO-GENERATED, SINGLE-USE.** Written by \`bun run up\` on ${today}.`,
+    `> **AUTO-GENERATED, SINGLE-USE.** Written by \`bun sync\` on ${today}.`,
     '> Paste the prompt below into your AI session, then delete this file.',
     '> It is regenerated (overwritten) while `.context/PBI/` still tracks files',
     '> outside the committed allowlist.',

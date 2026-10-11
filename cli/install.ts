@@ -46,11 +46,11 @@
  *   --validate-skills (CLI flag)         Smoke-test mode: probe skills.sh, no install
  *
  * Usage:
- *   bun run setup
- *   bun run setup --non-interactive
- *   bun run setup --force
- *   bun run setup --force-step 5-deps-install
- *   bun run setup --validate-skills
+ *   bun setup
+ *   bun setup --non-interactive
+ *   bun setup --force
+ *   bun setup --force-step 5-deps-install
+ *   bun setup --validate-skills
  *
  * Non-interactive env vars:
  *   INSTALL_AGENTS=claude-code,opencode,codex   Comma-list of agents to configure
@@ -652,7 +652,7 @@ async function verifyRepoRoot(): Promise<void> {
   const pkgPath = join(REPO_ROOT, 'package.json');
   if (!existsSync(pkgPath)) {
     log.error(`No package.json found at ${pkgPath}. Run this from the repo root.`);
-    log.dim('  Once you are in the repo root, re-run: bun run setup');
+    log.dim('  Once you are in the repo root, re-run: bun setup');
     process.exit(1);
   }
   const raw = await readFile(pkgPath, 'utf8');
@@ -681,7 +681,7 @@ async function verifyRepoRoot(): Promise<void> {
     initialValue: false,
   });
   if (tui.isCancel(proceed) || !proceed) {
-    log.dim('  Aborted. Re-run anytime: bun run setup');
+    log.dim('  Aborted. Re-run anytime: bun setup');
     process.exit(0);
   }
 }
@@ -753,13 +753,13 @@ async function handleMissingEngram(): Promise<'show-and-exit' | 'skip'> {
     process.stdout.write('  macOS / Linux (Homebrew) : brew trust gentleman-programming/tap && brew install gentleman-programming/tap/engram\n');
     process.stdout.write('  Any OS with Go           : go install github.com/Gentleman-Programming/engram/v3/cmd/engram@latest\n\n');
     log.dim(`  Docs: ${ENGRAM_INSTALL_DOCS}`);
-    log.dim('After installing, re-run: bun run setup');
+    log.dim('After installing, re-run: bun setup');
     return 'show-and-exit';
   }
 
   log.warn('Continuing without Engram. Cross-session memory will NOT be wired.');
   log.dim(`  To add it later, install engram (${ENGRAM_INSTALL_DOCS})`);
-  log.dim('  and re-run: bun run setup');
+  log.dim('  and re-run: bun setup');
   return 'skip';
 }
 
@@ -811,7 +811,7 @@ async function promptAgentSelection(detected: AgentDetection): Promise<AgentId[]
     log.dim('  Claude Code: https://docs.claude.com/en/docs/claude-code');
     log.dim('  OpenCode:    https://opencode.ai/docs');
     log.dim('  Codex:       https://developers.openai.com/codex/');
-    log.dim('  Then re-run: bun run setup');
+    log.dim('  Then re-run: bun setup');
     process.exit(1);
   }
 
@@ -1322,7 +1322,7 @@ export async function appendVarsToEnv(vars: Record<string, string>): Promise<voi
   const toAppend = Object.entries(remaining);
   if (toAppend.length > 0) {
     const needsNewline = next.length > 0 && !next.endsWith('\n');
-    const header = '\n# ===== Added by `bun run setup` =====\n';
+    const header = '\n# ===== Added by `bun setup` =====\n';
     const body = `${toAppend.map(([k, v]) => `${k}=${v}`).join('\n')}\n`;
     next = `${next}${needsNewline ? '\n' : ''}${header}${body}`;
   }
@@ -1445,7 +1445,7 @@ async function configureMcps(agents: AgentId[], state: InstallState): Promise<vo
 //   - TEST_ENV — written to its manifest default ("local") WITHOUT prompting.
 //   - every project-scoped var (your app's login, database, API) and every
 //     tooling var — listed by scope in the closing "Next steps", settable
-//     later via `bun run setup --variables`.
+//     later via `bun setup --variables`.
 //   - MCP servers that run at harness level (web search, Postman) and CLI
 //     logins (acli, resend) — printed as guidance at the close; nothing to
 //     type into .env.
@@ -1535,7 +1535,7 @@ async function configureDayZeroCredentials(state: InstallState): Promise<void> {
     }
 
     if (NON_INTERACTIVE) {
-      log.warn(`${name}: missing (non-interactive mode — set later in .env or via \`bun run setup --variables\`).`);
+      log.warn(`${name}: missing (non-interactive mode — set later in .env or via \`bun setup --variables\`).`);
       continue;
     }
 
@@ -1991,7 +1991,7 @@ function verifyExternalClis(state: InstallState): CliResult[] {
     for (const cli of missingRequired) {
       process.stdout.write(`\n${tui.statusIcon('fail')} ${cli.name} is required for Jira/Confluence integration but was not found on PATH.\n`);
       process.stdout.write(`    Install via: ${cli.docs}\n`);
-      process.stdout.write('    Then re-run: bun run setup\n');
+      process.stdout.write('    Then re-run: bun setup\n');
     }
     if (missingRequired.length > 0) {
       process.exit(1);
@@ -2507,7 +2507,7 @@ async function runInitialConfigurationPhase(state: InstallState): Promise<void> 
     // step instead of aborting — a no-TTY run is normal in Git Bash on
     // Windows, whose MSYS pty is a named pipe and reports isTTY false.
     state.postInstall.acliAuth = 'skipped-non-interactive';
-    process.stdout.write(`${tui.statusIcon('warn')} Skipped (no TTY). Set the host with \`bun run agents:setup\` and ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN in .env, then re-run: bun run setup\n`);
+    process.stdout.write(`${tui.statusIcon('warn')} Skipped (no TTY). Set the host with \`bun run agents:setup\` and ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN in .env, then re-run: bun setup\n`);
   }
   else {
     // ATLASSIAN_* credentials were collected during Step 10b (day-0 creds).
@@ -2529,7 +2529,7 @@ async function runInitialConfigurationPhase(state: InstallState): Promise<void> 
       // let Phase 5 finish writing its catalogs rather than aborting the run.
       state.postInstall.acliAuth = 'skipped-non-interactive';
       process.stdout.write(`${tui.statusIcon('warn')} Cannot run acli auth — still missing: ${stillMissing.join(', ')}\n`);
-      process.stdout.write('    Set the host with `bun run agents:setup`, the credentials in .env, then re-run `bun run setup` — or run manually:\n');
+      process.stdout.write('    Set the host with `bun run agents:setup`, the credentials in .env, then re-run `bun setup` — or run manually:\n');
       process.stdout.write(`    ${MANUAL_ACLI_LOGIN}\n`);
       await writeInstallState(state);
     }
@@ -2772,7 +2772,7 @@ function statusFor(found: number, total: number): string {
  * Print the "Next steps — finish later" block: every non-offered manifest var
  * that is still empty in `.env`, grouped by SCOPE (ADR-0005), each with its
  * `obtainHint`. These are NEVER asked at install and NEVER warned about — they
- * live here so the user knows where to get them and that `bun run setup
+ * live here so the user knows where to get them and that `bun setup
  * --variables` sets them. The project block is titled as what it is: examples
  * to rename or delete when the framework is adapted.
  *
@@ -2797,7 +2797,7 @@ function printNonCriticalNextSteps(): void {
 
   tui.section('Next steps — finish later (optional vars, by scope)');
   process.stdout.write(`  ${COLORS.dim}Nothing here blocks the agent. Set what your project needs with:${COLORS.reset}\n`);
-  process.stdout.write(`      ${COLORS.cyan}bun run setup --variables${COLORS.reset}\n\n`);
+  process.stdout.write(`      ${COLORS.cyan}bun setup --variables${COLORS.reset}\n\n`);
   const groups: Array<{ scope: 'core' | 'tooling' | 'project', title: string }> = [
     { scope: 'core', title: 'Framework (behind a feature switch: Xray sync, Jira host)' },
     { scope: 'tooling', title: 'Tooling (optional; may be provided elsewhere)' },
@@ -2998,7 +2998,7 @@ function printClosingSummary(state: InstallState): void {
     process.stdout.write('  Remote     : origin (pushed)\n\n');
     process.stdout.write(`${COLORS.bold}GitHub follow-ups (manual):${COLORS.reset}\n`);
     process.stdout.write('  • Push Actions secrets automatically:\n');
-    process.stdout.write(`      ${COLORS.cyan}bun run setup --variables --variables-remote${COLORS.reset}  (gated; values via stdin, never printed)\n`);
+    process.stdout.write(`      ${COLORS.cyan}bun setup --variables --variables-remote${COLORS.reset}  (gated; values via stdin, never printed)\n`);
     process.stdout.write('    Or add manually at:\n');
     process.stdout.write(`      ${state.github.url}/settings/secrets/actions\n`);
     process.stdout.write('    GitHub-bound secrets (derived from the variable manifest):\n');
@@ -3085,7 +3085,7 @@ function printClosingSummary(state: InstallState): void {
 
   // Final tip box
   process.stdout.write(`${tui.successBox([
-    'Re-run anytime: bun run setup  (idempotent — completed steps are skipped)',
+    'Re-run anytime: bun setup  (idempotent — completed steps are skipped)',
   ])}\n`);
 }
 
@@ -3336,7 +3336,7 @@ async function main(): Promise<void> {
   state.agents = agents;
   if (agents.length === 0) {
     log.warn('No agents selected, exiting.');
-    log.dim('  When you are ready to configure an agent, re-run: bun run setup');
+    log.dim('  When you are ready to configure an agent, re-run: bun setup');
     await writeInstallState(state);
     process.exit(0);
   }
@@ -3464,7 +3464,7 @@ if (import.meta.main) {
     const name = err && typeof err === 'object' && 'name' in err ? (err as { name: string }).name : '';
     if (name === 'ExitPromptError' || (err instanceof Error && err.message === 'Aborted by user.')) {
       tui.log.warn('Aborted by user.');
-      process.stdout.write('  To resume, re-run: bun run setup\n');
+      process.stdout.write('  To resume, re-run: bun setup\n');
       process.stdout.write('  (Installer is idempotent — completed steps will skip on re-run.)\n');
       process.exit(130);
     }
@@ -3472,7 +3472,7 @@ if (import.meta.main) {
     if (err instanceof Error && err.stack) {
       process.stdout.write(`  ${err.stack}\n`);
     }
-    tui.log.warn('Installation interrupted. To resume, re-run: bun run setup');
+    tui.log.warn('Installation interrupted. To resume, re-run: bun setup');
     process.stdout.write('  (Installer is idempotent — completed steps will skip on re-run.)\n');
     process.exit(1);
   });

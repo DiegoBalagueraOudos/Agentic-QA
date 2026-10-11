@@ -15,7 +15,7 @@ if [ -f "$GATES" ]; then
   framework_gates_pre_commit
 else
   echo "⚠️  .husky/framework-gates.sh missing — framework pre-commit gates SKIPPED."
-  echo "   Restore it with: bun run up"
+  echo "   Restore it with: bun sync"
 fi
 
 # Docs dead-link gate — only when the staged set touches the human docs or the

@@ -70,7 +70,7 @@ const COPY = {
     divMine: 'Quedarme con lo mío',
     divMineDesc: 'Tu archivo no cambia.',
     divTheirs: 'Tomar la versión nueva',
-    divTheirsDesc: 'Se pierden tus cambios (quedan en la copia de seguridad, <code>bun run up --rollback</code>).',
+    divTheirsDesc: 'Se pierden tus cambios (quedan en la copia de seguridad, <code>bun sync --rollback</code>).',
     divCta: 'Resolver',
     delKicker: 'Ya no existe arriba',
     delTitle: (p: string): string => `El boilerplate quitó ${p}. ¿Lo borramos también aquí?`,
@@ -137,7 +137,7 @@ const COPY = {
     divMine: 'Keep mine',
     divMineDesc: 'Your file does not change.',
     divTheirs: 'Take the new version',
-    divTheirsDesc: 'Your changes are lost (they stay in the backup, <code>bun run up --rollback</code>).',
+    divTheirsDesc: 'Your changes are lost (they stay in the backup, <code>bun sync --rollback</code>).',
     divCta: 'Resolve',
     delKicker: 'Gone upstream',
     delTitle: (p: string): string => `The boilerplate removed ${p}. Delete it here too?`,
@@ -162,12 +162,12 @@ const COPY = {
   },
 } as const;
 
-/** The page phases of `bun run up`, in the run's language. */
+/** The page phases of `bun sync`, in the run's language. */
 export function updaterPhases(lang: Lang, auto: boolean): PhaseDef[] {
   return COPY[lang].phases(auto);
 }
 
-/** The `why` line of a page phase of `bun run up`. */
+/** The `why` line of a page phase of `bun sync`. */
 export function updaterPhaseWhy(lang: Lang, id: string, auto = false): string | undefined {
   const why = COPY[lang].why as Record<string, string>;
   return id === 'scope' && auto ? why.scopeAuto : why[id];

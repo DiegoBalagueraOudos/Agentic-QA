@@ -13,13 +13,13 @@
  * WHY A CONSTANT AND NOT A READ OF UPSTREAM'S FILE
  *
  * `.agents/jira-required.yaml` is `bootstrapOnly` in the updater: a project owns
- * its copy and `bun run up` never overwrites it. So upstream's version only
+ * its copy and `bun sync` never overwrites it. So upstream's version only
  * exists on disk during an update run, inside the temporary clone — it is gone
  * by the time anyone runs a check. Fetching it at check time would put a network
  * call behind an offline diagnostic.
  *
  * `scripts/` is a plain synced DIRECTORY component of the updater, so this file
- * arrives with every `bun run up` and is readable offline afterwards. That is the
+ * arrives with every `bun sync` and is readable offline afterwards. That is the
  * whole trick: the baseline travels in the synced tree, not in the
  * project-owned one.
  *

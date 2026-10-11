@@ -1,9 +1,9 @@
 /**
- * @fileoverview Turns the terminal output of a real `bun run up` run into a page
+ * @fileoverview Turns the terminal output of a real `bun sync` run into a page
  * journal (`cli/lib/ui/events.ts`), keeping the time each line arrived.
  *
  * Transitional on purpose. Delivery 1 of the installer page must not change what
- * `bun run up` does, so the journal is recorded OUT of process: the real updater
+ * `bun sync` does, so the journal is recorded OUT of process: the real updater
  * runs with its stdout piped (`scripts/ui-record-up.ts`) and this module reads
  * what it printed. Delivery 2 wires the updater's `ReportSink` to the reporter,
  * and the journal is then produced natively; this translator goes away with it.
@@ -231,7 +231,7 @@ export function translateUpTranscript(lines: TranscriptLine[], meta: TranscriptM
         surfaces,
         findings,
         next: [
-          ...(dryRun ? [{ title: 'Aplicar esta actualización', text: 'La corrida real escribe estos cambios y regenera lo que la vista previa marca como resuelto al aplicar.', cmd: 'bun run up' }] : []),
+          ...(dryRun ? [{ title: 'Aplicar esta actualización', text: 'La corrida real escribe estos cambios y regenera lo que la vista previa marca como resuelto al aplicar.', cmd: 'bun sync' }] : []),
           ...(findings.length ? [{ title: 'Resolver los hallazgos de paridad', text: 'Pásale el prompt de paridad a tu agente: lista cada fila y espera tu decisión antes de tocar nada.' }] : []),
           ...(post ? [{ title: 'Después de resolverlos', cmd: post }] : []),
         ],

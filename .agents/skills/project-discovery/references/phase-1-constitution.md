@@ -19,7 +19,7 @@ Sub-steps 3 and 4 write ONE file: `.agents/skills/business-domain-context/refere
 
 ```
 bun run context:map business-domain-context --list
-  → skill folder missing:   STOP. The skill is delivered by `bun run up`
+  → skill folder missing:   STOP. The skill is delivered by `bun sync`
                             (or scaffolded from the boilerplate); never create it here.
   → placeholder notice:     CREATE: build every section from the sources.
   → a list of sections:     UPDATE: staleness check per section

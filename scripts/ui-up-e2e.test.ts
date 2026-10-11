@@ -1,5 +1,5 @@
 /**
- * `bun run up` end to end on a throwaway fixture (installer-ui delivery 2, plan
+ * `bun sync` end to end on a throwaway fixture (installer-ui delivery 2, plan
  * §12): the page answered over its real HTTP contract, `--headless` against the
  * flow without the flag (headless parity), and `--auto` read-only in the page.
  *
@@ -103,7 +103,7 @@ function normalize(out: string): string {
     .join('\n');
 }
 
-describe.if(deep)('bun run up on a fixture project', () => {
+describe.if(deep)('bun sync on a fixture project', () => {
   const root = mkdtempSync(join(tmpdir(), 'ui-up-e2e-'));
 
   test('--headless keeps exactly the terminal flow of a run without the page (headless parity)', async () => {

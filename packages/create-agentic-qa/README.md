@@ -18,7 +18,7 @@ That single command:
    (and `project.project_key` when `--project-key` is passed).
 4. Initializes a fresh repository on `main` and creates the initial commit.
 5. Runs `bun install`.
-6. Hands off to the boilerplate's interactive installer (`bun run setup`),
+6. Hands off to the boilerplate's interactive installer (`bun setup`),
    which runs `cli/doctor.ts --preflight` first, then wires Engram memory,
    agent skills, MCPs, `.env`, and — at the end — optionally creates a GitHub
    repository for you via `gh`.
@@ -48,7 +48,7 @@ Suppress the ASCII banner with `--no-banner` (useful for CI or piped output).
 
 The scaffolder's doctor verifies a short list of **universal prerequisites** before you
 clone anything. This is intentionally a thin layer — the boilerplate's own
-installer (`bun run setup`, invoked at the end of this CLI) has a much bigger
+installer (`bun setup`, invoked at the end of this CLI) has a much bigger
 `cli/doctor.ts` that handles agent CLIs, Engram, MCP credentials and the
 per-skill binary matrix. See
 [INSTALLER.md](https://github.com/upex-galaxy/agentic-qa-boilerplate/blob/main/INSTALLER.md)
@@ -58,7 +58,7 @@ The checks, as `src/doctor.ts` defines them:
 
 | Check         | Required | Why                                                       |
 | ------------- | -------- | --------------------------------------------------------- |
-| `bun`         | yes      | Runs this CLI, `bun install`, and `bun run setup`.        |
+| `bun`         | yes      | Runs this CLI, `bun install`, and `bun setup`.        |
 | `git`         | yes      | `git init` + initial commit on `main` (skipped on `--no-git`). |
 | `node >= 18`  | yes      | Some downstream tools shell out to a Node 18+ runtime. Probes the real binary — under `bunx`, `process.versions.node` is emulated by Bun and would pass on a machine with no Node. |
 | `gh`          | optional | Needed only for `--github-create` at the end of setup.    |
@@ -118,7 +118,7 @@ A ready-to-use QA project wired for:
   in-sprint manual QA.
 - **MCPs preconfigured** for all three harnesses: the servers the template's
   `.mcp.json` declares, mirrored in `opencode.jsonc` and `.codex/config.toml`;
-  `bun run setup` records the harnesses you select and, if you accept its
+  `bun setup` records the harnesses you select and, if you accept its
   offer, deletes the other harnesses' files.
 - **Allure + Xray reporting** — pre-wired Allure reporter and `bun xray` CLI
   for syncing automated runs back to your test management system.
@@ -133,7 +133,7 @@ A ready-to-use QA project wired for:
 | `--template-repo <owner/repo>` | `upex-galaxy/agentic-qa-boilerplate` | Override the upstream repository (useful for forks).                                                                  |
 | `--project-key <KEY>`          | (prompted)                           | Jira project key (e.g. `UPEX`). Optional — leave blank to fill in later.                                              |
 | `--no-install`                 | off                                  | Skip `bun install`.                                                                                                   |
-| `--no-setup`                   | off                                  | Skip `bun run setup` — only download + git init.                                                                      |
+| `--no-setup`                   | off                                  | Skip `bun setup` — only download + git init.                                                                      |
 | `--no-git`                     | off                                  | Skip `git init` + initial commit.                                                                                     |
 | `--non-interactive`            | auto on no-TTY                       | Forwarded to the installer. Prompts use safe defaults.                                                                |
 | `--menu`                       | off                                  | Force the interactive menu even when a project name is provided.                                                      |
@@ -172,18 +172,18 @@ bunx create-agentic-qa my-app --no-install --no-setup
 ## Requirements
 
 The scaffolder itself needs only a small set of CLIs. The downstream installer
-(`bun run setup`) — which this scaffolder invokes by default — has a larger
+(`bun setup`) — which this scaffolder invokes by default — has a larger
 prerequisite list. Both are documented here so you do not get stopped mid-flow.
 
 ### For the scaffolder itself (this CLI)
 
 | Tool  | Min version | Required for                                                            | Where it is checked                                          |
 | ----- | ----------- | ----------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `bun`  | any         | Running `bun install` + handing off to `bun run setup`                  | `src/runners.ts` (`ensureBunAvailable`) — exit 10 if missing |
+| `bun`  | any         | Running `bun install` + handing off to `bun setup`                  | `src/runners.ts` (`ensureBunAvailable`) — exit 10 if missing |
 | `tar`  | any         | Extracting the template tarball. GNU tar or bsdtar, either works        | `src/download.ts` — exit 10 if missing                       |
 | `git`  | any         | `git init` + initial commit on `main` (skipped with `--no-git`)         | `src/runners.ts` (`ensureGitAvailable`) — exit 10 if missing |
 | `node` | `engines.node` in `package.json` | Running this CLI under `npx`                    | Reported by **Check prerequisites** in the menu               |
-| `gh`   | any         | _Optional_ — creating a GitHub repository at the end of `bun run setup` | Verified inside the boilerplate installer, not by this CLI   |
+| `gh`   | any         | _Optional_ — creating a GitHub repository at the end of `bun setup` | Verified inside the boilerplate installer, not by this CLI   |
 
 **Windows**: PowerShell and cmd are supported; WSL and Git Bash work but are not
 required. Install Bun via `powershell -c "irm bun.sh/install.ps1 | iex"` rather
@@ -195,7 +195,7 @@ and Windows 11 ship bsdtar at `C:\Windows\System32\tar.exe`.
 path Bun cannot create its bin shims, and `bun install` fails with
 `could not open bin metadata file`.
 
-### For `bun run setup` (the boilerplate's interactive installer this CLI hands off to)
+### For `bun setup` (the boilerplate's interactive installer this CLI hands off to)
 
 Hand-off happens unless you pass `--no-setup`. The boilerplate installer
 enforces these additional preconditions:
@@ -225,7 +225,7 @@ contract.
 | 12   | Target directory already exists and is not an agentic-qa project |
 | 20   | Bootstrap error (extract / scrub / git init failed)              |
 | 30   | `bun install` failed                                             |
-| 31   | `bun run setup` failed                                           |
+| 31   | `bun setup` failed                                           |
 | 130  | User cancelled (Ctrl+C)                                          |
 
 ## Troubleshooting
@@ -237,7 +237,7 @@ name *and* you are in a TTY (or when you pass `--menu` explicitly).
 
 **Doctor says `gh` is missing but I do not need it.**
 `gh` is optional — it is only required if you opt into `--github-create` at
-the end of `bun run setup`. A `warn` row on `gh` will not block the scaffold.
+the end of `bun setup`. A `warn` row on `gh` will not block the scaffold.
 
 **Inspect says a prerequisite is MISSING but doctor was happy.**
 Inspect uses the **manifest's** prerequisite list (everything the downstream

@@ -173,7 +173,7 @@ export const AUDIT_RULES: readonly AuditRule[] = [
   { pattern: /(^|\/)node_modules(\/|$)/, class: 'cache', note: '`bun install`' },
   { pattern: /^\.husky\/_(\/|$)/, class: 'cache', note: '`bun install` (husky prepare)' },
   { pattern: /^\.claude\/skills\/?$/, class: 'cache', note: '`bun run agents:compat`' },
-  { pattern: /^\.agents\/skills\/[^/]+(\/|$)/, class: 'cache', note: 'community skill or skill-creator workspace; `bun run worktree:provision` / `bun run setup`' },
+  { pattern: /^\.agents\/skills\/[^/]+(\/|$)/, class: 'cache', note: 'community skill or skill-creator workspace; `bun run worktree:provision` / `bun setup`' },
   { pattern: /^\.context\/PBI(\/|$)/, class: 'cache', note: '`bun run context:hydrate`' },
   { pattern: /^\.context\/_framework(\/|$)/, class: 'cache', note: 'its generating script' },
   { pattern: /^\.opencode\//, class: 'cache', note: 'OpenCode installs it' },

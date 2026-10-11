@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "SYNCED BASE — `bun run up` overwrites this file. Do not edit it here.",
+    "SYNCED BASE — `bun sync` overwrites this file. Do not edit it here.",
     "",
     "It exists for one reason: the path aliases below are the contract every",
     "synced file imports through. When the whole tsconfig was project-owned, a",

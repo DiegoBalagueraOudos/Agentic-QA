@@ -571,7 +571,7 @@ function validateModel(raw: unknown): { model?: BreakdownModel, errors: string[]
   }
   if (raw.schemaVersion !== SCHEMA_VERSION) {
     return {
-      errors: [`schemaVersion ${JSON.stringify(raw.schemaVersion)} is not supported; this renderer reads ${SCHEMA_VERSION}. Update the boilerplate (bun run up) or write the JSON at version ${SCHEMA_VERSION}.`],
+      errors: [`schemaVersion ${JSON.stringify(raw.schemaVersion)} is not supported; this renderer reads ${SCHEMA_VERSION}. Update the boilerplate (bun sync) or write the JSON at version ${SCHEMA_VERSION}.`],
     };
   }
 

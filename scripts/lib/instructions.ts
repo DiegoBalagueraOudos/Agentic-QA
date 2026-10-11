@@ -29,13 +29,13 @@ export const INSTRUCTIONS_README = 'README.md';
 export const PROJECT_SECTION = 'agent-project.md';
 /**
  * The skill router table's heading in the skills section (or a pre-split `AGENTS.md`).
- * That file is synced: `bun run up` overwrites it, so it holds upstream skills only.
+ * That file is synced: `bun sync` overwrites it, so it holds upstream skills only.
  */
 export const SKILL_ROUTER_HEADING = /^### Skills \(lazy-loaded by trigger phrase\)/m;
 /**
  * The table in `agent-project.md` where a project routes the skills it authored
  * (`project-context` mode `context-skill`, adaptation). Project-owned, so the
- * rows survive `bun run up`.
+ * rows survive `bun sync`.
  */
 export const PROJECT_SKILLS_HEADING = /^## Project context skills\s*$/m;
 export const ROUTER_START = '<!-- router:start -->';

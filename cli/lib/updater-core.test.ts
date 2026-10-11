@@ -96,7 +96,7 @@ const CLI: Component = { name: 'cli', type: 'directory', paths: ['cli'] };
 const CFG = { components: [CLI], selfUpdateComponent: 'cli', versionFile: '.template/boilerplate.lock.json' };
 
 describe('dirty-tree guard: self-update re-exec', () => {
-  // Bunkai PR #234: `bun run up --auto` ran the migration preflight, the parent
+  // Bunkai PR #234: `bun sync --auto` ran the migration preflight, the parent
   // refreshed `cli/` and re-exec'd, and the CHILD aborted on the dirty tree the
   // parent had just produced; `--force` was the only way through.
 
@@ -187,7 +187,7 @@ describe('dirty-tree guard: self-update re-exec', () => {
     // The downstream repos are Spanish. With `core.quotepath` at its default,
     // git wraps any non-ASCII path in quotes and escapes its UTF-8 bytes as
     // octal. Decoding those wrong gives a path that matches no exemption and
-    // hashes to nothing, so the dirty-tree guard aborts `bun run up` naming a
+    // hashes to nothing, so the dirty-tree guard aborts `bun sync` naming a
     // file that does not exist. Drive the real binary, not a hand-typed line.
     const root = temporaryRoot();
     git(root, ['init', '--quiet', '--initial-branch=main']);

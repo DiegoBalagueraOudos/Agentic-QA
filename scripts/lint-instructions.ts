@@ -42,7 +42,7 @@
  *     exist is an error; a filled table while `agent-project.md` has no `triggers`
  *     is a warning (the hook never routes the file by keyword); a project-local
  *     skill (`isProjectLocalSkillPath`, the shipped context map skills aside)
- *     in `agent-skills-and-mcps.md` is a warning (`bun run up` overwrites that
+ *     in `agent-skills-and-mcps.md` is a warning (`bun sync` overwrites that
  *     file and the row is lost).
  *   - STUB: `agent-project.md.template`, the generic `agent-project.md` a downstream project
  *     receives, carries none of this repo's identity (`stubLeaks`: the
@@ -361,7 +361,7 @@ export function lintInstructions(root: string): InstructionReport {
     });
   }
 
-  // SKILLS: the project's own skills are routed from agent-project.md, the one file `bun run up` never overwrites.
+  // SKILLS: the project's own skills are routed from agent-project.md, the one file `bun sync` never overwrites.
   const project = sections.find(s => s.name === PROJECT_SECTION);
   const projectRel = `${INSTRUCTIONS_DIR}/${PROJECT_SECTION}`;
   const projectRows = project ? skillTableRows(project.text, PROJECT_SKILLS_HEADING) ?? [] : [];
@@ -379,7 +379,7 @@ export function lintInstructions(root: string): InstructionReport {
   for (const row of skillsSection ? skillTableRows(skillsSection.text, SKILL_ROUTER_HEADING) ?? [] : []) {
     // The context map skills ship their rows upstream; every other project-local `<aspect>-context` is the project's.
     if (isProjectLocalSkillPath(`.agents/skills/${row.slug}/SKILL.md`) && contextMapSkill(row.slug) === undefined) {
-      findings.push({ severity: 'warning', file: skillsRel, line: row.line, kind: 'skills', detail: `\`${row.slug}\` is project-owned but routed from a synced file \`bun run up\` overwrites: move the row to ${INSTRUCTIONS_DIR}/${PROJECT_SECTION} \`## Project context skills\`` });
+      findings.push({ severity: 'warning', file: skillsRel, line: row.line, kind: 'skills', detail: `\`${row.slug}\` is project-owned but routed from a synced file \`bun sync\` overwrites: move the row to ${INSTRUCTIONS_DIR}/${PROJECT_SECTION} \`## Project context skills\`` });
     }
   }
 
@@ -551,7 +551,7 @@ if (import.meta.main) {
     process.exit(0);
   }
   if (report.pendingMigration) {
-    console.log(`- instructions:check skipped: ${L0_FILE} has no ROUTER yet (pre-split monolith); move it to the L0 + ${INSTRUCTIONS_DIR}/ layout, see the parity report of \`bun run up\``);
+    console.log(`- instructions:check skipped: ${L0_FILE} has no ROUTER yet (pre-split monolith); move it to the L0 + ${INSTRUCTIONS_DIR}/ layout, see the parity report of \`bun sync\``);
     process.exit(0);
   }
   const errors = report.findings.filter(f => f.severity === 'error');

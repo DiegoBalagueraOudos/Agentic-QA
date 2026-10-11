@@ -26,7 +26,7 @@
  * MANUAL-INVOCATION POLICY
  * ============================================================================
  *
- * This script is NOT auto-invoked by `bun run setup`, `bun run jira:check`,
+ * This script is NOT auto-invoked by `bun setup`, `bun run jira:check`,
  * or any CI hook (locked decision §0 of the product-management refactor plan).
  * Run it by hand whenever the workspace's issue-link-type catalog changes —
  * which is rare. `bun run jira:check` degrades to DEFERRED when the output
@@ -119,7 +119,7 @@ const MANIFEST_PATH = join(REPO_ROOT, '.agents', 'jira-required.yaml');
  * flag is mainly a convenience for users who want the UPEX standard without
  * running the script against their own workspace.
  *
- * Hardcoded per-repo (QA vs DEV) so `bun up` re-syncs the URL with the script.
+ * Hardcoded per-repo (QA vs DEV) so `bun sync` re-syncs the URL with the script.
  * Pinned to `main` so `--upex` always means "current UPEX standard".
  */
 const UPEX_UPSTREAM_URL = 'https://raw.githubusercontent.com/upex-galaxy/agentic-qa-boilerplate/main/.agents/jira-link-types.json';
@@ -302,7 +302,7 @@ OUTPUT:
                                their slugified workspace name.
 
 MANUAL INVOCATION ONLY:
-  This script is NOT wired into \`bun run setup\` or \`bun run jira:check\`
+  This script is NOT wired into \`bun setup\` or \`bun run jira:check\`
   (locked decision §0 of the product-management refactor plan). Run it by
   hand when the workspace's issue-link-type catalog changes — which is rare.
 

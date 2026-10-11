@@ -234,7 +234,7 @@ describe('worktree refusal', () => {
 
     expect(worktreeRefusal(primary)).toBeNull();
     const refusal = worktreeRefusal(wt);
-    expect(refusal).toContain('bun run up');
+    expect(refusal).toContain('bun sync');
     expect(refusal).toContain('primary');
     // Not a git checkout at all: not this guard's business.
     expect(worktreeRefusal(temporaryRoot())).toBeNull();

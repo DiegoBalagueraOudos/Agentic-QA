@@ -30,7 +30,7 @@
 # the MCP server (`bunx varlock load --agent` shows which is unset, redacted).
 #
 # Add additional [[sources]] blocks below to register more databases. This file
-# is NEVER overwritten by `bun up` (no updater component owns it).
+# is NEVER overwritten by `bun sync` (no updater component owns it).
 # ============================================
 
 [[sources]]

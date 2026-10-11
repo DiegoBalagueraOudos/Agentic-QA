@@ -155,7 +155,7 @@ export interface VarSchemaHints {
  *                    not "required": the installer never blocks on it. false →
  *                    never asked at install, never warned about; surfaced only
  *                    in the closing "Next steps" list with its `obtainHint`,
- *                    and settable later via `bun run setup --variables`.
+ *                    and settable later via `bun setup --variables`.
  *   - `obtainHint`   (NON-critical only) concise where/how-to-get-it pointer
  *                    printed in the closing next-steps section.
  *   - `defaultValue` (special cases only, e.g. TEST_ENV) value the installer
@@ -587,7 +587,7 @@ export const VAR_MANIFEST: VarSpec[] = [
   // Read by `scripts/ci/publish-allure-portal.ts` through a named `requiredEnv`
   // throw, and only when the suite workflows find `PORTAL_URL` set: the
   // presence of that one secret IS the feature switch, and the script is the
-  // point of use. Declared here so `bun run setup --variables --remote` can
+  // point of use. Declared here so `bun setup --variables --remote` can
   // push them and the doctor can list them; never in `.env`, never a blocker.
   // Runbook: .agents/skills/regression-testing/references/private-hosting-setup.md
   {

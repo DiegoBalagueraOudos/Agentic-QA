@@ -140,7 +140,7 @@ describe('router source: AGENTS.md and the section frontmatter, read at runtime'
     expect(routeLines({ repoRoot: root, prompt: 'commit and push', routeState: null })).toEqual([]);
   });
 
-  test('agent-project.md routes by its own triggers: a project skill row there survives bun run up with no code change', () => {
+  test('agent-project.md routes by its own triggers: a project skill row there survives bun sync with no code change', () => {
     const root = routerFixture();
     const agents = readFileSync(join(root, 'AGENTS.md'), 'utf8');
     write(root, 'AGENTS.md', agents.replace('<!-- router:end -->', '| anything specific to this project | `agent-project.md` | - | project context skills |\n<!-- router:end -->'));

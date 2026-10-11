@@ -1512,7 +1512,7 @@ describe('Claude skills alias', () => {
 
   test('reclaims the skills CLI per-skill symlink shim without losing a skill body', () => {
     // `bunx skills add` (project level) writes the body to .agents/skills/<slug>/ and then
-    // creates .claude/skills/ as a REAL directory of per-skill symlinks. `bun run setup`
+    // creates .claude/skills/ as a REAL directory of per-skill symlinks. `bun setup`
     // installs community skills BEFORE repairing compatibility, so this is what a clean
     // clone actually looks like at repair time. Refusing here aborted the install.
     const root = repositoryFixture();

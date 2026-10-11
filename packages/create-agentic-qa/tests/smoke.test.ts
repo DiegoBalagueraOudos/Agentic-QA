@@ -311,7 +311,7 @@ describe('pruneBootstrapExcludes', () => {
   });
 
   // Our working notes about evolving the framework are not framework the
-  // consumer inherits. Mirrored by `repoOnlyPaths` so `bun run up` cannot
+  // consumer inherits. Mirrored by `repoOnlyPaths` so `bun sync` cannot
   // re-deliver what this prunes.
   test('removes the boilerplate docs/reports but keeps the rest of docs/', async () => {
     mkdirSync(join(dir, 'docs', 'reports'), { recursive: true });

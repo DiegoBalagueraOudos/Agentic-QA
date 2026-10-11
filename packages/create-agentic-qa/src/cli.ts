@@ -227,23 +227,27 @@ async function main(): Promise<number> {
     runBunSetup(projectDir, { nonInteractive: args.nonInteractive });
   }
   else {
-    log.dim('--no-setup: skipping `bun run setup`. Run it manually when ready.');
+    log.dim('--no-setup: skipping `bun setup`. Run it manually when ready.');
   }
 
   // ------------------------------------------------------------------
   // Final success box
   // ------------------------------------------------------------------
   const cdCmd = args.here ? '' : `cd ${args.projectName}`;
-  const nextStepNum = cdCmd ? 2 : 1;
+  const steps = [
+    ...(cdCmd ? [pc.cyan(cdCmd)] : []),
+    ...(args.noSetup ? [`${pc.cyan('bun setup')}  ${pc.dim('# the installer this run skipped')}`] : []),
+    `${pc.cyan('claude')}     ${pc.dim('# or: opencode / codex, or the desktop app')}`,
+  ];
   const nextLines = [
     pc.green(`${figures.tick ?? '✔'}  Project ready at ${projectDir}`),
     '',
     pc.bold('Next steps (in order):'),
-    ...(cdCmd ? [`  1.  ${pc.cyan(cdCmd)}`] : []),
-    `  ${nextStepNum}.  ${pc.cyan('claude')}     ${pc.dim('# or: opencode / codex, or the desktop app')}`,
+    ...steps.map((s, i) => `  ${i + 1}.  ${s}`),
     `      ${pc.dim('then invoke /agentic-qa-onboard')}`,
     '',
     pc.dim('Full guide: bun run onboarding'),
+    pc.dim('Pull later boilerplate updates: bun sync'),
   ];
   process.stdout.write(`${tui.successBox(nextLines)}\n`);
 

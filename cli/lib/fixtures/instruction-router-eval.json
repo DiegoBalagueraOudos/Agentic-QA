@@ -154,6 +154,10 @@
       "expect": ["harnesses"]
     },
     {
+      "prompt": "corré bun sync para traer los cambios del boilerplate",
+      "expect": ["harnesses", "package.json"]
+    },
+    {
       "prompt": "corré bun run up para traer los cambios del boilerplate",
       "expect": ["harnesses", "package.json"]
     },

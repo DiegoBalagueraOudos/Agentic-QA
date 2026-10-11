@@ -9,7 +9,7 @@
  * instructions in `AGENTS.md` (which OpenCode and Codex read natively), skills in
  * `.agents/skills/` and the hook emitter in `.agents/hooks/`, with `.claude/skills`
  * reduced to a generated, gitignored alias and `CLAUDE.md` to a one-line `@AGENTS.md`
- * shim. Without this preflight, `bun run up` on a repo scaffolded before that change
+ * shim. Without this preflight, `bun sync` on a repo scaffolded before that change
  * is DESTRUCTIVE, in three compounding ways:
  *
  *   1. `CLAUDE.md` holds the project's own AI memory (identity, env URLs, custom
@@ -146,7 +146,7 @@ export function readHarnessMigrationResultFromEnv(env: NodeJS.ProcessEnv = proce
 /**
  * Repo-relative paths an applied migration wrote, moved or unindexed. The
  * updater's dirty-tree guard exempts exactly these: a tree that was clean before
- * `bun run up` must not be refused because the preflight did its job.
+ * `bun sync` must not be refused because the preflight did its job.
  */
 export function harnessMigrationTouchedPaths(result: HarnessMigrationResult): string[] {
   if (!result.applied) { return []; }
@@ -249,7 +249,7 @@ function planInstructions(root: string, blockers: string[]): InstructionsAction 
     blockers.push(
       'AGENTS.md and CLAUDE.md both carry instructions, and only one may be canonical. Merge whatever '
       + 'CLAUDE.md still holds into AGENTS.md, replace CLAUDE.md with the single line `@AGENTS.md`, '
-      + 'then re-run `bun run up`.',
+      + 'then re-run `bun sync`.',
     );
     return 'conflicting-instructions';
   }
@@ -258,7 +258,7 @@ function planInstructions(root: string, blockers: string[]): InstructionsAction 
     blockers.push(
       'CLAUDE.md is already the `@AGENTS.md` shim but AGENTS.md does not exist, so this repo '
       + 'currently has NO instructions. Restore AGENTS.md from git history (`git log --diff-filter=D '
-      + `-- AGENTS.md\`) or from \`${MIGRATION_BACKUP_DIR}/\`, then re-run \`bun run up\`.`,
+      + `-- AGENTS.md\`) or from \`${MIGRATION_BACKUP_DIR}/\`, then re-run \`bun sync\`.`,
     );
     return 'orphaned-shim';
   }

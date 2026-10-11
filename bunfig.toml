@@ -1,7 +1,7 @@
 # ============================================
 # Bun runtime + test configuration
 # ============================================
-# SYNCED by `bun run up` (declared in TOOLING_FILES, cli/update-boilerplate.ts).
+# SYNCED by `bun sync` (declared in TOOLING_FILES, cli/update-boilerplate.ts).
 # Edit it upstream; a downstream copy is overwritten on every update.
 
 [test]

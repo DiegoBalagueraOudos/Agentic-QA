@@ -352,7 +352,7 @@ describe('cross-harness migration apply', () => {
 describe('first non-interactive migration vs the dirty-tree guard', () => {
   // Issue #28 bug 1: on v7.0 the migration wrote to disk in the preflight and the
   // guard that ran afterwards counted that output as the user's uncommitted work,
-  // so `bun run up` (non-interactive) aborted on every first cross-harness
+  // so `bun sync` (non-interactive) aborted on every first cross-harness
   // migration — three times in a row, from a clean tree. The pieces of the fix are
   // unit-tested separately (`harnessMigrationTouchedPaths` below, and
   // `dirtyTreeExemptions` in updater-core.test.ts); this joins them on a real repo
@@ -417,7 +417,7 @@ describe('first non-interactive migration vs the dirty-tree guard', () => {
     git(root, ['config', 'user.name', 'test']);
     git(root, ['add', '-A']);
     git(root, ['commit', '--quiet', '-m', 'baseline']);
-    // Uncommitted work inside a synced component, there before `bun run up` started.
+    // Uncommitted work inside a synced component, there before `bun sync` started.
     write(root, 'cli/update-boilerplate.ts', 'hand-edited, never committed\n');
 
     const result = applyHarnessMigration(root);

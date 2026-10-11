@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * @fileoverview A throwaway upstream + consumer pair to run `bun run up` against
+ * @fileoverview A throwaway upstream + consumer pair to run `bun sync` against
  * (installer-ui delivery 2: the page, `--headless` and `--auto` end to end),
  * never a real project.
  *

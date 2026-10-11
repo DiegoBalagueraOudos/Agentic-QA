@@ -16,6 +16,16 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Changed (`bun sync` and `bun setup` are the command names)
+- **The updater is `bun sync`**, a new `sync` script. `up` stays as a hidden alias running the
+  same updater, so a project whose `package.json` only has `up` runs `bun up` (or
+  `bun run up`) ONCE: the `scripts` key sync adds `sync`, and the run prints one line naming
+  the new command. From then on, `bun sync`. Docs and messages no longer teach `up`.
+- **The installer is taught as `bun setup`** (the script name `setup` is unchanged; Bun runs a
+  package script without `run` when no built-in command shares its name). The scaffolder's
+  final hints print `bun setup` when `--no-setup` skipped it, and `bun sync` for later updates.
+- Entries below this one keep the names that were current when they were written.
+
 ### Fixed (skill registry)
 - **`bun run skills:registry` skips skill folders git ignores**: a T3 community skill installed
   on the machine (`playwright-cli`, `resend-cli`, ...) landed in the committed

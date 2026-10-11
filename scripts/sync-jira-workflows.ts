@@ -113,7 +113,7 @@ const PROJECT_YAML_PATH = join(REPO_ROOT, '.agents', 'project.yaml');
  * is set (the upstream JSON has already been filtered by the reference repo).
  *
  * Hardcoded per-repo (QA vs DEV) so the update path is trivial:
- * `bun up` re-syncs this script from upstream and the URL travels with it.
+ * `bun sync` re-syncs this script from upstream and the URL travels with it.
  *
  * Pinned to `main` so `--upex` always means "current UPEX standard".
  */

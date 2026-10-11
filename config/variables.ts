@@ -1,7 +1,7 @@
 /**
  * KATA Architecture - Environment Variables Configuration
  *
- * PROJECT-OWNED. `bun run up` never overwrites this file: every project adapts
+ * PROJECT-OWNED. `bun sync` never overwrites this file: every project adapts
  * its environments, its URLs, its credential map and its auth endpoints, and
  * that adaptation is the point.
  *

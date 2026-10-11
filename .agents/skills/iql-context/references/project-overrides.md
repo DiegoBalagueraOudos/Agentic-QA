@@ -1,6 +1,6 @@
 # Project overrides for `iql-context`
 
-> Project-owned. Delivered once by the scaffold or by `bun run up` when missing, then NEVER overwritten (bootstrap-only path in the updater). The shipped `SKILL.md` and its other references keep syncing from upstream; everything a project needs to say about ITS way of running the IQL goes here, and here it wins over the index for this project only. Values (which stages run, gate strictness, execution profile) do not go here: they live in `.agents/project.yaml` → `qa.methodology`.
+> Project-owned. Delivered once by the scaffold or by `bun sync` when missing, then NEVER overwritten (bootstrap-only path in the updater). The shipped `SKILL.md` and its other references keep syncing from upstream; everything a project needs to say about ITS way of running the IQL goes here, and here it wins over the index for this project only. Values (which stages run, gate strictness, execution profile) do not go here: they live in `.agents/project.yaml` → `qa.methodology`.
 
 ## What belongs here
 

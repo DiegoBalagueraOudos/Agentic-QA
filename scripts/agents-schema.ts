@@ -17,7 +17,7 @@
  *
  * The first two modes belong to the BOILERPLATE and exit 0 with a note
  * anywhere else (see `isSchemaOwner`). `--project` is the mode a consumer
- * runs, and it is also what `bun run up` and `setup:doctor` report.
+ * runs, and it is also what `bun sync` and `setup:doctor` report.
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -75,7 +75,7 @@ const sourceText = readFileSync(sourcePath, 'utf8');
 
 if (PROJECT) {
   if (!existsSync(schemaPath)) {
-    out(`agents-schema --project: ${SCHEMA_FILE} not found. Run \`bun run up\` to receive it.\n`);
+    out(`agents-schema --project: ${SCHEMA_FILE} not found. Run \`bun sync\` to receive it.\n`);
     process.exit(1);
   }
   const delta = projectDelta(sourceText, readFileSync(schemaPath, 'utf8'));
@@ -94,7 +94,7 @@ if (PROJECT) {
         out(`  ${gap.block}${gap.wholeBlock ? ' (whole block missing)' : ''}\n`);
         for (const p of gap.paths) { out(`    ${p}\n`); }
       }
-      out('\n  `bun run up` offers to insert these, one prompt per block.\n');
+      out('\n  `bun sync` offers to insert these, one prompt per block.\n');
       if (delta.exempt.length > 0) { out(`  Silenced via updater.schema_exempt: ${delta.exempt.join(', ')}\n`); }
     }
   }

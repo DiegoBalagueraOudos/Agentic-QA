@@ -2,7 +2,7 @@
  * @fileoverview The event model of the installer / updater page, and the journal
  * that orders, redacts and replays it.
  *
- * One run (`bun run setup` or `bun run up`) emits a sequence of `RunEvent`s. Each
+ * One run (`bun setup` or `bun sync`) emits a sequence of `RunEvent`s. Each
  * one is appended to the `Journal`, which stamps a sequence number and the time
  * since the run started, and redacts every string against the secret values the
  * run has received. The page renders the journal; a reconnecting page replays it
@@ -25,6 +25,7 @@ import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 // ----------------------------------------------------------------------------
 
 export type Lang = 'es' | 'en';
+/** `up` is the journal id of `bun sync` (its name before 2026-10); recorded journals keep it, the page shows `bun sync`. */
 export type RunCmd = 'setup' | 'up';
 /** `interactive`: the page answers questions. `readonly`: an explicit `--auto` run shown, nothing to answer. */
 export type RunMode = 'interactive' | 'readonly';

@@ -137,7 +137,7 @@ const CONSUMER_YAML_HEADER = `# Project configuration consumed by AI agents (Cla
 # Every unfilled field is \`null\` plus a TODO comment with a concrete example.
 #
 # \`bun run agents:schema --project\` lists the keys upstream has added since this
-# project was scaffolded; \`bun run up\` offers to insert them, one prompt per block.
+# project was scaffolded; \`bun sync\` offers to insert them, one prompt per block.
 `;
 
 /**
@@ -388,7 +388,7 @@ const TEMPLATE_EXCLUDES = [
   '.agents/jira-workflows.json',
   // The boilerplate's own worker and audit reports. Framework documentation
   // travels; our working notes about evolving the framework do not. Mirrored in
-  // `repoOnlyPaths` (cli/update-boilerplate.ts) so `bun run up` cannot
+  // `repoOnlyPaths` (cli/update-boilerplate.ts) so `bun sync` cannot
   // re-deliver what this prunes.
   'docs/reports',
 ] as const;

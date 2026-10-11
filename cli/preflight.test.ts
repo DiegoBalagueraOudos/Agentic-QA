@@ -26,7 +26,7 @@ describe('verdict', () => {
   });
 });
 
-describe('checks for bun run up', () => {
+describe('checks for bun sync', () => {
   test('a healthy checkout with a local source is clear, and gh is not needed', async () => {
     const r = await runUpPreflight({ cwd: repo(), templateRepo: LOCAL, lockFile: '.template/boilerplate.lock.json', lang: 'en', minFreeBytes: 1 });
     const ids = r.checks.map(c => c.id);

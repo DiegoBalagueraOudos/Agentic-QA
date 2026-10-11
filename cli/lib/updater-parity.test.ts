@@ -1085,7 +1085,7 @@ describe('renderParityReport', () => {
     expect(report.surfaces.find(r => r.surface === 'mcp')?.cell).toBe('1 hallazgo: .codex/config.toml');
 
     const prompt = report.prompt;
-    expect(prompt.startsWith('Parity review after `bun run up` (upstream upex-galaxy/agentic-qa-boilerplate@abcdef1, project lock 1234567).')).toBe(true);
+    expect(prompt.startsWith('Parity review after `bun sync` (upstream upex-galaxy/agentic-qa-boilerplate@abcdef1, project lock 1234567).')).toBe(true);
     expect(prompt).toContain('WAIT for a decision per row');
     expect(prompt).toContain('(keep project | take upstream | merge) BEFORE editing anything');
     expect(prompt).toContain('| # | Surface | File | Now | What differs (evidence) | Suggested |');
@@ -1569,14 +1569,14 @@ describe('the dry-run table marks what the apply step resolves by itself', () =>
 
   test('the mark and its legend appear on a dry-run only', () => {
     const dry = buildParityPrompt([compat, drift], { ...META, dryRun: true });
-    expect(dry).toContain('Parity review after `bun run up --dry-run`');
+    expect(dry).toContain('Parity review after `bun sync --dry-run`');
     expect(dry).toContain(`skills alias missing ${RESOLVED_BY_APPLY_MARK}`);
     expect(dry).toContain('this table lists MORE work than the run that applies');
     expect(dry).not.toContain(`"1. RULES" ${RESOLVED_BY_APPLY_MARK}`);
 
     const real = buildParityPrompt([compat, drift], META);
     expect(real).not.toContain(RESOLVED_BY_APPLY_MARK);
-    expect(real).toContain('Parity review after `bun run up` (upstream');
+    expect(real).toContain('Parity review after `bun sync` (upstream');
   });
 });
 

@@ -6,7 +6,7 @@
  *   - scripts/lib/api-login-core.ts   SYNCED   generic CLI (args, --role,
  *                                              --profile, storage, --help).
  *                                              Upstream improvements arrive
- *                                              through `bun run up`.
+ *                                              through `bun sync`.
  *   - scripts/api-login.project.ts    PROJECT  the auth adapter. Shipped once,
  *                                              never overwritten by the sync.
  *                                              THIS is the file to adapt.

@@ -40,7 +40,7 @@ Four tiers. Different discovery and load rules per tier.
 |--|--|--|--|--|
 | **T1 — Project-owned** | `.agents/skills/` (committed) | every committed skill `.agents/skills/REGISTRY.md` lists as T1 | Named in the skill router table (`agent-skills-and-mcps.md`; a project's own skills in `agent-project.md`) | Silent (load on trigger, no ask) |
 | **T2 — Vendored** | `.agents/skills/` (committed, upstream attribution in frontmatter) | `judgment-day` (gentle-ai, Apache-2.0) | Named in the skill router table | Silent on explicit user trigger (`/judgment-day`, `juzgar`) or when cited by host orchestrator (`test-automation` Phase 3, `git-flow-master` pre-PR) |
-| **T2-opt — Optional SDD bundle (user-installed outside this repo)** | `~/.claude/skills/sdd-*` (only if present on the machine, e.g. left by an older gentle-ai release) | any `sdd-*` skill (its upstream owns the bundle) | NOT installed by `bun run setup`. Discovered at runtime from system-reminder skill list when present | Silent **inside** `framework-development` only — see §4 anti-leak contract. NEVER silent inside `shift-left-testing`, `sprint-testing`, `test-documentation`, `test-automation`, `regression-testing` |
+| **T2-opt — Optional SDD bundle (user-installed outside this repo)** | `~/.claude/skills/sdd-*` (only if present on the machine, e.g. left by an older gentle-ai release) | any `sdd-*` skill (its upstream owns the bundle) | NOT installed by `bun setup`. Discovered at runtime from system-reminder skill list when present | Silent **inside** `framework-development` only — see §4 anti-leak contract. NEVER silent inside `shift-left-testing`, `sprint-testing`, `test-documentation`, `test-automation`, `regression-testing` |
 | **T3 — Community project-level** | `.agents/skills/` (installed by `install.ts` PROJECT_LEVEL_SKILLS, not committed) | `PROJECT_LEVEL_SKILLS` in `cli/install.ts` | Named **by category** in the skill router (not by skill name). Discovered at runtime from system-reminder skill list | Silent if matched by category (e.g. user writes a Playwright test → load `playwright-best-practices`) |
 | **T4 — Community user-level** | `~/.claude/skills/` (installed by `install.ts` USER_LEVEL_SKILLS) | `USER_LEVEL_SKILLS` in `cli/install.ts` | **NOT named in the skill router**. Discovered at runtime from system-reminder skill list. Auto-match by task domain, OR named as the instrument for a moment by a committed doctrine or the operator's standing instructions (the named loaders: `agentic-qa-onboard/SKILL.md` §"Community skills installed at user level") | **Named loader → load at that moment without asking**; a missing install follows the naming doctrine's own gate. **Matched only by domain → ASK user before load** (may not be installed, or user may not want it for this task) |
 
@@ -137,7 +137,7 @@ When a referenced skill is not in the available list (deprecated, uninstalled, v
 1. Continue with project-owned alternative if exists.
 2. If no alternative, do the work inline with degraded capability.
 3. Flag in result envelope: `skill_resolution: "fallback-inline" + missing: [list]`.
-4. Suggest reinstall via `bun run setup` or `bunx skills add <name>` in the user-facing summary.
+4. Suggest reinstall via `bun setup` or `bunx skills add <name>` in the user-facing summary.
 
 ---
 

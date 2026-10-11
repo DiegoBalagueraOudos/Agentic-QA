@@ -7,7 +7,7 @@ this directory verbatim into the site's `/decks/` path on every deploy.
 ## Why here and not in `.agents/skills/`?
 
 `packages/` is boilerplate-only: the `create-agentic-qa` scaffolder prunes it
-(`TEMPLATE_EXCLUDES`) and `bun run up` never syncs it. Keeping the decks here
+(`TEMPLATE_EXCLUDES`) and `bun sync` never syncs it. Keeping the decks here
 means consumer projects scaffolded from this template do NOT carry the
 academic HTML — they browse the published site instead (the `agentic-qa-onboard`
 skill links to it).

@@ -326,7 +326,7 @@ export interface IgnoreDelta {
  * package you may not use appears in your manifest" — whereas the cost of
  * excluding it is that the `cli` component, which is synced wholesale and
  * imports several packages declared only here, ships code without the package
- * and leaves `bun run up` crashing on import in every downstream repo.
+ * and leaves `bun sync` crashing on import in every downstream repo.
  *
  * `lint-staged` is included for the same reason: `.husky/pre-commit` is synced
  * and shells out to `bunx lint-staged`, whose config lives in package.json and
@@ -525,7 +525,7 @@ export interface UpdaterConfig {
    *
    * The scaffold side is enforced separately by `TEMPLATE_EXCLUDES` in
    * `packages/create-agentic-qa/src/prepare.ts`; a sync-reachable entry
-   * usually belongs in both, or `bun run up` re-delivers what the scaffold
+   * usually belongs in both, or `bun sync` re-delivers what the scaffold
    * pruned.
    */
   repoOnlyPaths?: string[]

@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "PROJECT-OWNED — `bun run up` never overwrites this file.",
+    "PROJECT-OWNED — `bun sync` never overwrites this file.",
     "",
     "`tsconfig.base.json` is the synced half: compiler options and, above all,",
     "the path aliases every synced file imports through. This file owns what is",

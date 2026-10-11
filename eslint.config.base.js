@@ -1,5 +1,5 @@
 /**
- * @fileoverview SYNCED BASE — `bun run up` overwrites this file. Do not edit it
+ * @fileoverview SYNCED BASE — `bun sync` overwrites this file. Do not edit it
  * here; the project's own `eslint.config.js` spreads these exports and
  * overrides whatever it needs.
  *
@@ -153,7 +153,7 @@ export const KATA_IMPORT_ALIASES = {
  * So an import that escapes `cli/` is not a style question: it bricks the
  * update path for anyone jumping more than one release. It happened — `cli/`
  * imported `../scripts/agent-compatibility.ts`, the re-exec died on
- * `Cannot find module`, and `bun run up`, `up --rollback`, `setup` and
+ * `Cannot find module`, and `bun sync`, `bun sync --rollback`, `setup` and
  * `setup:doctor` all went down together, since the failure is at module load
  * and the rollback path shares the same entrypoint.
  *
@@ -163,7 +163,7 @@ export const KATA_IMPORT_ALIASES = {
  * `tests/`, `config/` and `api/`, which are equally absent at re-exec time.
  *
  * This block travels with the base config on purpose: it guards the updater,
- * so a project that never received it runs `bun run up` unprotected.
+ * so a project that never received it runs `bun sync` unprotected.
  */
 export const CLI_IMPORT_CLOSURE = {
   files: ['cli/**/*.ts'],
@@ -207,7 +207,7 @@ export const CLI_IMPORT_CLOSURE = {
           '@TestFixture',
           '@DataFactory',
         ],
-        message: 'cli/ must be import-closed: the updater re-execs the new cli/ before other components are synced, so an import that escapes cli/ breaks `bun run up` for repos more than one release behind. Move the shared module into cli/lib/ instead.',
+        message: 'cli/ must be import-closed: the updater re-execs the new cli/ before other components are synced, so an import that escapes cli/ breaks `bun sync` for repos more than one release behind. Move the shared module into cli/lib/ instead.',
       }],
     }],
   },

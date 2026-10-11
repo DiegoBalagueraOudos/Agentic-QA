@@ -1,5 +1,5 @@
 /**
- * @fileoverview One `bun run up` run in the page (installer-ui plan §5, §6, §9):
+ * @fileoverview One `bun sync` run in the page (installer-ui plan §5, §6, §9):
  * decides whether the page opens, serves it, renders the preflight, hands the
  * page over across the self-update re-exec, builds the final report and writes
  * the saved summary.
@@ -348,8 +348,8 @@ export function buildUpdaterReport(i: UpdaterReportInput, lang: Lang): { title: 
   if (i.failed.length > 0) {
     next.push({ title: C.nextFailed, text: i.failed.slice(0, 5).map(f => `<code>${esc(f.path)}</code>: ${esc(f.reason)}`).join('<br>') });
   }
-  if (i.dryRun) { next.push({ title: C.nextReal, text: C.nextRealText, cmd: 'bun run up' }); }
-  if (!i.dryRun && i.auto && i.skipped > 0) { next.push({ title: C.nextPending, text: C.nextPendingText(i.skipped), cmd: 'bun run up' }); }
+  if (i.dryRun) { next.push({ title: C.nextReal, text: C.nextRealText, cmd: 'bun sync' }); }
+  if (!i.dryRun && i.auto && i.skipped > 0) { next.push({ title: C.nextPending, text: C.nextPendingText(i.skipped), cmd: 'bun sync' }); }
   if (i.commit) { next.push({ title: C.nextCommit, text: C.nextCommitText, cmd: `git commit -m ${JSON.stringify(i.commit)}` }); }
   if (i.findings.length > 0 && i.promptPath) { next.push({ title: C.nextPrompt, text: C.nextPromptText(esc(i.promptPath)) }); }
   next.push(...(i.extraNext ?? []));

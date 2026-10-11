@@ -3,7 +3,7 @@
 > Loaded by: whoever sets up a new machine, once.
 > **None of this is versionable.** Every item below lives in the app's own settings store on THIS
 > computer. There is no repo file that carries it, no CLI command that sets it, and therefore no
-> way for `bun run up` or a fresh clone to restore it. That is the reason this file exists: so the
+> way for `bun sync` or a fresh clone to restore it. That is the reason this file exists: so the
 > list is at least written down, even though it cannot be automated.
 
 ---

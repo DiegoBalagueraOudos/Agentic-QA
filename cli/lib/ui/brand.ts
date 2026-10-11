@@ -15,7 +15,7 @@ export interface Brand {
   accent: { light: string, dark: string } | null
   /** Glossary terms only this product needs, per language. */
   glossary: { es: Record<string, GlossaryEntry>, en: Record<string, GlossaryEntry> }
-  /** The upstream `bun run up` syncs from when `UPEX_TEMPLATE_REPO` is unset. */
+  /** The upstream `bun sync` syncs from when `UPEX_TEMPLATE_REPO` is unset. */
   templateRepo: string
 }
 

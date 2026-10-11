@@ -285,7 +285,7 @@ for (const name of t3SkillDirs) {
 // OpenCode placeholders: every {file:} target must EXIST, even empty
 // ============================================
 
-// Covers a primary that never ran `bun run setup`: its `.auth/` copy (or its
+// Covers a primary that never ran `bun setup`: its `.auth/` copy (or its
 // absence) supplies nothing, and OpenCode then throws `bad file reference …
 // does not exist` on the whole config. Existing files are never touched.
 //
