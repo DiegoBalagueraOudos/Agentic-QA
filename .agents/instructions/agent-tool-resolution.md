@@ -41,7 +41,7 @@ paths: []
 | Modality | `[TMS_TOOL]` resolves to | TMS entities |
 |---|---|---|
 | A: Xray on Jira | `/xray-cli` for Xray entities; `[ISSUE_TRACKER_TOOL]` for generic Jira | Test, Test Plan, Test Execution, Pre-Condition |
-| B: Jira-native (no Xray) | NOT resolvable → falls through to `[ISSUE_TRACKER_TOOL]` (`/acli`) | ATP/ATR = Story custom fields + comments; TCs = Jira `Test` issues. See `test-documentation/references/jira-setup.md` |
+| B: Jira-native (no Xray) | NOT resolvable → falls through to `[ISSUE_TRACKER_TOOL]` (`/acli`) | ATP/ATR = native `Test Plan` / `Test Execution` items by excellence (the Story custom field + comment is the fallback only when that work type is absent); TCs = Jira `Test` issues. See `test-documentation/references/jira-setup.md` |
 
 Skills using `[TMS_TOOL]` MUST include parallel pseudocode branches for both modalities (labeled "Modality jira-native"). (binding: `/test-documentation`)
 

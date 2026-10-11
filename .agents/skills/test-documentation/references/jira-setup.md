@@ -167,7 +167,7 @@ At the end of setup, five questions must have an unambiguous answer. Each alread
 | Custom field IDs (Modality jira-native only) | `.agents/jira-fields.json`, filled by `bun run jira:sync-fields` |
 | Link types available | `.agents/jira-link-types.json`, filled by `bun run jira:sync-link-types` |
 
-If an owner is empty, the skills fall back to the Phase 0 resolution probes (`.agents/project.yaml` → list issue types → ask the user). Filling the owners is what saves every future session from re-asking.
+If an owner is empty, the skills fall back to the Phase 0 resolution probes (`.agents/project.yaml` → Xray API evidence → ask the user). Filling the owners is what saves every future session from re-asking.
 
 ---
 
