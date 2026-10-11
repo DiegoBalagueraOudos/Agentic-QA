@@ -80,6 +80,9 @@ export async function startBrowserSink(opts: BrowserSinkOptions): Promise<Browse
   const heartbeatMs = opts.heartbeatMs ?? 15_000;
   const stopAfterEndMs = opts.stopAfterEndMs === undefined ? 2_000 : opts.stopAfterEndMs;
   const streams = new Set<ReadableStreamDefaultController<Uint8Array>>();
+  // One cleanup per open stream: closing a stream from the server side does not
+  // run its `cancel`, and a heartbeat left behind keeps the process alive.
+  const cleanups = new Set<() => void>();
   const encoder = new TextEncoder();
   let port = 0;
   let stopping = false;
@@ -118,6 +121,13 @@ export async function startBrowserSink(opts: BrowserSinkOptions): Promise<Browse
       let unsubscribe = (): void => {};
       let beat: ReturnType<typeof setInterval> | undefined;
       let self: ReadableStreamDefaultController<Uint8Array> | undefined;
+      const cleanup = (): void => {
+        unsubscribe();
+        clearInterval(beat);
+        if (self) { streams.delete(self); }
+        cleanups.delete(cleanup);
+      };
+      cleanups.add(cleanup);
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
           self = controller;
@@ -142,11 +152,7 @@ export async function startBrowserSink(opts: BrowserSinkOptions): Promise<Browse
           replaying = false;
           beat = setInterval(() => send(': hb\n\n'), heartbeatMs);
         },
-        cancel() {
-          unsubscribe();
-          clearInterval(beat);
-          if (self) { streams.delete(self); }
-        },
+        cancel() { cleanup(); },
       });
       return new Response(body, {
         headers: {
@@ -205,8 +211,11 @@ export async function startBrowserSink(opts: BrowserSinkOptions): Promise<Browse
       try { c.close(); }
       catch { /* already closed */ }
     }
+    for (const fn of [...cleanups]) { fn(); }
     streams.clear();
-    await live.stop(true);
+    // `stop(true)` can wait on a page that still holds its stream open; the run
+    // must end anyway, so the wait is capped (the socket dies with the process).
+    await Promise.race([live.stop(true), new Promise<void>(r => setTimeout(r, 500).unref?.())]);
     resolveStopped();
     return stopped;
   };

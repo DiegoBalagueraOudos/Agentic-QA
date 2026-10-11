@@ -7,7 +7,7 @@
 import type { BrowserSink } from './browser-sink.ts';
 import type { JournalEntry } from './events.ts';
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -197,6 +197,42 @@ describe('lifecycle', () => {
     try { await fetch(sink.url); }
     catch { refused = true; }
     expect(refused).toBe(true);
+  });
+
+  test('a page still holding its stream open never keeps the run from ending', async () => {
+    const r = newReporter();
+    const sink = await serve(r, { stopAfterEndMs: 10 });
+    const res = await fetch(`${sink.url}events`, { headers: { host: new URL(sink.url).host } });
+    const reader = res.body!.getReader();
+    void reader.read();
+    await Bun.sleep(20);
+    expect(sink.hasClient()).toBe(true);
+    r.end('done', 0);
+    const t0 = Date.now();
+    await sink.stopped;
+    expect(Date.now() - t0).toBeLessThan(2_000);
+    expect(sink.hasClient()).toBe(false);
+  });
+
+  test('a process serving a page that stays connected still exits once the run ends', () => {
+    const script = `
+      import { startBrowserSink } from ${JSON.stringify(join(import.meta.dir, 'browser-sink.ts'))};
+      import { Reporter } from ${JSON.stringify(join(import.meta.dir, 'reporter.ts'))};
+      const r = new Reporter({ cmd: 'up', repo: 'a', version: '1', mode: 'interactive', lang: 'es', phases: [] });
+      const s = await startBrowserSink({ journal: r.journal, page: () => 'p', port: 0, portWalk: 0, stopAfterEndMs: 10, heartbeatMs: 50 });
+      const res = await fetch(s.url + 'events', { headers: { host: new URL(s.url).host } });
+      void res.body.getReader().read();
+      await Bun.sleep(30);
+      r.end('done', 0);
+      await s.stopped;
+    `;
+    const dir = mkdtempSync(join(tmpdir(), 'sink-exit-'));
+    dirs.push(dir);
+    writeFileSync(join(dir, 'run.ts'), script);
+    const t0 = Date.now();
+    const out = Bun.spawnSync([process.execPath, join(dir, 'run.ts')], { timeout: 10_000 });
+    expect(out.exitCode).toBe(0);
+    expect(Date.now() - t0).toBeLessThan(8_000);
   });
 
   test('stopAfterEndMs null keeps a finished run online (demo, replay)', async () => {

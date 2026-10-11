@@ -8,26 +8,28 @@
  */
 
 import type { CompatibilityCheck } from './lib/agent-compatibility.ts';
+import type { UpdaterUi } from './lib/ui/updater-run.ts';
 import type { ProtectedWatchEntry } from './lib/updater-drift';
 import type { HarnessMigrationResult } from './lib/updater-harness-migration.ts';
 import type { GateResult, HeldBackComponent, InstructionRowInput, ParityFinding, ParityReport } from './lib/updater-parity';
 import type { PbiCacheFact } from './lib/updater-pbi';
 import type { Component, DeprecatedFile, ReportSink, RunSummary, UpdaterConfig } from './lib/updater-types';
+import type { PreflightCheck, PreflightResult } from './preflight.ts';
 import { execSync, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+
 import * as os from 'node:os';
 import * as path from 'node:path';
-
 import pc from 'picocolors';
 import { checkAgentCompatibility, repairAgentSurfaces, SHADOWING_COMMANDS_BACKUP_DIR, SKILLS_ALIAS_DEFERRED_MARKER } from './lib/agent-compatibility.ts';
 import { applyInsertions, planInsertions, projectDelta, SCHEMA_FILE, SCHEMA_SOURCE } from './lib/agents-schema.ts';
 import { declaredHarnesses, isUnderAny, unusedHarnessPaths } from './lib/harness-selection.ts';
 import * as tui from './lib/tui';
+import { startUpdaterUi } from './lib/ui/updater-run.ts';
 import {
+  buildPairedDiff,
   cleanupTempDir,
   createBackupDir,
-  detectGitVersion,
-  gitVersionMeetsMin,
   isLocalTemplateSource,
   LAST_APPLY_FILE,
   readSyncState,
@@ -74,6 +76,7 @@ import { makePbiCacheMigrationHook } from './lib/updater-pbi';
 import { CLAUDE_SETTINGS_FILE, formatHookCommand, mergeHookGroups, mergePermissionLists, readDeclinedDenies, readDeclinedHooks } from './lib/updater-settings';
 import { parseDotEnvExampleKeys, requiredNow, VAR_MANIFEST } from './lib/variables-manifest.ts';
 import { checkoutRoots } from './lib/worktree.ts';
+import { plainMsg, runUpPreflight } from './preflight.ts';
 
 // --- CONFIGURATION ---
 // Not tied to the lock schema (`schemaVersion: 7` stays): it stamps the lock's
@@ -444,6 +447,17 @@ SIN TTY:
   asume --auto y lo avisa en una linea, en vez de quedarse esperando en el
   multi-select de la Fase 3.
 
+PAGINA LOCAL (en una terminal con pantalla):
+  La corrida se ve en una pagina local (127.0.0.1, con token) que abre sola:
+  chequeo previo, fases, cada pregunta como tarjeta con sus diffs, y el
+  reporte final. La terminal sigue mostrando el log; si ninguna pagina se
+  conecta en 10 s, las preguntas siguen en la terminal. Con --auto la pagina
+  es de solo lectura. Nunca se abre en CI, sin TTY, desde un agente ni por SSH
+  sin pantalla. Al terminar guarda una copia en .session/runs/up-*.html.
+  --headless             Sin pagina: el flujo de terminal de siempre
+  --ui                   Abre la pagina aunque las reglas digan que no (SSH con
+                         tunel, una terminal manejada por un agente)
+
 FLAGS:
   --auto                 Modo no-interactivo: sincroniza TODO el boilerplate
                          (copia archivos nuevos + sobreescribe divergencias con
@@ -493,21 +507,8 @@ EJEMPLOS:
 `;
 
 // --- PREREQ ---
-function ensureGitVersion(): void {
-  try {
-    const v = detectGitVersion();
-    if (!gitVersionMeetsMin(v)) {
-      tui.log.error(`git ${v.raw} detectado. Se requiere git >= 2.25.0.`);
-      process.exit(2);
-    }
-  }
-  catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    tui.log.error(msg === 'GIT_NOT_FOUND' ? 'git no encontrado. Se requiere git >= 2.25.' : `git: ${msg}`);
-    process.exit(2);
-  }
-}
-
+// The git version, gh session and network checks of a run live in the preflight
+// (`cli/preflight.ts`); `--list` still needs the gh check on its own.
 async function validatePrerequisites(): Promise<void> {
   if (isLocalTemplateSource(TEMPLATE_REPO)) { return; } // plain `git clone`, no gh session involved
   try { execSync('gh --version', { stdio: 'ignore' }); }
@@ -1716,6 +1717,7 @@ function runHarnessMigration(sink: ReportSink, dryRun: boolean): HarnessMigratio
 
   tui.log.info('Migración cross-harness (Claude → Claude + OpenCode + Codex):');
   for (const line of describeHarnessMigration(plan)) { tui.log.message(`  · ${line}`); }
+  pageNote('info', ['Migración cross-harness (Claude → Claude + OpenCode + Codex):', ...describeHarnessMigration(plan).map(l => `· ${l}`)].join('\n'));
 
   // --dry-run must still SHOW this. Without it the preview would suggest the
   // project's memory is untouched while a real run promotes it to AGENTS.md
@@ -1723,6 +1725,7 @@ function runHarnessMigration(sink: ReportSink, dryRun: boolean): HarnessMigratio
   if (dryRun) {
     if (plan.blockers.length > 0) {
       tui.log.warn(`Bloqueantes que detendrían la migración:\n  - ${plan.blockers.join('\n  - ')}`);
+      pageNote('warn', `Bloqueantes que detendrían la migración: ${plan.blockers.join('; ')}`);
     }
     tui.log.message('  (--dry-run: nada de lo anterior se aplicó. La corrida real lo hace ANTES de sincronizar.)');
     runFacts.migrationPlanned = plan.needed;
@@ -1759,13 +1762,35 @@ function runHarnessMigration(sink: ReportSink, dryRun: boolean): HarnessMigratio
       sink.step(`.gitignore: añadido ${result.ignoredEntriesAdded.join(', ')}.`);
     }
     tui.log.message(`  Copia de seguridad: ${MIGRATION_BACKUP_DIR}/ (gitignored). Revísala antes de borrarla.`);
+    pageNote('info', `Copia de seguridad: ${MIGRATION_BACKUP_DIR}/ (gitignored). Revísala antes de borrarla.`);
     return result;
   }
   catch (error) {
     tui.log.error(error instanceof Error ? error.message : String(error));
     tui.log.warn('El update se detuvo ANTES de tocar nada. Resuelve lo anterior y vuelve a correr `bun run up`.');
-    process.exit(1);
+    pageNote('error', error instanceof Error ? error.message : String(error));
+    throw Object.assign(new Error('El update se detuvo ANTES de tocar nada.'), { name: 'UpdaterAbort', exitCode: 1 });
   }
+}
+
+// --- PAGE (installer-ui delivery 2) ---
+/** The page of this run, when it opened; the error handler closes it too. */
+let activeUi: UpdaterUi | null = null;
+/** A line of output that bypasses the sink (migration block), mirrored into the page. */
+function pageNote(level: 'info' | 'warn' | 'error', text: string): void {
+  activeUi?.notice(level, text);
+}
+
+/** Closes the page (summary saved, server stopped) once; safe to call with no page. */
+async function closeUi(status: 'done' | 'done-with-pending' | 'failed' | 'aborted', exit: number): Promise<void> {
+  const ui = activeUi;
+  activeUi = null;
+  if (!ui) { return; }
+  try {
+    const saved = await ui.finish(status, exit);
+    if (saved) { tui.log.info(`Resumen guardado en ${pc.cyan(saved)}`); }
+  }
+  catch { /* closing the page never changes the run's exit */ }
 }
 
 // --- SINK ---
@@ -1776,7 +1801,12 @@ function abortOnCancel<T>(v: T | symbol): T {
   return v;
 }
 
-function buildSink(): ReportSink {
+/**
+ * Today's terminal sink. With the page open it keeps printing every log line
+ * and asks a question only when no page has been connected for 10 s; `signal`
+ * then cancels the prompt the moment the page answers first (owner answer Q6).
+ */
+function buildSink(signal: () => AbortSignal | undefined = () => undefined): ReportSink {
   return {
     phase: (n, label) => tui.phaseHeader(n, label),
     subphase: (label) => {
@@ -1789,7 +1819,7 @@ function buildSink(): ReportSink {
     spinner: () => tui.spinner(),
 
     confirm: async (message, defaultValue = false) => {
-      const r = await tui.confirm({ message, initialValue: defaultValue });
+      const r = await tui.confirm({ message, initialValue: defaultValue, signal: signal() });
       return abortOnCancel<boolean>(r);
     },
 
@@ -1799,7 +1829,7 @@ function buildSink(): ReportSink {
         value: s.name,
         label: `${s.name} (${s.changedCount} cambiados${s.divergedCount > 0 ? `, ${s.divergedCount} divergente${s.divergedCount > 1 ? 's' : ''}` : ''})`,
       }));
-      const r = await tui.multiselect({ message: 'Selecciona componentes a revisar:', options, required: false });
+      const r = await tui.multiselect({ message: 'Selecciona componentes a revisar:', options, required: false, signal: signal() });
       return abortOnCancel<string[]>(r);
     },
 
@@ -1818,6 +1848,7 @@ function buildSink(): ReportSink {
           { value: 'skip', label: 'saltar scope completo' },
         ],
         initialValue: 'all',
+        signal: signal(),
       });
       return abortOnCancel<string>(r) as 'all' | 'pick' | 'skip';
     },
@@ -1825,7 +1856,7 @@ function buildSink(): ReportSink {
     pickFiles: async (scope, files) => {
       if (files.length === 0) { return []; }
       const options = files.map(f => ({ value: f.entry.path, label: f.label, hint: f.entry.classification }));
-      const r = await tui.multiselect({ message: `Selecciona archivos en ${scope}:`, options, required: false });
+      const r = await tui.multiselect({ message: `Selecciona archivos en ${scope}:`, options, required: false, signal: signal() });
       const selected = new Set(abortOnCancel<string[]>(r));
       return files.filter(f => selected.has(f.entry.path)).map(f => f.entry);
     },
@@ -1855,9 +1886,22 @@ function buildSink(): ReportSink {
         options: opts,
         initialValues,
         required: false,
+        signal: signal(),
       });
       // Expand atomic groups back into their individual lines for the core.
       return abortOnCancel<string[]>(r).flatMap(v => v.split('\n'));
+    },
+
+    pickPackageJsonKeys: async (file, section, keys) => {
+      if (keys.length === 0) { return []; }
+      const r = await tui.multiselect({
+        message: `${file} → ${section}: claves nuevas en upstream (se agregan sin tocar las tuyas):`,
+        options: keys.map(k => ({ value: k.value, label: k.label })),
+        initialValues: keys.filter(k => k.checked).map(k => k.value),
+        required: false,
+        signal: signal(),
+      });
+      return abortOnCancel<string[]>(r);
     },
 
     resolvePackageJsonKey: async (file, section, key, drift) => {
@@ -1871,6 +1915,7 @@ function buildSink(): ReportSink {
           { value: 'skip', label: 'Decidir después (preguntar de nuevo)' },
         ],
         initialValue: 'mine',
+        signal: signal(),
       });
       return abortOnCancel<string>(r) as 'theirs' | 'mine' | 'skip';
     },
@@ -1886,12 +1931,13 @@ function buildSink(): ReportSink {
           { value: 'mine', label: 'mine (conservar tu version explicitamente)' },
         ],
         initialValue: 'skip',
+        signal: signal(),
       });
       return abortOnCancel<string>(r) as 'skip' | 'theirs' | 'mine';
     },
 
     confirmDelete: async (entry) => {
-      const r = await tui.confirm({ message: `¿Eliminar ${entry.path} localmente? (upstream lo borro)`, initialValue: false });
+      const r = await tui.confirm({ message: `¿Eliminar ${entry.path} localmente? (upstream lo borro)`, initialValue: false, signal: signal() });
       return abortOnCancel<boolean>(r);
     },
 
@@ -1989,12 +2035,58 @@ async function main(): Promise<void> {
   if (parsed.rollback) { rollbackFromBackup(); process.exit(0); }
   if (parsed.listSkills) { await listAvailableSkills(); process.exit(0); }
 
-  ensureGitVersion();
-  await validatePrerequisites();
+  // The page opens on a real terminal with a screen; CI, a pipe, an agent or
+  // SSH keep today's terminal flow, and so does `--headless`. A self-update
+  // re-exec child picks up the page its parent opened (installer-ui plan §5-§6).
+  let terminalSignal: AbortSignal | undefined;
+  const terminalSink = buildSink(() => terminalSignal);
+  try {
+    activeUi = await startUpdaterUi({
+      argv: process.argv.slice(2),
+      repoRoot: process.cwd(),
+      repoName: path.basename(process.cwd()),
+      version: CLI_VERSION,
+      terminal: terminalSink,
+      setTerminalSignal: (sig) => { terminalSignal = sig; },
+      onTerminalCancel: () => {
+        tui.cancel('Aborted by user.');
+        void closeUi('aborted', 130).then(() => process.exit(130));
+      },
+      diffFor: entry => buildPairedDiff(entry, UPSTREAM_DIR, process.cwd()),
+      groupIgnoreLines: lines => groupIgnoreLines(lines),
+      print: line => tui.log.info(line),
+    });
+  }
+  catch (err) {
+    tui.log.warn(`No se pudo abrir la página (${err instanceof Error ? err.message : String(err)}); la corrida sigue en la terminal.`);
+  }
+  const ui = activeUi;
+
+  // PREFLIGHT (installer-ui preflight.md §3): what would fail halfway, in seconds.
+  const migrationRows = (): PreflightCheck[] => {
+    const plan = planHarnessMigration();
+    if (!plan.needed && plan.blockers.length === 0) { return []; }
+    return [{ id: 'harness-migration', group: ui?.lang === 'en' ? 'This machine' : 'Esta máquina', label: ui?.lang === 'en' ? 'Cross-harness migration' : 'Migración cross-harness', value: ui?.lang === 'en' ? 'pending' : 'pendiente', state: 'info', msg: describeHarnessMigration(plan).join(' · '), neededBy: 'fetch' }];
+  };
+  const preflightOpts = { cwd: process.cwd(), templateRepo: TEMPLATE_REPO, lockFile: VERSION_FILE, lang: ui?.lang ?? 'es' as const, extra: migrationRows() };
+  const pre = await runUpPreflight(preflightOpts);
+  printPreflight(pre);
+  if (ui) {
+    if (await ui.preflight(pre, async () => runUpPreflight(preflightOpts)) === 'abort') {
+      tui.outro(ABORTED_OUTRO);
+      await closeUi('aborted', 1);
+      process.exit(1);
+    }
+  }
+  else if (pre.verdict === 'block') {
+    tui.outro(ABORTED_OUTRO);
+    process.exit(pre.checks.some(c => c.id === 'git-version' && c.state === 'block') ? 2 : 1);
+  }
 
   // No terminal on stdin (CI, a pipe, an agent's shell) and no explicit mode:
   // the Phase 3 multi-select would hang forever. Default to --auto and say so.
-  if (!parsed.auto && !parsed.force && !parsed.interactive && !process.stdin.isTTY) {
+  // A page opened with `--ui` answers the questions itself, so it keeps them.
+  if (!ui && !parsed.auto && !parsed.force && !parsed.interactive && !process.stdin.isTTY) {
     parsed.auto = true;
     tui.log.info('stdin no es una terminal: se asume --auto (pasa --interactive para conservar los prompts).');
   }
@@ -2016,7 +2108,7 @@ async function main(): Promise<void> {
     components = await resolveSkillFilter(parsed.skills);
   }
 
-  const sink = buildSink();
+  const sink = ui?.sink ?? terminalSink;
 
   // Cross-harness migration: runs BEFORE any component is synced, on purpose.
   // A repo scaffolded when instructions lived in CLAUDE.md and skills in
@@ -2128,6 +2220,8 @@ async function main(): Promise<void> {
     promptFile: PARITY_PROMPT_PATH,
     hooks: {
       skillsResolver: resolveTemplateSkills,
+      // The page survives the re-exec: the child binds the same port and token.
+      ...(ui ? { beforeReexec: ui.beforeReexec } : {}),
       // afterApply runs while the upstream clone still sits in UPSTREAM_DIR
       // (cleanup happens after). On dry-run only the read-only pieces run (env
       // keys, the parity table), nothing is regenerated or saved. Each hook is
@@ -2198,7 +2292,8 @@ async function main(): Promise<void> {
     },
   };
 
-  tui.intro(tui.headline(`UPEX QA Boilerplate Updater v${CLI_VERSION}`));
+  // A re-exec child continues the parent's run: its intro is already on screen.
+  if (process.env.UPEX_UPDATER_REEXEC !== '1') { tui.intro(tui.headline(`UPEX QA Boilerplate Updater v${CLI_VERSION}`)); }
 
   const summary = await runUpdate(cfg, sink, {
     auto: parsed.auto,
@@ -2215,18 +2310,57 @@ async function main(): Promise<void> {
   const verdict = runVerdict({ aborted, dryRun: parsed.dryRun, strict: parsed.strict }, runFacts.parity?.findings ?? []);
   if (verdict.reason) { tui.log.error(verdict.reason); }
   tui.outro(verdict.outro);
+  if (ui) {
+    const findings = runFacts.parity?.findings ?? [];
+    if (!aborted) {
+      ui.report({
+        dryRun: parsed.dryRun,
+        auto: nonInteractive,
+        aborted,
+        applied: summary.applied.length,
+        skipped: summary.skipped.length,
+        failed: summary.failed.map(f => ({ path: f.entry.path, reason: f.reason })),
+        upstreamSha: summary.newHeadSha,
+        surfaces: runFacts.parity?.report.surfaces ?? [],
+        findings,
+        prompt: runFacts.parity?.report.prompt,
+        promptPath: !parsed.dryRun && (summary.promptSaved || runFacts.promptKept) ? PARITY_PROMPT_PATH : null,
+        commit: !parsed.dryRun && summary.newHeadSha && (summary.applied.length > 0 || (summary.lastApplyPaths ?? 0) > 0) ? suggestCommitMessage(summary) : null,
+        extraNext: runFacts.aliasDeferred ? [{ title: 'Alias de skills pendiente', text: ALIAS_DEFERRED_NEXT_STEP }] : [],
+      });
+    }
+    const pending = (nonInteractive && summary.skipped.length > 0) || findings.length > 0;
+    await closeUi(aborted ? 'aborted' : verdict.exitCode !== 0 ? 'failed' : pending ? 'done-with-pending' : 'done', verdict.exitCode);
+  }
   if (verdict.exitCode !== 0) { process.exit(verdict.exitCode); }
+}
+
+/** Terminal rows of the preflight: nothing when all is clear (today's output), every warn and block otherwise. */
+function printPreflight(pre: PreflightResult): void {
+  for (const c of pre.checks) {
+    if (c.state !== 'warn' && c.state !== 'block') { continue; }
+    const text = `${c.label}${c.value && c.value !== '-' ? ` (${c.value})` : ''}: ${plainMsg(c.msg ?? '')}`;
+    if (c.state === 'block') { tui.log.error(text); }
+    else { tui.log.warn(text); }
+  }
 }
 
 // Guarded so tests can import COMPONENTS and the pure helpers above
 // (extractIndentedYamlBlock, insertBlockAtEndOfSection) without kicking off a sync.
 if (import.meta.main) {
-  main().catch((err: unknown) => {
+  main().catch(async (err: unknown) => {
     if (err instanceof Error && err.name === 'ExitPromptError') {
       tui.cancel('Aborted by user.');
+      await closeUi('aborted', 130);
       process.exit(130);
     }
+    if (err instanceof Error && err.name === 'UpdaterAbort') {
+      await closeUi('aborted', 1);
+      process.exit(1);
+    }
     tui.log.error(err instanceof Error ? err.message : String(err));
+    activeUi?.notice('error', err instanceof Error ? err.message : String(err));
+    await closeUi('failed', 1);
     process.exit(1);
   });
 }
