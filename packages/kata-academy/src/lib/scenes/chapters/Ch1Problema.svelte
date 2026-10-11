@@ -87,7 +87,7 @@
   <!-- ==================== Sección 3 · La idea KATA ==================== -->
   <section in:fly|global={{ y: 18, duration: dur(450), delay: dur(240) }}>
     <p class="kicker">sección 3 · la idea kata</p>
-    <h2>¿Y si el caso de prueba fuera una pieza de lego?</h2>
+    <h2>Y si el caso de prueba fuera una pieza de lego?</h2>
     <p class="prose">
       KATA da vuelta el problema: en vez de escribir los casos de prueba <em>dentro</em> de los
       archivos de prueba, los empaqueta como piezas reutilizables con identidad propia. La pieza se

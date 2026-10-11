@@ -166,5 +166,5 @@ export const nameSegments: { key: string, title: string, options: NameOption[] }
 export const badNames: { name: string, reason: string }[] = [
   { name: 'clickLoginButton', reason: 'eso es un click, no un caso de prueba' },
   { name: 'checkTest', reason: 'ni verbo de negocio, ni recurso, ni escenario' },
-  { name: 'testLogin2', reason: '¿éxito?, ¿error?, ¿qué prueba? — sin escenario no se sabe' },
+  { name: 'testLogin2', reason: 'éxito?, error?, qué prueba? — sin escenario no se sabe' },
 ];

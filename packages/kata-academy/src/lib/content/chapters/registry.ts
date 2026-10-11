@@ -98,7 +98,7 @@ export const chapterMetas: ChapterMeta[] = [
     num: 7,
     title: 'Reglas de oro',
     kicker: 'el criterio',
-    summary: '¿Es un ATC o no? Juega y aprende las reglas que protegen la arquitectura.',
+    summary: 'Es un ATC o no? Juega y aprende las reglas que protegen la arquitectura.',
     mnemonic: {
       anchor: 'El código del chef',
       icon: '📜',

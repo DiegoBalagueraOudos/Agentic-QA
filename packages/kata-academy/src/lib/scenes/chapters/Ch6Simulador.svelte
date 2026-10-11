@@ -132,7 +132,7 @@
     </p>
     <div class="callout">
       <strong>Si un E2E encadena varios casos de prueba y Playwright solo imprime
-      “passed”… ¿cómo sabemos cuáles casos pasaron?</strong>
+      “passed”… cómo sabemos cuáles casos pasaron?</strong>
     </div>
     <p>
       Playwright cuenta <em>tests</em>. Tu <Term t="tms">TMS</Term> cuenta <em>casos de
@@ -271,7 +271,7 @@
         </figure>
 
         <div class="callout">
-          <strong>¿Por qué un archivo y no la memoria?</strong> Playwright corre cada
+          <strong>Por qué un archivo y no la memoria?</strong> Playwright corre cada
           proyecto en un proceso <em>worker</em> separado. La memoria de un proceso muere
           con él; el archivo sobrevive. Por eso el decorador hace APPEND de una línea
           <Term t="ndjson">NDJSON</Term> por cada ejecución de método — un cuaderno de
@@ -429,7 +429,7 @@
 
   <!-- ················ la pieza que dispara todo ················ -->
   <section class="prose">
-    <h2>¿Quién escribe esos apuntes? El decorador</h2>
+    <h2>Quién escribe esos apuntes? El decorador</h2>
     <p>
       Nadie llama al reporter a mano. La magia vive en la primera línea del ATC: el
       decorador <code>@atc('PROJ-101')</code> envuelve al método y, en cada ejecución,
@@ -447,7 +447,7 @@
       flujos quieras… y cada ticket de Jira recibe su propio veredicto, sin que ningún
       humano copie resultados a mano.
     </div>
-    <h2>¿Y quién aprieta ▶ RUN cada noche?</h2>
+    <h2>Y quién aprieta ▶ RUN cada noche?</h2>
     <p>
       Nadie. Y ese es exactamente el siguiente capítulo: toda esta cadena corre sola, por
       horario, dentro de un robot de CI — y termina en una decisión de release.

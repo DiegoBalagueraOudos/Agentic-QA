@@ -26,7 +26,7 @@ export interface FixtureMode {
   id: FixtureModeId
   /** Lo que el test escribe entre paréntesis. */
   request: string
-  /** ¿Este fixture llega a encender el navegador? */
+  /** Este fixture llega a encender el navegador? */
   browser: boolean
   /** Frase que acompaña al diagrama cuando el armado termina. */
   outcome: string

@@ -18,7 +18,7 @@ mini-app Svelte 5 + Vite + TS estricto que enseña la arquitectura KATA como
 - **Interacciones firma**: vista explotada del ATC (cap 2), edificio de capas
   (cap 3), panel DI `{api}/{ui}/{test}` (cap 4), ensamblador drag-drop de
   specs con ATCs reales (cap 5), simulador del pipeline `@atc`→NDJSON→
-  `atc_results.json`→Xray con toggle de fallo (cap 6), juego "¿ATC o no?"
+  `atc_results.json`→Xray con toggle de fallo (cap 6), juego "ATC o no?"
   (cap 7), maquinaria CI + widget GO/NO-GO (cap 8).
 - **Mnemotecnia oficial**: LA COCINA PROFESIONAL (diccionario completo en
   `CONTENT-SOURCE.md` §9 — VINCULANTE para todo contenido nuevo). Lego =

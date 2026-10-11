@@ -93,7 +93,7 @@
 
   /* ---------- mnemotecnia oficial: la cocina profesional ---------- */
 
-  /** Panel "¿Por qué una cocina?" con el diccionario completo (§9). */
+  /** Panel "Por qué una cocina?" con el diccionario completo (§9). */
   let whyOpen = $state(false);
 
   const mnemonicDictionary: Array<[kata: string, cocina: string]> = [
@@ -162,7 +162,7 @@
       <p class="kicker">el mapa</p>
       <h1><span class="grad">KATA</span> por dentro</h1>
       <p class="m-sub">Una cocina profesional: recetas, comandas y servicio. Toca una zona para adentrarte.</p>
-      <button class="why" onclick={() => (whyOpen = true)}>¿Por qué una cocina?</button>
+      <button class="why" onclick={() => (whyOpen = true)}>Por qué una cocina?</button>
     </header>
 
     <nav class="m-list" aria-label="Capítulos">
@@ -297,7 +297,7 @@
   <!-- leyenda + ruta guiada (overlay, fuera del mundo escalado) -->
   <footer class="map-footer" class:faded={nav.zoomTarget !== null}>
     <span class="hint">clic para adentrarte · ✓ = visitado · teclas 1–8</span>
-    <button class="why" onclick={() => (whyOpen = true)}>¿Por qué una cocina?</button>
+    <button class="why" onclick={() => (whyOpen = true)}>Por qué una cocina?</button>
     <button class="guided" onclick={() => nav.goChapter(firstUnvisited.id)}>
       ▶ Ruta guiada
     </button>

@@ -1,6 +1,6 @@
 /**
  * Capítulo 7 — «Reglas de oro».
- * Datos tipados del juego «¿Es un ATC válido?» (cartas del dossier
+ * Datos tipados del juego «Es un ATC válido?» (cartas del dossier
  * §5.10 + reglas §3) y la lista de referencia de las 12 reglas.
  */
 
@@ -13,7 +13,7 @@ export interface RuleCard {
   snippet?: { title: string, code: string }
   /** Escenario descrito en prosa (si no hay snippet). */
   scenario?: string
-  /** ¿Respeta las reglas de oro? */
+  /** Respeta las reglas de oro? */
   valid: boolean
   /** Número de la regla de oro implicada (1-12). */
   ruleNum: number

@@ -388,7 +388,7 @@
       </div>
 
       <div class="callout good fx-note" class:flash={fixtureFlash}>
-        <strong>¿Por qué <code>{spec.fixtureParam}</code>?</strong>
+        <strong>Por qué <code>{spec.fixtureParam}</code>?</strong>
         {fixtureExplanations[spec.fixture]}
       </div>
     </div>

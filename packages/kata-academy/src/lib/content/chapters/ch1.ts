@@ -66,7 +66,7 @@ test('test 2', async ({ page }) => {
   expect(total).not.toBe('');
 });
 
-// TODO: test 3 del checkout... ¿copiamos el login una tercera vez?
+// TODO: test 3 del checkout... copiamos el login una tercera vez?
 `,
 };
 
@@ -94,7 +94,7 @@ export const hotspots: Hotspot[] = [
   },
   {
     id: 'sin-identidad',
-    label: '¿qué caso de prueba es este? nadie sabe',
+    label: 'qué caso de prueba es este? nadie sabe',
     lines: [3, 18],
     explain:
       '\'test 1\' y \'test 2\' no apuntan a ningún ticket ni a ningún caso de prueba. Cuando fallen, nadie sabrá QUÉ requisito se rompió.',
@@ -113,7 +113,7 @@ export const costCards: CostCard[] = [
     body: 'El login se reescribe en cada test. No hay piezas: hay fotocopias. Y las fotocopias envejecen a ritmos distintos.',
   },
   {
-    stat: '¿? tickets',
+    stat: '? tickets',
     title: 'Cero trazabilidad',
     body: 'Ningún test declara qué caso de prueba cubre. El reporte dice "test 2 falló" — y nadie puede responder qué significa eso para el negocio.',
   },

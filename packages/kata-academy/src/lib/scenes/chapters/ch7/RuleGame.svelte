@@ -90,7 +90,7 @@
             in:fade={reduced ? { duration: 0 } : { duration: 260 }}
           >
             <p class="result" class:hit={isCorrect} class:miss={!isCorrect}>
-              {isCorrect ? '¡Acierto!' : 'Casi —'}
+              {isCorrect ? 'Acierto!' : 'Casi —'}
               {#if card.valid}
                 <span class="tag ok">✔ ATC válido</span>
               {:else}

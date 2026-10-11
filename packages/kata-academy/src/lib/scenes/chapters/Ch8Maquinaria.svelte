@@ -147,7 +147,7 @@
 
   <!-- ················ visual 3: GO / CAUTION / NO-GO ················ -->
   <section class="prose">
-    <h2>La decisión: ¿se libera o no?</h2>
+    <h2>La decisión: se libera o no?</h2>
     <p>
       El reporte no decide nada — alguien tiene que leerlo y emitir un veredicto. Juega
       con las tres variables y mira cómo cambia la decisión:
@@ -163,12 +163,12 @@
       <label class="switch">
         <input type="checkbox" bind:checked={criticalFail} />
         <span class="track"><span class="thumb"></span></span>
-        <span>¿falló algún test <code>@critical</code>?</span>
+        <span>falló algún test <code>@critical</code>?</span>
       </label>
       <label class="switch">
         <input type="checkbox" bind:checked={highRegression} />
         <span class="track"><span class="thumb"></span></span>
-        <span>¿hay una regresión HIGH/CRITICAL?</span>
+        <span>hay una regresión HIGH/CRITICAL?</span>
       </label>
     </div>
     <div class="vw-result">

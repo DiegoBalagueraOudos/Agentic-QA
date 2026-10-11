@@ -23,7 +23,7 @@
       forma. El criterio se entrena juzgando casos, así que… a jugar.
     </p>
     <div class="callout">
-      <strong>¿Es un ATC válido?</strong> Te mostramos una carta con código real (o casi).
+      <strong>Es un ATC válido?</strong> Te mostramos una carta con código real (o casi).
       Tú decides si respeta las reglas de oro — y la carta te revela el veredicto y la
       regla implicada.
     </div>

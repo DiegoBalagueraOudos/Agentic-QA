@@ -37,7 +37,7 @@
 <div class="chapter-body">
   <!-- ==================== Intro ==================== -->
   <section class="intro" in:fly|global={{ y: 18, duration: dur(450) }}>
-    <p class="kicker">¿por qué capas?</p>
+    <p class="kicker">por qué capas?</p>
     <h2>Un edificio donde cada piso tiene UN trabajo</h2>
     <p class="prose">
       KATA organiza el código de pruebas como un edificio. Cada piso es un

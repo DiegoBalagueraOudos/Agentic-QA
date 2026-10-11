@@ -76,7 +76,7 @@
     <p class="lead">
       Tu test escribe <code>async (&#123; api &#125;) =&gt; …</code> y recibe una caja de
       herramientas completa: <code>api.auth</code>, <code>api.example</code>, sesión, datos falsos.
-      <strong>¿Quién la armó?</strong>
+      <strong>Quién la armó?</strong>
     </p>
     <p>
       No te lo vamos a definir todavía. Mejor <strong>míralo pasar</strong>: abajo hay un panel con
@@ -236,7 +236,7 @@
 
   <!-- ================= regla de selección ================= -->
   <section>
-    <h2>¿Qué interruptor pido?</h2>
+    <h2>Qué interruptor pido?</h2>
     <div class="callout good">
       <strong>Regla de selección de <Term t="fixture">fixture</Term></strong>
       <ul class="blist" style="margin-top: 8px">

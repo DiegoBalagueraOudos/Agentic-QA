@@ -112,7 +112,7 @@ Jerarquía: carpeta = módulo → archivo = feature → `describe` = ticket →
 ## 4. La maquinaria de resultados (capítulos 6 y 8)
 
 **LA pregunta que responde el simulador**: *si un E2E encadena varios casos de
-prueba, ¿cómo sabemos cuáles pasaron?* Respuesta: la cobertura de casos está
+prueba, cómo sabemos cuáles pasaron?* Respuesta: la cobertura de casos está
 **desacoplada** del conteo de tests de Playwright — el decorador `@atc` reporta
 por EJECUCIÓN DE MÉTODO, no por `test()`.
 
@@ -127,7 +127,7 @@ test() llama ui.login.loginSuccessfully()
              {"testId":"PROJ-101","methodName":"loginSuccessfully",
               "className":"LoginPage","status":"PASS","error":null,
               "executedAt":"2026-03-27T19:34:58.470Z","duration":1835,"softFail":false}
-   (¿por qué archivo y no memoria? Playwright corre cada proyecto en un
+   (por qué archivo y no memoria? Playwright corre cada proyecto en un
     proceso worker separado — la memoria no sobrevive; el archivo sí.)
 
 KataReporter.onEnd() agrega el NDJSON → reports/atc_results.json
