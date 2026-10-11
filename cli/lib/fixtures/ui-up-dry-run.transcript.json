@@ -1,0 +1,551 @@
+{
+  "repo": "bunkai-qa-engineering",
+  "args": ["--dry-run"],
+  "exit": 0,
+  "lines": [
+    {
+      "ms": 910,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 910,
+      "text": "\u001b[34m●\u001b[39m  stdin no es una terminal: se asume --auto (pasa --interactive para conservar los prompts)."
+    },
+    {
+      "ms": 933,
+      "text": "\u001b[90m┌\u001b[39m  ╭────────────────────────────────────╮"
+    },
+    {
+      "ms": 933,
+      "text": "│  UPEX QA Boilerplate Updater v8.5  │"
+    },
+    {
+      "ms": 933,
+      "text": "╰────────────────────────────────────╯"
+    },
+    {
+      "ms": 937,
+      "text": ""
+    },
+    {
+      "ms": 937,
+      "text": "── PHASE 1 — FETCH ───────────────────────────────────────────────────────────"
+    },
+    {
+      "ms": 937,
+      "text": ""
+    },
+    {
+      "ms": 939,
+      "text": "\u001b[?25l\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 4468,
+      "text": "\u001b[32m◇\u001b[39m  Template descargado (sparse-checkout): upex-galaxy/agentic-qa-boilerplate"
+    },
+    {
+      "ms": 4479,
+      "text": "\u001b[?25h\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 4479,
+      "text": "\u001b[34m●\u001b[39m  HEAD upstream: bf4c787"
+    },
+    {
+      "ms": 6239,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 6239,
+      "text": "\u001b[33m▲\u001b[39m  Self-update pendiente: 4 archivo(s) del CLI difieren de upstream. --dry-run: previsualizando con el updater nuevo (cli/update-boilerplate.ts del clon upstream), sin escribir cli/…"
+    },
+    {
+      "ms": 6992,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 6992,
+      "text": "\u001b[34m●\u001b[39m  stdin no es una terminal: se asume --auto (pasa --interactive para conservar los prompts)."
+    },
+    {
+      "ms": 7015,
+      "text": "\u001b[90m┌\u001b[39m  ╭────────────────────────────────────╮"
+    },
+    {
+      "ms": 7015,
+      "text": "│  UPEX QA Boilerplate Updater v8.5  │"
+    },
+    {
+      "ms": 7015,
+      "text": "╰────────────────────────────────────╯"
+    },
+    {
+      "ms": 7019,
+      "text": ""
+    },
+    {
+      "ms": 7019,
+      "text": "── PHASE 1 — FETCH ───────────────────────────────────────────────────────────"
+    },
+    {
+      "ms": 7019,
+      "text": ""
+    },
+    {
+      "ms": 7089,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 7089,
+      "text": "\u001b[34m●\u001b[39m  Upstream ya descargado por el proceso padre: kata-boilerplate-update"
+    },
+    {
+      "ms": 7101,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 7101,
+      "text": "\u001b[34m●\u001b[39m  HEAD upstream: bf4c787"
+    },
+    {
+      "ms": 7101,
+      "text": ""
+    },
+    {
+      "ms": 7101,
+      "text": "── PHASE 2 — DETECT ──────────────────────────────────────────────────────────"
+    },
+    {
+      "ms": 7101,
+      "text": ""
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  Detectados 18 archivo(s) con cambios en 5 componente(s)."
+    },
+    {
+      "ms": 17474,
+      "text": ""
+    },
+    {
+      "ms": 17474,
+      "text": "── PHASE 4 — FILES ───────────────────────────────────────────────────────────"
+    },
+    {
+      "ms": 17474,
+      "text": ""
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/skills/agentic-qa-core/references/browser-sessions.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/skills/agentic-qa-core/references/skill-composition-strategy.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/skills/agentic-qa-core/references/skill-resolver.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/skills/agentic-qa-core/references/decision-elicitation-doctrine.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/skills/agentic-qa-core/references/updater-parity.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/skills/agentic-qa-core/SKILL.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/skills/agentic-qa-onboard/SKILL.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/skills/acli/SKILL.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: .agents/instructions/agent-skills-and-mcps.md"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: scripts/browser-profiles.ts"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: scripts/build-skill-registry.test.ts"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: scripts/lint-skills.test.ts"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: docs/core/exploracion/index.html"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: docs/core/empezar-aqui.html"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: cli/lib/browser-profiles.test.ts"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: cli/lib/browser-profiles.ts"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: cli/lib/updater-parity.test.ts"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría: cli/lib/updater-parity.ts"
+    },
+    {
+      "ms": 17474,
+      "text": ""
+    },
+    {
+      "ms": 17474,
+      "text": "── PACKAGE.JSON KEYS ──"
+    },
+    {
+      "ms": 17474,
+      "text": ""
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [auto] package.json scripts: aceptando 1 key(s)"
+    },
+    {
+      "ms": 17474,
+      "text": ""
+    },
+    {
+      "ms": 17474,
+      "text": "── PHASE 5 — APPLY ───────────────────────────────────────────────────────────"
+    },
+    {
+      "ms": 17474,
+      "text": ""
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17474,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] aplicaría a package.json scripts: 1 key(s)"
+    },
+    {
+      "ms": 17568,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17568,
+      "text": "\u001b[34m●\u001b[39m  2 ruta(s) recién protegidas en updater.protected_paths sin fila esta vez (scripts/lint-skills.ts, scripts/build-skill-registry.ts); la fila llega con el próximo cambio upstream."
+    },
+    {
+      "ms": 17568,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17568,
+      "text": "\u001b[34m●\u001b[39m  2 ruta(s) vigiladas sin cambio upstream desde el cursor; markers sembrados sin fila."
+    },
+    {
+      "ms": 17657,
+      "text": ""
+    },
+    {
+      "ms": 17657,
+      "text": "Estado por superficie"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m┌──────\u001b[39m\u001b[90m┬────────────────────────\u001b[39m\u001b[90m┬───────────────────────────────────┐\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m\u001b[36m      \u001b[39m\u001b[90m│\u001b[39m\u001b[36m Superficie             \u001b[39m\u001b[90m│\u001b[39m\u001b[36m Detalle                           \u001b[39m\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [ok] \u001b[90m│\u001b[39m Instrucciones y config \u001b[90m│\u001b[39m sin diferencias                   \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [x]  \u001b[90m│\u001b[39m Skills                 \u001b[90m│\u001b[39m 1 hallazgo: .claude/skills        \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [!]  \u001b[90m│\u001b[39m Hooks                  \u001b[90m│\u001b[39m 1 hallazgo: .claude/settings.json \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [!]  \u001b[90m│\u001b[39m MCP                    \u001b[90m│\u001b[39m 1 hallazgo: .codex/config.toml    \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [ok] \u001b[90m│\u001b[39m Env                    \u001b[90m│\u001b[39m sin diferencias                   \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [ok] \u001b[90m│\u001b[39m Componentes            \u001b[90m│\u001b[39m sin diferencias                   \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [ok] \u001b[90m│\u001b[39m package.json           \u001b[90m│\u001b[39m sin diferencias                   \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [ok] \u001b[90m│\u001b[39m Git                    \u001b[90m│\u001b[39m sin diferencias                   \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m [ok] \u001b[90m│\u001b[39m Verificación           \u001b[90m│\u001b[39m sin diferencias                   \u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m└──────\u001b[39m\u001b[90m┴────────────────────────\u001b[39m\u001b[90m┴───────────────────────────────────┘\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[34m●\u001b[39m  3 hallazgo(s) de paridad (1 bloqueante(s)). Nada fue modificado en archivos protegidos."
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] prompt not saved (la corrida real lo escribe en .agents/prompts/parity-plan.md con los diffs completos)."
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17662,
+      "text": "\u001b[34m●\u001b[39m  [dry-run] 1 fila(s) marcadas (resolved by apply): las resuelve la corrida real al aplicar, no son trabajo manual."
+    },
+    {
+      "ms": 17662,
+      "text": ""
+    },
+    {
+      "ms": 17662,
+      "text": "────────  COPY PROMPT BELOW  ────────"
+    },
+    {
+      "ms": 17662,
+      "text": "Parity review after `bun run up --dry-run` (upstream upex-galaxy/agentic-qa-boilerplate@bf4c787, project lock fb5c9f2)."
+    },
+    {
+      "ms": 17662,
+      "text": "Present the table below to the user, one row per finding, and WAIT for a decision per row"
+    },
+    {
+      "ms": 17662,
+      "text": "(keep project | take upstream | merge) BEFORE editing anything. Then apply only the chosen rows,"
+    },
+    {
+      "ms": 17662,
+      "text": "run tests -> types -> lint, and report."
+    },
+    {
+      "ms": 17662,
+      "text": "Full diffs per row live in .agents/prompts/parity-plan.md; upstream copies: https://raw.githubusercontent.com/upex-galaxy/agentic-qa-boilerplate/main/<path>."
+    },
+    {
+      "ms": 17662,
+      "text": "Rows marked BLOCKING failed a compatibility contract, or carry a hunk another file of this release depends on (the row says which gate proves it); both must be resolved before `bun run agents:compat:check` and the project gates pass."
+    },
+    {
+      "ms": 17662,
+      "text": "`Now` is the copy on disk today: `kept` = the project's (a protected or project-declared path, never overwritten), `overwritten` = upstream's (the project's version is in the backup the row names), `-` = the row is not a contest between two copies."
+    },
+    {
+      "ms": 17662,
+      "text": "`take upstream` is suggested only where the project lacks the content entirely; a row naming project-only servers, keys, headings or edits suggests `merge` (its backup or values are in the saved file)."
+    },
+    {
+      "ms": 17662,
+      "text": "A `merge` row says what to port (upstream additions) and what to keep (project-only). A row labelled `informational` is a project identity file compared by keys only: merge = add the listed keys, never the values."
+    },
+    {
+      "ms": 17662,
+      "text": "Nothing was applied: rows marked (resolved by apply) are the ones the real run fixes by itself (it rebuilds the generated surfaces), so this table lists MORE work than the run that applies. Do not plan manual edits from them."
+    },
+    {
+      "ms": 17662,
+      "text": ""
+    },
+    {
+      "ms": 17662,
+      "text": "| # | Surface | File | Now | What differs (evidence) | Suggested |"
+    },
+    {
+      "ms": 17662,
+      "text": "|---|---|---|---|---|---|"
+    },
+    {
+      "ms": 17662,
+      "text": "| 1 | MCP | .codex/config.toml | kept | upstream added 1 key: \"mcp_servers.slack-aurora\"; nothing project-only; 1 hunk (+29/-0); Codex MCP registry (paired with .mcp.json / opencode.jsonc; `agents:compat:check` enforces parity across the three) | take upstream |"
+    },
+    {
+      "ms": 17662,
+      "text": "| 2 | Hooks | .claude/settings.json | kept | same keys, \"permissions.allow\": same 71 item(s), order differs (port what you want, keep the rest); 5 hunks (+13/-13); project permissions and hook wiring; never overwritten | merge |"
+    },
+    {
+      "ms": 17662,
+      "text": "| 3 | Skills | .claude/skills | - | Claude skills alias missing: .claude/skills (resolved by apply) | run agents:compat (BLOCKING) |"
+    },
+    {
+      "ms": 17662,
+      "text": ""
+    },
+    {
+      "ms": 17662,
+      "text": "Post-merge: bun run agents:compat && bun run agents:compat:check && bun run repo:check"
+    },
+    {
+      "ms": 17662,
+      "text": "────────  COPY PROMPT ABOVE  ────────"
+    },
+    {
+      "ms": 17662,
+      "text": ""
+    },
+    {
+      "ms": 17663,
+      "text": "╭──────────────────────────────────────────────────────────╮"
+    },
+    {
+      "ms": 17663,
+      "text": "│  Aplicados:    18                                        │"
+    },
+    {
+      "ms": 17663,
+      "text": "│  Saltados:     0                                         │"
+    },
+    {
+      "ms": 17663,
+      "text": "│  Con error:    0                                         │"
+    },
+    {
+      "ms": 17663,
+      "text": "│  Avanzados:    skills, instructions, scripts, docs, cli  │"
+    },
+    {
+      "ms": 17663,
+      "text": "│  Retenidos:    (ninguno)                                 │"
+    },
+    {
+      "ms": 17663,
+      "text": "╰──────────────────────────────────────────────────────────╯"
+    },
+    {
+      "ms": 17663,
+      "text": "\u001b[90m│\u001b[39m"
+    },
+    {
+      "ms": 17663,
+      "text": "\u001b[90m└\u001b[39m  Dry-run completado."
+    },
+    {
+      "ms": 17663,
+      "text": ""
+    }
+  ]
+}

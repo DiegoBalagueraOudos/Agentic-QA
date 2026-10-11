@@ -1,0 +1,743 @@
+[
+  {
+    "t": "run.start",
+    "cmd": "up",
+    "args": ["--dry-run"],
+    "repo": "bunkai-qa-engineering",
+    "version": "8.5",
+    "mode": "readonly",
+    "lang": "es",
+    "phases": [
+      {
+        "id": "fetch",
+        "title": "Traer novedades",
+        "hint": "desde upstream"
+      },
+      {
+        "id": "self",
+        "title": "Actualizar el actualizador",
+        "hint": "si cambió"
+      },
+      {
+        "id": "detect",
+        "title": "Detectar cambios",
+        "hint": "qué es nuevo y qué es tuyo"
+      },
+      {
+        "id": "scope",
+        "title": "Aplicar todo",
+        "hint": "sin preguntas"
+      },
+      {
+        "id": "apply",
+        "title": "Aplicar y verificar",
+        "hint": "escribir, comprobar"
+      },
+      {
+        "id": "report",
+        "title": "Reporte",
+        "hint": "paridad y resumen"
+      }
+    ],
+    "seq": 1,
+    "ts": 0
+  },
+  {
+    "t": "notice",
+    "level": "info",
+    "text": "Vista previa ([[dryrun|--dry-run]]): el actualizador calcula todo lo que haría y no escribe ningún archivo de tu proyecto.",
+    "seq": 2,
+    "ts": 0
+  },
+  {
+    "t": "notice",
+    "level": "info",
+    "text": "stdin no es una terminal: se asume --auto (pasa --interactive para conservar los prompts).",
+    "seq": 3,
+    "ts": 910
+  },
+  {
+    "t": "phase.start",
+    "id": "fetch",
+    "why": "Descargamos la versión actual del boilerplate ([[upstream|upstream]]) en una carpeta temporal. Tu proyecto no se toca todavía.",
+    "seq": 4,
+    "ts": 937
+  },
+  {
+    "t": "step.start",
+    "id": "s1",
+    "phase": "fetch",
+    "title": "Template descargado (sparse-checkout): upex-galaxy/agentic-qa-boilerplate",
+    "seq": 5,
+    "ts": 937
+  },
+  {
+    "t": "step.end",
+    "id": "s1",
+    "status": "ok",
+    "ms": 3531,
+    "seq": 6,
+    "ts": 4468
+  },
+  {
+    "t": "step.start",
+    "id": "s2",
+    "phase": "fetch",
+    "title": "HEAD upstream: bf4c787",
+    "seq": 7,
+    "ts": 4468
+  },
+  {
+    "t": "step.end",
+    "id": "s2",
+    "status": "ok",
+    "ms": 11,
+    "seq": 8,
+    "ts": 4479
+  },
+  {
+    "t": "phase.end",
+    "id": "fetch",
+    "status": "done",
+    "seq": 9,
+    "ts": 6239
+  },
+  {
+    "t": "phase.start",
+    "id": "self",
+    "why": "La versión nueva trae cambios en el propio actualizador. El proceso se reinicia con el código nuevo para que haga el resto. [[selfupdate|¿Por qué?]]",
+    "seq": 10,
+    "ts": 6239
+  },
+  {
+    "t": "notice",
+    "level": "warn",
+    "text": "Self-update pendiente: 4 archivo(s) del CLI difieren de upstream. --dry-run: previsualizando con el updater nuevo (cli/update-boilerplate.ts del clon upstream), sin escribir cli/…",
+    "phase": "self",
+    "seq": 11,
+    "ts": 6239
+  },
+  {
+    "t": "restart",
+    "reason": "self-update",
+    "from": "v8.5",
+    "to": "v8.5",
+    "seq": 12,
+    "ts": 7015
+  },
+  {
+    "t": "step.start",
+    "id": "s3",
+    "phase": "self",
+    "title": "Upstream ya descargado por el proceso padre: kata-boilerplate-update",
+    "seq": 13,
+    "ts": 7019
+  },
+  {
+    "t": "step.end",
+    "id": "s3",
+    "status": "ok",
+    "ms": 70,
+    "seq": 14,
+    "ts": 7089
+  },
+  {
+    "t": "phase.end",
+    "id": "self",
+    "status": "warn",
+    "seq": 15,
+    "ts": 7101
+  },
+  {
+    "t": "phase.start",
+    "id": "detect",
+    "why": "Comparamos cada archivo con la versión anterior del boilerplate y con la tuya, para separar lo nuevo de lo que tú editaste.",
+    "seq": 16,
+    "ts": 7101
+  },
+  {
+    "t": "step.start",
+    "id": "s4",
+    "phase": "detect",
+    "title": "Detectados 18 archivo(s) con cambios en 5 componente(s).",
+    "seq": 17,
+    "ts": 7101
+  },
+  {
+    "t": "step.end",
+    "id": "s4",
+    "status": "ok",
+    "ms": 10373,
+    "seq": 18,
+    "ts": 17474
+  },
+  {
+    "t": "phase.end",
+    "id": "detect",
+    "status": "done",
+    "seq": 19,
+    "ts": 17474
+  },
+  {
+    "t": "phase.start",
+    "id": "scope",
+    "why": "En modo automático se trae todo lo nuevo. Lo que exige decidir no se toca.",
+    "seq": 20,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s5",
+    "phase": "scope",
+    "title": "`.agents/skills/agentic-qa-core/references/browser-sessions.md`",
+    "seq": 21,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s5",
+    "status": "ok",
+    "ms": 0,
+    "seq": 22,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s6",
+    "phase": "scope",
+    "title": "`.agents/skills/agentic-qa-core/references/skill-composition-strategy.md`",
+    "seq": 23,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s6",
+    "status": "ok",
+    "ms": 0,
+    "seq": 24,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s7",
+    "phase": "scope",
+    "title": "`.agents/skills/agentic-qa-core/references/skill-resolver.md`",
+    "seq": 25,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s7",
+    "status": "ok",
+    "ms": 0,
+    "seq": 26,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s8",
+    "phase": "scope",
+    "title": "`.agents/skills/agentic-qa-core/references/decision-elicitation-doctrine.md`",
+    "seq": 27,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s8",
+    "status": "ok",
+    "ms": 0,
+    "seq": 28,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s9",
+    "phase": "scope",
+    "title": "`.agents/skills/agentic-qa-core/references/updater-parity.md`",
+    "seq": 29,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s9",
+    "status": "ok",
+    "ms": 0,
+    "seq": 30,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s10",
+    "phase": "scope",
+    "title": "`.agents/skills/agentic-qa-core/SKILL.md`",
+    "seq": 31,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s10",
+    "status": "ok",
+    "ms": 0,
+    "seq": 32,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s11",
+    "phase": "scope",
+    "title": "`.agents/skills/agentic-qa-onboard/SKILL.md`",
+    "seq": 33,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s11",
+    "status": "ok",
+    "ms": 0,
+    "seq": 34,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s12",
+    "phase": "scope",
+    "title": "`.agents/skills/acli/SKILL.md`",
+    "seq": 35,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s12",
+    "status": "ok",
+    "ms": 0,
+    "seq": 36,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s13",
+    "phase": "scope",
+    "title": "`.agents/instructions/agent-skills-and-mcps.md`",
+    "seq": 37,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s13",
+    "status": "ok",
+    "ms": 0,
+    "seq": 38,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s14",
+    "phase": "scope",
+    "title": "`scripts/browser-profiles.ts`",
+    "seq": 39,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s14",
+    "status": "ok",
+    "ms": 0,
+    "seq": 40,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s15",
+    "phase": "scope",
+    "title": "`scripts/build-skill-registry.test.ts`",
+    "seq": 41,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s15",
+    "status": "ok",
+    "ms": 0,
+    "seq": 42,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s16",
+    "phase": "scope",
+    "title": "`scripts/lint-skills.test.ts`",
+    "seq": 43,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s16",
+    "status": "ok",
+    "ms": 0,
+    "seq": 44,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s17",
+    "phase": "scope",
+    "title": "`docs/core/exploracion/index.html`",
+    "seq": 45,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s17",
+    "status": "ok",
+    "ms": 0,
+    "seq": 46,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s18",
+    "phase": "scope",
+    "title": "`docs/core/empezar-aqui.html`",
+    "seq": 47,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s18",
+    "status": "ok",
+    "ms": 0,
+    "seq": 48,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s19",
+    "phase": "scope",
+    "title": "`cli/lib/browser-profiles.test.ts`",
+    "seq": 49,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s19",
+    "status": "ok",
+    "ms": 0,
+    "seq": 50,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s20",
+    "phase": "scope",
+    "title": "`cli/lib/browser-profiles.ts`",
+    "seq": 51,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s20",
+    "status": "ok",
+    "ms": 0,
+    "seq": 52,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s21",
+    "phase": "scope",
+    "title": "`cli/lib/updater-parity.test.ts`",
+    "seq": 53,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s21",
+    "status": "ok",
+    "ms": 0,
+    "seq": 54,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s22",
+    "phase": "scope",
+    "title": "`cli/lib/updater-parity.ts`",
+    "seq": 55,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s22",
+    "status": "ok",
+    "ms": 0,
+    "seq": 56,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s23",
+    "phase": "scope",
+    "title": "Package.json keys",
+    "seq": 57,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s23",
+    "status": "ok",
+    "ms": 0,
+    "seq": 58,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s24",
+    "phase": "scope",
+    "title": "[auto] package.json scripts: aceptando 1 key(s)",
+    "seq": 59,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s24",
+    "status": "ok",
+    "ms": 0,
+    "seq": 60,
+    "ts": 17474
+  },
+  {
+    "t": "phase.end",
+    "id": "scope",
+    "status": "done",
+    "seq": 61,
+    "ts": 17474
+  },
+  {
+    "t": "phase.start",
+    "id": "apply",
+    "why": "Escribimos los cambios, mezclamos tu configuración sin borrar lo tuyo y corremos las comprobaciones del proyecto.",
+    "seq": 62,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s25",
+    "phase": "apply",
+    "title": "[dry-run] aplicaría a package.json scripts: 1 key(s)",
+    "seq": 63,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s25",
+    "status": "ok",
+    "ms": 0,
+    "seq": 64,
+    "ts": 17474
+  },
+  {
+    "t": "step.start",
+    "id": "s26",
+    "phase": "apply",
+    "title": "2 ruta(s) recién protegidas en updater.protected_paths sin fila esta vez (scripts/lint-skills.ts, scripts/build-skill-registry.ts); la fila llega con el próximo cambio upstream.",
+    "seq": 65,
+    "ts": 17474
+  },
+  {
+    "t": "step.end",
+    "id": "s26",
+    "status": "ok",
+    "ms": 94,
+    "seq": 66,
+    "ts": 17568
+  },
+  {
+    "t": "step.start",
+    "id": "s27",
+    "phase": "apply",
+    "title": "2 ruta(s) vigiladas sin cambio upstream desde el cursor; markers sembrados sin fila.",
+    "seq": 67,
+    "ts": 17568
+  },
+  {
+    "t": "step.end",
+    "id": "s27",
+    "status": "ok",
+    "ms": 0,
+    "seq": 68,
+    "ts": 17568
+  },
+  {
+    "t": "phase.end",
+    "id": "apply",
+    "status": "done",
+    "seq": 69,
+    "ts": 17657
+  },
+  {
+    "t": "phase.start",
+    "id": "report",
+    "why": "Lo que quedó distinto entre tu proyecto y el boilerplate, y por qué. [[parity|¿Qué es esto?]]",
+    "seq": 70,
+    "ts": 17657
+  },
+  {
+    "t": "notice",
+    "level": "info",
+    "text": "3 hallazgo(s) de paridad (1 bloqueante(s)). Nada fue modificado en archivos protegidos.",
+    "phase": "report",
+    "seq": 71,
+    "ts": 17662
+  },
+  {
+    "t": "notice",
+    "level": "info",
+    "text": "[dry-run] prompt not saved (la corrida real lo escribe en .agents/prompts/parity-plan.md con los diffs completos).",
+    "phase": "report",
+    "seq": 72,
+    "ts": 17662
+  },
+  {
+    "t": "notice",
+    "level": "info",
+    "text": "[dry-run] 1 fila(s) marcadas (resolved by apply): las resuelve la corrida real al aplicar, no son trabajo manual.",
+    "phase": "report",
+    "seq": 73,
+    "ts": 17662
+  },
+  {
+    "t": "report",
+    "title": "Vista previa: 18 archivos se aplicarían (skills, instructions, scripts, docs, cli). Nada se escribió.",
+    "tone": "warn",
+    "tiles": [
+      {
+        "n": "18",
+        "label": "aplicados",
+        "tone": "good"
+      },
+      {
+        "n": "0",
+        "label": "saltados",
+        "tone": ""
+      },
+      {
+        "n": "0",
+        "label": "con error",
+        "tone": ""
+      },
+      {
+        "n": "3",
+        "label": "hallazgos de paridad",
+        "tone": "warn"
+      }
+    ],
+    "surfaces": [
+      {
+        "state": "ok",
+        "label": "Instrucciones y config",
+        "detail": "sin diferencias"
+      },
+      {
+        "state": "blocked",
+        "label": "Skills",
+        "detail": "1 hallazgo: .claude/skills"
+      },
+      {
+        "state": "warn",
+        "label": "Hooks",
+        "detail": "1 hallazgo: .claude/settings.json"
+      },
+      {
+        "state": "warn",
+        "label": "MCP",
+        "detail": "1 hallazgo: .codex/config.toml"
+      },
+      {
+        "state": "ok",
+        "label": "Env",
+        "detail": "sin diferencias"
+      },
+      {
+        "state": "ok",
+        "label": "Componentes",
+        "detail": "sin diferencias"
+      },
+      {
+        "state": "ok",
+        "label": "package.json",
+        "detail": "sin diferencias"
+      },
+      {
+        "state": "ok",
+        "label": "Git",
+        "detail": "sin diferencias"
+      },
+      {
+        "state": "ok",
+        "label": "Verificación",
+        "detail": "sin diferencias"
+      }
+    ],
+    "findings": [
+      {
+        "n": 1,
+        "surface": "MCP",
+        "file": ".codex/config.toml",
+        "now": "kept",
+        "evidence": "upstream added 1 key: \"mcp_servers.slack-aurora\"; nothing project-only; 1 hunk (+29/-0); Codex MCP registry (paired with .mcp.json / opencode.jsonc; `agents:compat:check` enforces parity across the three)",
+        "suggested": "take upstream",
+        "blocking": false
+      },
+      {
+        "n": 2,
+        "surface": "Hooks",
+        "file": ".claude/settings.json",
+        "now": "kept",
+        "evidence": "same keys, \"permissions.allow\": same 71 item(s), order differs (port what you want, keep the rest); 5 hunks (+13/-13); project permissions and hook wiring; never overwritten",
+        "suggested": "merge",
+        "blocking": false
+      },
+      {
+        "n": 3,
+        "surface": "Skills",
+        "file": ".claude/skills",
+        "now": "-",
+        "evidence": "Claude skills alias missing: .claude/skills (resolved by apply)",
+        "suggested": "run agents:compat (BLOCKING)",
+        "blocking": true
+      }
+    ],
+    "next": [
+      {
+        "title": "Aplicar esta actualización",
+        "text": "La corrida real escribe estos cambios y regenera lo que la vista previa marca como resuelto al aplicar.",
+        "cmd": "bun run up"
+      },
+      {
+        "title": "Resolver los hallazgos de paridad",
+        "text": "Pásale el prompt de paridad a tu agente: lista cada fila y espera tu decisión antes de tocar nada."
+      },
+      {
+        "title": "Después de resolverlos",
+        "cmd": "bun run agents:compat && bun run agents:compat:check && bun run repo:check"
+      }
+    ],
+    "prompt": "Parity review after `bun run up --dry-run` (upstream upex-galaxy/agentic-qa-boilerplate@bf4c787, project lock fb5c9f2).\nPresent the table below to the user, one row per finding, and WAIT for a decision per row\n(keep project | take upstream | merge) BEFORE editing anything. Then apply only the chosen rows,\nrun tests -> types -> lint, and report.\nFull diffs per row live in .agents/prompts/parity-plan.md; upstream copies: https://raw.githubusercontent.com/upex-galaxy/agentic-qa-boilerplate/main/<path>.\nRows marked BLOCKING failed a compatibility contract, or carry a hunk another file of this release depends on (the row says which gate proves it); both must be resolved before `bun run agents:compat:check` and the project gates pass.\n`Now` is the copy on disk today: `kept` = the project's (a protected or project-declared path, never overwritten), `overwritten` = upstream's (the project's version is in the backup the row names), `-` = the row is not a contest between two copies.\n`take upstream` is suggested only where the project lacks the content entirely; a row naming project-only servers, keys, headings or edits suggests `merge` (its backup or values are in the saved file).\nA `merge` row says what to port (upstream additions) and what to keep (project-only). A row labelled `informational` is a project identity file compared by keys only: merge = add the listed keys, never the values.\nNothing was applied: rows marked (resolved by apply) are the ones the real run fixes by itself (it rebuilds the generated surfaces), so this table lists MORE work than the run that applies. Do not plan manual edits from them.\n\n| # | Surface | File | Now | What differs (evidence) | Suggested |\n|---|---|---|---|---|---|\n| 1 | MCP | .codex/config.toml | kept | upstream added 1 key: \"mcp_servers.slack-aurora\"; nothing project-only; 1 hunk (+29/-0); Codex MCP registry (paired with .mcp.json / opencode.jsonc; `agents:compat:check` enforces parity across the three) | take upstream |\n| 2 | Hooks | .claude/settings.json | kept | same keys, \"permissions.allow\": same 71 item(s), order differs (port what you want, keep the rest); 5 hunks (+13/-13); project permissions and hook wiring; never overwritten | merge |\n| 3 | Skills | .claude/skills | - | Claude skills alias missing: .claude/skills (resolved by apply) | run agents:compat (BLOCKING) |\n\nPost-merge: bun run agents:compat && bun run agents:compat:check && bun run repo:check",
+    "seq": 74,
+    "ts": 17663
+  },
+  {
+    "t": "phase.end",
+    "id": "report",
+    "status": "warn",
+    "seq": 75,
+    "ts": 17663
+  },
+  {
+    "t": "run.end",
+    "status": "done",
+    "exit": 0,
+    "seq": 76,
+    "ts": 17663
+  }
+]
