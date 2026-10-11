@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-11T19:14:47.956Z`
+> Generated: `2026-10-11T22:44:14.423Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -22,6 +22,7 @@ Skills indexed: 26
 - DO: pass the non-interactive confirmation flag on every mutating command in CI, or the command hangs waiting on stdin.
 - DO NOT: hand-author raw ADF JSON, and do not pass Markdown to a rich-text flag — the CLI never converts it and stores the literal characters. Author in Markdown, convert with `scripts/md-to-adf.ts`, pass the ADF.
 - DO: let the converter's validation gate run on every ADF document before publishing, and round-trip read the field after writing. The gate catches node-level errors; only the read-back catches Jira's silent server-side coercion.
+- DO: measure the serialized ADF of every rich-text value (description, comment, rich-text custom field) before writing it: `jq -c . <file>.adf.json | wc -m` must stay at or under 30000. Jira's cap counts the ADF JSON, not the Markdown, and ADF is several times longer. Over budget → STOP and propose which sections move where; never truncate, never split one value across two fields or comments. Detail: "Size budget" under "Publishing rich text".
 - DO NOT: assume `workitem edit` takes custom-field values. It hard-rejects every shape with exit 1; editing a custom field on an EXISTING item works only through the REST PUT path.
 - DO NOT: expect `workitem edit` to set an issue's COMPONENTS either. There is no flag and no `--from-json` key, so the edit succeeds while leaving components untouched and says nothing. Set them at create time, or change them through the same REST PUT path as custom fields.
 - DO NOT: copy an example out of the vendor's own `--help`. Several omit the subcommand the flags actually live on (`workitem comment --key …` instead of `workitem comment create --key …`) and fail with `unknown flag`. The forms in this skill's references are the tested ones.
@@ -317,7 +318,6 @@ Skills indexed: 26
 **Compact Rules**:
 - `/test-automation` — Review phase, as one of the two ways to satisfy its MANDATORY separate verifier (this skill OR `/pr-review-lead`), for every change, not only high-risk ones. That Review step counts as the explicit request above.
 - `/git-flow-master` — OPTIONAL pre-PR gate when the diff is large or touches shared fixtures / base classes
-- `/framework-development` — OPTIONAL pre-archive review of framework evolution diffs
 - The diff / files / PR / architecture slice under review — the literal target the user named.
 - `AGENTS.md` — repo conventions, Critical Rules, behavioral layer (the judges must score against these, not generic best-practice).
 - `.agents/skills/REGISTRY.md` — skill registry; resolve which project skills apply to the target's file paths + task type, and inject the same `Skills to load before work` block into both judge prompts.
@@ -330,6 +330,7 @@ Skills indexed: 26
 - Classify warnings as `WARNING (real)` only if normal intended use can trigger them; otherwise downgrade to INFO as `WARNING (theoretical)`.
 - Ask before fixing Round 1 confirmed issues.
 - After any fix agent runs, immediately re-launch both judges in parallel before commit/push/done/session summary.
+- Terminal states are only `JUDGMENT: APPROVED` or `JUDGMENT: ESCALATED`.
 - (truncated — read full SKILL.md for the rest)
 
 **Read full SKILL.md when**: the compact rules above are insufficient (e.g. novel scenario, debugging, or the briefing tells you to load the full skill).
@@ -424,7 +425,7 @@ Skills indexed: 26
 
 **Compact Rules**:
 - DO: run the four phases in order (Constitution → Architecture → Infrastructure → Specification), each gated on the previous. Show the output paths and wait for an explicit "Phase N complete" before continuing — never auto-chain.
-- DO NOT: write anything into the target repo. Discovery is read-only on it. The write targets are `.context/project-config.md`, `.context/ADR/`, and the maps of `business-domain-context` and `infra-context` (their `references/<map>.html`), nothing else (plus the Phase 1 `## Project Assessment (Phase 1)` block in `AGENTS.md`); modifying the boilerplate itself is `test-framework-adaptation`.
+- DO NOT: write anything into the target repo. Discovery is read-only on it. The write targets are `.context/project-config.md`, `.context/ADR/`, and the maps of `business-domain-context` and `infra-context` (their `references/<map>.html`), nothing else (plus the Phase 1 `## Project Assessment (Phase 1)` block in `.agents/instructions/agent-project.md`); modifying the boilerplate itself is `test-framework-adaptation`.
 - DO: act as the GENERATOR of those two maps, per `agentic-qa-core/references/business-context-maps.md` (anatomy §2, reading §3, CREATE/UPDATE §4, staleness §5). Map absent or placeholder → CREATE every section. Map generated → UPDATE only the stale sections (§5 staleness check), show a section-level diff, WAIT for approval. Never regenerate a whole generated map.
 - DO: read a project's old `.context/business/`, `.context/SRS/` and `.context/infrastructure/` markdown files (the `legacy` list of `business-domain-context` and `infra-context` in `CONTEXT_MAP_SKILLS`, `cli/lib/context-maps.ts`) as INPUT when present, cite them in `data-migrated-from` on the sections they seed, and never delete or rewrite them.
 - DO: before drawing a figure, run the point-of-use check for capability `diagrams` (`agentic-qa-core/references/business-context-maps.md` §7). Figures are optional where a table says it better: the glossary is tables; the architecture overview usually earns a figure.
@@ -492,13 +493,13 @@ Skills indexed: 26
 - **Write.** Fill `.agents/skills/session-handoff/templates/handoff.md` to `<<PRIMARY_ROOT>>/.session/handoffs/<session-name>-handoff-NN.md`. Naming contract below.
 - **Launch the successor.** Follow `.agents/skills/session-handoff/references/successor-launch.md`. With a runtime, this session launches it. Without one, this session prints the line and the human pastes it.
 - `.session/` is gitignored, and a handoff is disposable by design: it describes one session's state, it is not a project record, and committing it would put a decaying snapshot under version control.
-- It lives in the PRIMARY checkout, `<<PRIMARY_ROOT>>` (`.agents/README.md` §"Checkout roots"), even when the session runs in a linked worktree. A handoff written inside a worktree dies with the worktree, and two worktrees of one lineage would each count `NN` from their own empty directory. The successor still launches in the SAME worktree as the predecessor; only the file lives in the primary.
+- It lives in the PRIMARY checkout, `<<PRIMARY_ROOT>>` (`.agents/README.md` §"Checkout roots"), even when the session runs in a linked worktree. A handoff written inside a worktree dies with the worktree, and two worktrees of one lineage would each count `NN` from their own empty directory. The successor still launches in the SAME worktree as the predecessor; only the file lives in the primary. A handoff written into a worktree's own `.session/` by mistake is rescued by `bun run worktree:audit --rescue` before the worktree goes.
 - `NN` is zero-padded, two digits, starting at `01`, incrementing across the whole lineage. List `<<PRIMARY_ROOT>>/.session/handoffs/` before choosing; never assume, and never count from a worktree's own `.session/`.
 - **The successor's session name is the handoff file's basename without the extension.** That is the entire naming rule, and it makes the lineage readable from the file list alone: `<base>`, then `<base>-handoff-01`, then `<base>-handoff-01-handoff-02`. Long names are the point; a lineage you cannot read is a lineage you cannot audit.
+- `<predecessor-session-name>` is the `session=` value of the `AGENT IDENTITY:` line the prompt hook injects (the same label the commit trailers carry), with spaces and parentheses replaced by `-`. When it reads `unknown`, ask the owner for a name rather than inventing one.
 - A durable fact that outlives the session does not belong in the handoff. It belongs in Engram, in the repo, or in the tracker. The handoff cites it.
 - **Label every claim `measured`, `read` or `predicted`.** The predecessor's guesses about what the successor will find are useful and are also the first thing to go stale. A predicted branch stated as fact sends the successor down a path that no longer exists. Measured means: this session ran it and read the output. Read means: it came from a document and was believed.
 - **Mark perishable state `PERISHABLE`, with the wall-clock time it was measured.** Running workers, open mailboxes, in-flight PRs and live runs decay between writing and reading. The successor's instruction for anything marked perishable is: re-verify before acting, not act then discover.
-- **Perishable beats priority.** If a perishable item needs attention before the priority list, say so in the same line. A successor that follows a stale priority order while a live worker waits has done exactly what the handoff was supposed to prevent.
 - (truncated — read full SKILL.md for the rest)
 
 **Read full SKILL.md when**: the compact rules above are insufficient (e.g. novel scenario, debugging, or the briefing tells you to load the full skill).

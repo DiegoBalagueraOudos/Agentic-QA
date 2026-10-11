@@ -84,7 +84,7 @@ LAYER 3 · REPO DOCTRINE      .agents/skills/orca-orchestration/   (T1, versione
         ^ points at v
 LAYER 2 · GRAMMAR + MACHINE  orca skills get orchestration      (mailbox, Run, Task, worker lifecycle)
                              orca skills get orca-cli           (terminals, worktrees, board, browser)
-   served BY THE BINARY, versioned with it. The user-level stubs teach nothing: they say "ask the binary".
+   served BY THE BINARY, versioned with it. The user-level stubs carry the command grammar and load alongside this skill; the binary serves the DEEP topics a stub points at.
         ^ operates on v
 LAYER 1 · APP                the app running · runtime reachable · board · phone
 ```
@@ -256,7 +256,7 @@ behaviour.
 
 | Frequent confusion | What is actually true |
 |---|---|
-| "installing the vendor skill" enables orchestration | No. The binary already carries the commands. The stub only teaches when. The gate is on the binary |
+| "installing the vendor skill" enables orchestration | No. The binary already carries the commands, so a machine without the stubs is still capable. The stubs are the loaded grammar, not a precondition. The gate is on the binary |
 | a harness worktree equals an Orca worktree | No. The harness one lives inside the repo, invisible to the board and the phone, with no managed terminal. The Orca one has a card, terminals, a browser, and is reachable from the phone. To orchestrate: always the Orca one |
 | a context-only injection leaves a supervised worker | No: deliberately unsupervised, and the release verb does not close it. Supervised = the native launch |
 | a custom-argv terminal can be supervised | **No.** The runtime decides "is this an agent" from the argv IT launched, never from the running process, so adoption is refused on a terminal whose agent is alive on screen. Measured (`references/gotchas.md` G44). Supervision is the native launch or nothing |

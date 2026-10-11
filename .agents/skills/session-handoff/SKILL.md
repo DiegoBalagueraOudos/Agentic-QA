@@ -54,9 +54,10 @@ Do NOT write one when the remaining work fits comfortably in the window. A hando
 ```
 
 - `.session/` is gitignored, and a handoff is disposable by design: it describes one session's state, it is not a project record, and committing it would put a decaying snapshot under version control.
-- It lives in the PRIMARY checkout, `<<PRIMARY_ROOT>>` (`.agents/README.md` §"Checkout roots"), even when the session runs in a linked worktree. A handoff written inside a worktree dies with the worktree, and two worktrees of one lineage would each count `NN` from their own empty directory. The successor still launches in the SAME worktree as the predecessor; only the file lives in the primary.
+- It lives in the PRIMARY checkout, `<<PRIMARY_ROOT>>` (`.agents/README.md` §"Checkout roots"), even when the session runs in a linked worktree. A handoff written inside a worktree dies with the worktree, and two worktrees of one lineage would each count `NN` from their own empty directory. The successor still launches in the SAME worktree as the predecessor; only the file lives in the primary. A handoff written into a worktree's own `.session/` by mistake is rescued by `bun run worktree:audit --rescue` before the worktree goes.
 - `NN` is zero-padded, two digits, starting at `01`, incrementing across the whole lineage. List `<<PRIMARY_ROOT>>/.session/handoffs/` before choosing; never assume, and never count from a worktree's own `.session/`.
 - **The successor's session name is the handoff file's basename without the extension.** That is the entire naming rule, and it makes the lineage readable from the file list alone: `<base>`, then `<base>-handoff-01`, then `<base>-handoff-01-handoff-02`. Long names are the point; a lineage you cannot read is a lineage you cannot audit.
+- `<predecessor-session-name>` is the `session=` value of the `AGENT IDENTITY:` line the prompt hook injects (the same label the commit trailers carry), with spaces and parentheses replaced by `-`. When it reads `unknown`, ask the owner for a name rather than inventing one.
 - A durable fact that outlives the session does not belong in the handoff. It belongs in Engram, in the repo, or in the tracker. The handoff cites it.
 
 ## Hard rules
@@ -71,6 +72,7 @@ Do NOT write one when the remaining work fits comfortably in the window. A hando
 8. **Harness parity.** The successor runs on the same harness as the predecessor. A handoff shaped for one agent's conventions handed to another is a translation problem nobody asked for.
 9. **No AI attribution anywhere, ever** (Critical Rule #3). A handoff is a repo artifact in English, even when the conversation is not.
 10. **Do not delete the predecessor's handoff.** The lineage is the audit trail. Writing `-handoff-02` never removes `-handoff-01`.
+11. **No secrets in the file.** A handoff names the variable a credential lives under (`$STAGING_USER_PASSWORD`), never its value; a session cookie, a token or the path of an `.auth/**` state file stays out (Critical Rule #1; `AGENTS.md` §3 SESSION MATERIAL IN A DISPATCH).
 
 ## References
 

@@ -17,7 +17,6 @@ Load this skill only when the user explicitly asks for Judgment Day, dual/advers
 Within this QA boilerplate, this skill is cited by:
 - `/test-automation` — Review phase, as one of the two ways to satisfy its MANDATORY separate verifier (this skill OR `/pr-review-lead`), for every change, not only high-risk ones. That Review step counts as the explicit request above.
 - `/git-flow-master` — OPTIONAL pre-PR gate when the diff is large or touches shared fixtures / base classes
-- `/framework-development` — OPTIONAL pre-archive review of framework evolution diffs
 
 Outside the `/test-automation` verifier slot it is never invoked automatically; users opt in via explicit trigger.
 

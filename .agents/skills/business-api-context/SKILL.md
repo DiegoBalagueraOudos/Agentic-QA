@@ -33,7 +33,7 @@ One aspect of the system under test: **its API as a business surface**. Which en
 
 | Source | What lives there | Role |
 |---|---|---|
-| `references/business-api-map.html` | the synthesis, one `<section>` per endpoint group or cross-endpoint flow, plus `discovery-gaps` | this skill's map (read via `bun run context:map`) |
+| `references/business-api-map.html` | the synthesis, one `<section>` per fact unit (`overview`, `auth-model`, `journey-<slug>`, `architecture`, `integrations`, `cross-references`), plus `discovery-gaps` | this skill's map (read via `bun run context:map`) |
 | the OpenAPI contract (`[API_TOOL]` schema read, `api/schemas/` after `bun run api:sync`) | paths, methods, payload shapes | wins for shape |
 | the running API of the active environment (`curl`, `agentic-qa-core/references/api-testing-doctrine.md`) | real statuses and bodies | wins for behaviour |
 | `project-context` mode `api` | the generator that CREATEs the map and UPDATEs its stale sections | owns regeneration |
