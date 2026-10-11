@@ -15,10 +15,13 @@ export interface Brand {
   accent: { light: string, dark: string } | null
   /** Glossary terms only this product needs, per language. */
   glossary: { es: Record<string, GlossaryEntry>, en: Record<string, GlossaryEntry> }
+  /** The upstream `bun run up` syncs from when `UPEX_TEMPLATE_REPO` is unset. */
+  templateRepo: string
 }
 
 export const BRAND: Brand = {
   name: 'Agentic QA',
   accent: null,
   glossary: { es: {}, en: {} },
+  templateRepo: 'upex-galaxy/agentic-qa-boilerplate',
 };
