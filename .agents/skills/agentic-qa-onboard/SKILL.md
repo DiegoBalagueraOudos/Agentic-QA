@@ -211,7 +211,7 @@ After setup, fill `.env` with the credentials the rest of the workflow expects (
 
 | Phase | Goal | How |
 | ----- | ---- | --- |
-| 1. Foundation | Tooling green on this machine | `bun setup` → fill `.env` → restart the agent session → `bun run agents:setup` (project identity + environments in `.agents/project.yaml`) → `bun run pw:install` → `bun run jira:check` |
+| 1. Foundation | Tooling green on this machine | `bun setup` (it also asks the project identity + environments for `.agents/project.yaml`, downloads Chromium and syncs the Jira catalogs) → fill the `.env` values left for later → restart the agent session → `bun run setup:doctor` |
 | 2. Jira side | The tracker's catalogs mirrored locally | `bun run jira:sync-fields` + `jira:sync-workflows` + `jira:sync-link-types` (generate the `.agents/*.json` catalogs every skill reads) → `/jira-administration components` (reconcile Jira Components against the app's real modules). First-time Jira provisioning: `docs/core/setup/jira-xray.html` (docs site, `bun run docs`) |
 | 3. App under test | The framework knows and fits YOUR app | `/project-discovery` (reverse-engineers the target repo → the domain and infra maps inside `business-domain-context` and `infra-context`, plus `.context/project-config.md`) → `/project-context data` (the `business-data-context` map; mode `api` too when no OpenAPI spec is reachable) → `/test-framework-adaptation` (adapts KATA, config, CI, MCPs to the stack; its Phase 0 GATES on those maps through `bun run context:map <slug> --list` and on `project-config.md`, so the order is enforced) |
 | 4. Git strategy | Branch policy is a decision, not an inherited default | Ask **"set up our git strategy"** (git-flow-master's Strategy Setup: 4 questions → `git_strategy:` block in `.agents/project.yaml`), then optionally `bun run git:policy apply` to mirror it on GitHub. If you skip this, git-flow-master OFFERS it on your first real git action anyway (template-trap guard) — and `bun run git:policy verify` runs on every push via the pre-push hook |
@@ -381,7 +381,7 @@ Plus the project-level community skills in the `PROJECT_LEVEL_SKILLS` array of `
 - [ ] Did you populate `.agents/project.yaml` (run `bun run agents:setup` if not yet)?
 - [ ] Does `bun run vars:check` exit clean (0 errors)?
 - [ ] Did you run `bun run jira:check` to verify Jira credentials?
-- [ ] Did you run `bun run pw:install` to get Playwright browsers?
+- [ ] Are the Playwright browsers installed? (`bun setup` downloads Chromium; `bun run pw:install` if that step was skipped)
 - [ ] Did you run `bun run context:hydrate` to build the `.context/PBI/` Jira cache? (gitignored and regenerable — Jira stays the source of truth)
 - [ ] Does the `git_strategy:` block in `.agents/project.yaml` reflect a CHOSEN strategy (`meta.strategy_source: chosen`)? If it still says `inherited`, git-flow-master will offer Strategy Setup on your first git action — accepting takes 4 questions.
 - [ ] Does engram persistent memory respond (try `mem_context` after restart)?
