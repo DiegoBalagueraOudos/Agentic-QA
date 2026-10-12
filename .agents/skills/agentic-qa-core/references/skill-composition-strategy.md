@@ -41,8 +41,8 @@ Four tiers. Different discovery and load rules per tier.
 | **T1 — Project-owned** | `.agents/skills/` (committed) | every committed skill `.agents/skills/REGISTRY.md` lists as T1 | Named in the skill router table (`agent-skills-and-mcps.md`; a project's own skills in `agent-project.md`) | Silent (load on trigger, no ask) |
 | **T2 — Vendored** | `.agents/skills/` (committed, upstream attribution in frontmatter) | `judgment-day` (gentle-ai, Apache-2.0) | Named in the skill router table | Silent on explicit user trigger (`/judgment-day`, `juzgar`) or when cited by host orchestrator (`test-automation` Phase 3, `git-flow-master` pre-PR) |
 | **T2-opt — Optional SDD bundle (user-installed outside this repo)** | `~/.claude/skills/sdd-*` (only if present on the machine, e.g. left by an older gentle-ai release) | any `sdd-*` skill (its upstream owns the bundle) | NOT installed by `bun setup`. Discovered at runtime from system-reminder skill list when present | Silent **inside** `framework-development` only — see §4 anti-leak contract. NEVER silent inside `shift-left-testing`, `sprint-testing`, `test-documentation`, `test-automation`, `regression-testing` |
-| **T3 — Community project-level** | `.agents/skills/` (installed by `install.ts` PROJECT_LEVEL_SKILLS, not committed) | `PROJECT_LEVEL_SKILLS` in `cli/install.ts` | Named **by category** in the skill router (not by skill name). Discovered at runtime from system-reminder skill list | Silent if matched by category (e.g. user writes a Playwright test → load `playwright-best-practices`) |
-| **T4 — Community user-level** | `~/.claude/skills/` (installed by `install.ts` USER_LEVEL_SKILLS) | `USER_LEVEL_SKILLS` in `cli/install.ts` | **NOT named in the skill router**. Discovered at runtime from system-reminder skill list. Auto-match by task domain, OR named as the instrument for a moment by a committed doctrine or the operator's standing instructions (the named loaders: `agentic-qa-onboard/SKILL.md` §"Community skills installed at user level") | **Named loader → load at that moment without asking**; a missing install follows the naming doctrine's own gate. **Matched only by domain → ASK user before load** (may not be installed, or user may not want it for this task) |
+| **T3 — Community project-level** | `.agents/skills/` (installed by `install.ts` PROJECT_LEVEL_SKILLS, not committed) | `PROJECT_LEVEL_SKILLS` in `cli/install.ts` | Named **by category** in the skill router (not by skill name). Discovered at runtime by the §3.1 scan (session skill list + `.agents/skills/` on disk), never from `REGISTRY.md` | Silent if matched by category (e.g. user writes a Playwright test → load `playwright-best-practices`) |
+| **T4 — Community user-level** | `~/.claude/skills/` (installed by `install.ts` USER_LEVEL_SKILLS) | `USER_LEVEL_SKILLS` in `cli/install.ts` | **NOT named in the skill router**. Discovered at runtime from the session skill list (§3.1). Auto-match by task domain, OR named as the instrument for a moment by a committed doctrine or the operator's standing instructions (the named loaders: `agentic-qa-onboard/SKILL.md` §"Community skills installed at user level") | **Named loader → load at that moment without asking**; a missing install follows the naming doctrine's own gate. **Matched only by domain → ASK user before load** (may not be installed, or user may not want it for this task) |
 
 ### Tier decision rule
 
@@ -103,7 +103,11 @@ A skill carries three independent labels. Each answers one question, is declared
 
 Before starting any non-trivial task, the orchestrator (and each invoked skill) MUST:
 
-1. **Scan available skills** — read the `system-reminder` skill list that ships at session start.
+1. **Scan the skills actually installed**, from two sources read together:
+   - the skill list the harness injects at session start (the `system-reminder` list in Claude Code, the equivalent list in Codex and OpenCode). It already carries the user-level skills and the project-level ones the harness discovers through `.agents/skills/` (Claude Code through the generated `.claude/skills` alias);
+   - the project store on disk: every `.agents/skills/*/SKILL.md`, git-ignored community folders included (`ls .agents/skills/*/SKILL.md`, then the frontmatter `description` of any folder the session list did not show).
+
+   `.agents/skills/REGISTRY.md` is NOT this scan. `scripts/build-skill-registry.ts` skips git-ignored folders on purpose, so the file is identical on every clone and lists committed skills only: a community (T3) skill never appears in it. The registry is where the resolver copies T1 compact rules from (`skill-resolver.md`), never the inventory of what this machine has installed.
 2. **Match by domain category** (see vocabulary §5) — not by literal skill name.
 3. **Resolve tier per match**:
    - T1 / T2 / T3 → load silently when task domain matches AND any anti-leak rule from §4 is satisfied.
@@ -357,11 +361,11 @@ The script is wired in `package.json` as `"skills:check": "bun run scripts/lint-
 
 ## 11. Resolved Decisions
 
-1. **Skill discovery mechanism**: ✅ **System-reminder scan is canonical.** The installer ships no `skill-registry`. Project-owned skills and orchestrator read the system-reminder skill list directly. Users who want richer registry tooling can install it manually.
+1. **Skill discovery mechanism**: ✅ **The installed-skill scan (§3.1) is canonical**: the session skill list plus `.agents/skills/*/SKILL.md` on disk, git-ignored community folders included. The installer ships no `skill-registry` skill. `.agents/skills/REGISTRY.md` (`scripts/build-skill-registry.ts`) covers committed skills only and feeds the resolver's compact rules, never the community scan. No machine-local registry section or file is generated for community skills: the session list is already live and complete, a generated local file would go stale the moment `bunx skills add` runs, and a machine-dependent section would break the committed file's determinism.
 
 2. **find-skills meta-skill**: ✅ **Automatic, but only as last resort.** This decision is `find-skills`'s named loader in the §3.2 sense: when step 3 fires it loads without asking, and anything it would install still asks. Invocation order:
    1. Scan T1 + T2 (always available).
-   2. Scan T3 + T4 already installed (via system-reminder list).
+   2. Scan T3 + T4 already installed (the §3.1 scan: session skill list + `.agents/skills/` on disk).
    3. If a task domain has no match in steps 1-2 AND the task would benefit significantly from a specialized skill → invoke `find-skills` automatically to suggest installable skills. Ask user before installing.
 
 3. **judgment-day adoption**: ✅ **Vendored T2; available on demand.** Lives committed under `.agents/skills/judgment-day/` (Apache-2.0, attribution preserved). Not auto-invoked. User invokes `/judgment-day` explicitly OR a host orchestrator cites it: `test-automation` Phase 3 names it as one of the two options for the REQUIRED separate verifier (the other is `/pr-review-lead`; `agentic-qa-core/references/stage-gates.md`), and `git-flow-master` offers it as an OPTIONAL pre-PR gate.

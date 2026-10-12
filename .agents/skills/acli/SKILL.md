@@ -56,7 +56,7 @@ The body below covers the core that applies to almost every session. The `refere
 Steps for protocol consistency:
 
 1. Read `complementary_categories` from this skill's frontmatter (`issue-tracker`).
-2. Resolve via the host repo's skill-registry cache (`.agents/skills/REGISTRY.md`, built by `scripts/build-skill-registry.ts`). Fallback: scan the session-start `system-reminder` skill list.
+2. Scan the skills actually installed (the host repo's strategy doc §3.1): the session's skill list plus every `.agents/skills/*/SKILL.md` on disk, git-ignored community folders included. `.agents/skills/REGISTRY.md` lists committed skills only, so it is never this scan.
 3. Apply the threshold rule per the host repo's skill-composition strategy doc (T1 / T3 silent; T4 silent only when a doctrine names it for this moment, otherwise ASK).
 4. The Atlassian MCP fallback documented below is OPT-IN, not a skill — enable manually via `agentic-qa-core/references/mcp-atlassian-optin.md`.
 
