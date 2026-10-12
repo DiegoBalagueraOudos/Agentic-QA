@@ -302,8 +302,8 @@ INTERACTIVE FLOW (default):
   - For each environment, prompts for the four env-scoped vars.
   - Validates that default_env matches a real env (re-prompts if not).
   - For unfilled fields: prompts with the # TODO: description as helper text,
-    suggests the example value as a default, and validates input. Empty input
-    keeps the field as null (skip).
+    shows the example next to the question (never as the default), and
+    validates input. Empty input keeps the field as null (skip).
   - For filled fields: shows current value and asks keep / change / clear.
   - At the end: shows a summary, asks for confirmation, then writes the file
     back preserving every comment, blank line and section header.
@@ -599,9 +599,11 @@ async function promptFlatField(
   }
 
   while (true) {
+    // The example is shown, never pre-filled: Enter on an empty field must not
+    // write a made-up value (analysis §8 #12).
     const answer = await input({
-      message: `${field.section}.${field.key} — ${desc}`,
-      default: currentValue ?? example ?? undefined,
+      message: `${field.section}.${field.key} — ${desc}${!currentValue && example ? ` (e.g. ${example})` : ''}`,
+      default: currentValue ?? undefined,
     });
     if (!answer.trim()) {
       log.dim('  (skipped — kept as null)');
@@ -652,8 +654,8 @@ async function promptEnvScopedField(
 
   while (true) {
     const answer = await input({
-      message: `environments.${envName}.${field.key} — ${desc}`,
-      default: currentValue ?? example ?? undefined,
+      message: `environments.${envName}.${field.key} — ${desc}${!currentValue && example ? ` (e.g. ${example})` : ''}`,
+      default: currentValue ?? undefined,
     });
     if (!answer.trim()) {
       log.dim('  (skipped — kept as null)');
