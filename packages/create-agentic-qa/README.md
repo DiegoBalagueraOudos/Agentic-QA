@@ -62,7 +62,7 @@ The checks, as `src/doctor.ts` defines them:
 | `bun`         | yes      | Runs this CLI, `bun install`, and `bun setup`.        |
 | `git`         | yes      | `git init` + initial commit on `main` (skipped on `--no-git`). |
 | `node >= 18`  | yes      | Some downstream tools shell out to a Node 18+ runtime. Probes the real binary — under `bunx`, `process.versions.node` is emulated by Bun and would pass on a machine with no Node. |
-| `gh`          | optional | Needed only for `--github-create` at the end of setup.    |
+| `gh`          | optional | Needed only for the GitHub phase of `bun setup` (create the remote and push). |
 | `internet`    | yes      | Reaches `api.github.com` to fetch the template tarball.   |
 | `disk space`  | optional | Warns if less than 200 MB free in the current directory.  |
 
@@ -78,17 +78,21 @@ machine?" before you commit to running it.
 
 The view renders these sections:
 
-1. **Prerequisites** — every binary the downstream installer expects, with a
-   live `present` / `MISSING` / `n/a` status next to it.
+1. **Prerequisites** — every tool the downstream installer expects (each row
+   tied to the `bun setup` preflight check it stands for), with a live
+   `present` / `MISSING` / `n/a` status next to it.
 2. **Will install** — Engram memory, community project-level skills, and
    community user-level skills (a count and the first few of each, with a drill-down
    prompt to expand any category).
 3. **Will configure** — MCP servers (with the `.env` keys each one reads),
-   `.env` files written or updated, authentication services, and the
-   non-interactive vs interactive post-install steps.
-4. **Will NOT install** — services and CLIs you handle yourself, each with a
+   files written or updated, and authentication services.
+4. **Phases** — the phases of `bun setup` in the order they run (preflight,
+   team, install, project, credentials, Jira, GitHub, verify, done), each
+   step tagged `[asks]` or `[automatic]`, then the ways to run it (`--headless`,
+   `--ui`, `--non-interactive`, ...).
+5. **Will NOT install** — services and CLIs you handle yourself, each with a
    one-line docs pointer.
-5. **Drill-down** — pick any of the three skill categories to print its full
+6. **Drill-down** — pick any of the three skill categories to print its full
    list; loop back into the inspect view until you choose "Back to menu".
 
 Inspect is purely informational — it does not write to disk, hit the network
@@ -238,8 +242,8 @@ Pass a project name as the first positional argument:
 name *and* you are in a TTY (or when you pass `--menu` explicitly).
 
 **Doctor says `gh` is missing but I do not need it.**
-`gh` is optional — it is only required if you opt into `--github-create` at
-the end of `bun setup`. A `warn` row on `gh` will not block the scaffold.
+`gh` is optional — it is only required if you create the GitHub repository in
+the GitHub phase of `bun setup`. A `warn` row on `gh` will not block the scaffold.
 
 **Inspect says a prerequisite is MISSING but doctor was happy.**
 Inspect uses the **manifest's** prerequisite list (everything the downstream
@@ -304,7 +308,7 @@ bun run repo:check
 cd packages/create-agentic-qa
 bun test
 bun run types:check
-bun run check:manifest      # installer-manifest.json must not have drifted
+bun run check:manifest      # installer-manifest.json matches cli/install.ts, its phases and the preflight
 
 # 3. Bump the version. Semver against the PUBLISHED version, not the file:
 #    npm view create-agentic-qa version

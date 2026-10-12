@@ -115,7 +115,7 @@ export async function runDoctor(): Promise<{ allPassed: boolean, rows: DoctorRow
   rows.push({
     name: 'gh (GitHub CLI)',
     status: ghOk ? 'ok' : 'warn',
-    hint: ghOk ? 'found' : 'Optional — needed for --github-create. Install: https://cli.github.com',
+    hint: ghOk ? 'found' : 'Optional — needed for the GitHub phase of bun setup. Install: https://cli.github.com',
     required: false,
   });
 

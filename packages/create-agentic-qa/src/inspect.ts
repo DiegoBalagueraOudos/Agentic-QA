@@ -35,8 +35,9 @@ export async function runInspect(): Promise<void> {
   tui.section('1. Prerequisites — install BEFORE running the scaffolder');
 
   const prereqRows = manifest.prerequisites.map((p) => {
-    const binaryName = (p as { binaryName?: string }).binaryName;
-    const present = binaryName != null ? hasBinary(binaryName) : null;
+    const { binaryName, binaryNames } = p as { binaryName?: string, binaryNames?: string[] };
+    const probes = binaryNames ?? (binaryName != null ? [binaryName] : []);
+    const present = probes.length > 0 ? probes.some(hasBinary) : null;
     let status: string;
     if (present === null) {
       status = `${tui.statusIcon('info')} n/a`;
@@ -98,17 +99,30 @@ export async function runInspect(): Promise<void> {
   }
   tui.breathe();
 
-  process.stdout.write(`${bold('PHASE 5 post-install steps')}\n`);
-  for (const s of manifest.willConfigure.postInstallSteps) {
-    const tag = s.interactive ? dim('[interactive]') : dim('[non-interactive]');
-    process.stdout.write(`   • ${cyan(s.step)} ${tag}  ${dim(`— ${s.what}`)}\n`);
+  // -------------------------------------------------------------------------
+  // 4. PHASES (the order `bun setup` runs them in)
+  // -------------------------------------------------------------------------
+  tui.section(`4. bun setup runs ${manifest.phases.length} phases, in this order`);
+
+  manifest.phases.forEach((phase, i) => {
+    process.stdout.write(`${bold(`${i + 1}. ${phase.title}`)}  ${dim(`— ${phase.hint}`)}\n`);
+    for (const s of phase.steps) {
+      const tag = s.interactive ? dim('[asks]') : dim('[automatic]');
+      process.stdout.write(`   • ${cyan(s.step)} ${tag}  ${dim(`— ${s.what}`)}\n`);
+    }
+  });
+  tui.breathe();
+
+  process.stdout.write(`${bold('Ways to run it')}\n`);
+  for (const u of manifest.usage) {
+    process.stdout.write(`   • ${cyan(u.command)}${'what' in u ? `  ${dim(`— ${u.what}`)}` : ''}\n`);
   }
   tui.breathe();
 
   // -------------------------------------------------------------------------
-  // 4. WILL NOT INSTALL
+  // 5. WILL NOT INSTALL
   // -------------------------------------------------------------------------
-  tui.section('4. Will NOT auto-install — you handle these');
+  tui.section('5. Will NOT auto-install — you handle these');
 
   for (const e of manifest.willNotInstall) {
     process.stdout.write(`   • ${cyan(e.name)}  ${dim(`— ${e.reason}`)}\n`);
@@ -117,7 +131,7 @@ export async function runInspect(): Promise<void> {
   tui.breathe();
 
   // -------------------------------------------------------------------------
-  // 5. DRILL-DOWN PROMPT
+  // 6. DRILL-DOWN PROMPT
   // -------------------------------------------------------------------------
   const drillChoice = await tui.select<'engram' | 'project' | 'user' | 'back'>({
     message: 'Want to see the full skill list for a category?',

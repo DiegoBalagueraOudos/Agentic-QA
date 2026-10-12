@@ -1,51 +1,79 @@
 {
-  "version": 1,
+  "version": 2,
   "sourceRef": "main",
   "prerequisites": [
     {
-      "name": "bun",
+      "name": "bun >= 1.0",
       "required": true,
       "purpose": "JavaScript runtime and package manager used by every script and the installer itself.",
       "installHint": "https://bun.sh/docs/installation",
       "binaryName": "bun"
     },
     {
-      "name": "git",
-      "required": true,
-      "purpose": "Required to clone the template and track your project's history.",
-      "installHint": "https://git-scm.com/downloads",
-      "binaryName": "git"
-    },
-    {
       "name": "node >= 18",
       "required": true,
-      "purpose": "Used by the npx wrapper that runs create-agentic-qa. Must be v18 or newer.",
+      "purpose": "Your agent's hooks run on Node, so bun setup does not start without it; the npx wrapper of create-agentic-qa needs it too.",
       "installHint": "https://nodejs.org/en/download",
       "binaryName": "node"
     },
     {
-      "name": "gh (GitHub CLI)",
-      "required": false,
-      "purpose": "Optional. Needed only if you want the installer to auto-create a GitHub repo (Phase 4 Step 9).",
-      "installHint": "https://cli.github.com",
-      "binaryName": "gh"
+      "name": "git",
+      "required": true,
+      "purpose": "Clones the template and tracks your project's history. Set user.name and user.email before the first commit, or the preflight warns.",
+      "installHint": "https://git-scm.com/downloads",
+      "binaryName": "git"
+    },
+    {
+      "name": "an AI agent (Claude Code, OpenCode or Codex)",
+      "required": true,
+      "purpose": "bun setup configures only the agents you pick, and does not start when none is installed.",
+      "installHint": "https://github.com/upex-galaxy/agentic-qa-boilerplate#readme",
+      "binaryNames": ["claude", "opencode", "codex"]
     },
     {
       "name": "internet access",
       "required": true,
-      "purpose": "The scaffolder downloads the boilerplate template from GitHub and community skills from their registries.",
+      "purpose": "Community skills download from the npm registry and GitHub, the test browser from cdn.playwright.dev; the preflight probes all three.",
       "installHint": "https://api.github.com"
     },
     {
-      "name": "disk space (200 MB+)",
-      "required": false,
-      "purpose": "The template, node_modules, and installed skills require at least 200 MB of free disk space.",
+      "name": "disk space (1.1 GB+)",
+      "required": true,
+      "purpose": "Chromium and the dependencies use about 1.1 GB. Below 400 MB free bun setup does not start; below 1.2 GB it warns.",
       "installHint": "https://bun.sh/docs"
+    },
+    {
+      "name": "acli (Atlassian CLI)",
+      "required": false,
+      "purpose": "The Jira phase signs in and syncs catalogs with it; without it the Jira phase is skipped.",
+      "installHint": "https://developer.atlassian.com/cloud/acli/guides/install-acli/",
+      "binaryName": "acli"
+    },
+    {
+      "name": "engram >= 3.0",
+      "required": false,
+      "purpose": "Cross-session memory for the agents; without it the memory step is skipped.",
+      "installHint": "https://github.com/Gentleman-Programming/engram",
+      "binaryName": "engram"
+    },
+    {
+      "name": "gh (GitHub CLI)",
+      "required": false,
+      "purpose": "Only for the GitHub phase (create the remote repository and push); choose local only otherwise.",
+      "installHint": "https://cli.github.com",
+      "binaryName": "gh"
+    },
+    {
+      "name": "1Password CLI (op)",
+      "required": false,
+      "purpose": "Only when the project keeps its secrets in 1Password (secrets.provider: 1password).",
+      "installHint": "https://developer.1password.com/docs/cli/get-started/",
+      "binaryName": "op"
     },
     {
       "name": "API keys (.env)",
       "required": false,
-      "purpose": "MCP servers (Tavily, Atlassian, DBHub, OpenAPI, Playwright, Postman) require API keys set in .env before they can connect.",
+      "purpose": "The project MCP servers that read keys (slack-aurora, dbhub, openapi) connect once their values are in .env; web search and similar servers run at harness level and keep their keys outside .env.",
       "installHint": "See .env.example in the project root after scaffolding."
     }
   ],
@@ -160,6 +188,10 @@
         "what": "Already committed. Uses {env:VAR} placeholders — installer ensures .env has the values."
       },
       {
+        "path": ".agents/project.yaml",
+        "what": "Project identity, environments and the selected agents, written by the Team and Project phases."
+      },
+      {
         "path": ".template/installer.state.json",
         "what": "Installer idempotency state (gitignored). Tracks which steps completed."
       }
@@ -167,58 +199,306 @@
     "auth": [
       {
         "service": "acli (Atlassian CLI)",
-        "method": "One-time interactive login — credentials stored in ~/.config/acli/. Site host from .agents/project.yaml (bun run jira:url --slug), not from the environment.",
+        "method": "Signed in by the Jira phase with the .env email and token — credentials stored in ~/.config/acli/. Site host from .agents/project.yaml (bun run jira:url --slug), not from the environment.",
         "credsFrom": ["ATLASSIAN_EMAIL", "ATLASSIAN_API_TOKEN"]
       },
       {
-        "service": "Jira (HTTP basic auth via MCP)",
-        "method": "Env vars read at MCP startup — no interactive login needed. The site host is pasted into the config (an MCP config cannot run a command); print it with bun run jira:url.",
+        "service": "Jira via the opt-in Atlassian MCP (HTTP basic auth)",
+        "method": "Not configured by bun setup: acli stays the default Jira path. When enabled, env vars are read at MCP startup; the site host is pasted into the config (an MCP config cannot run a command); print it with bun run jira:url.",
         "credsFrom": ["ATLASSIAN_EMAIL", "ATLASSIAN_API_TOKEN"]
       },
       {
-        "service": "Xray Cloud (xray-cli)",
-        "method": "Env-var driven — credentials read at command invocation. Only required when TMS_PROVIDER=xray.",
+        "service": "Xray Cloud (bun xray)",
+        "method": "Not configured by bun setup: credentials are read when a bun xray command runs. Only needed when the project uses Xray as its TMS.",
         "credsFrom": ["XRAY_CLIENT_ID", "XRAY_CLIENT_SECRET"]
-      }
-    ],
-    "postInstallSteps": [
-      {
-        "step": "agents:setup",
-        "what": "Runs bun run scripts/agents-setup.ts — wires .agents/project.yaml with project name, key, and URLs.",
-        "interactive": true
-      },
-      {
-        "step": "acli auth",
-        "what": "Runs acli login — authenticates the Atlassian CLI for Jira/Confluence operations.",
-        "interactive": true
-      },
-      {
-        "step": "jira:sync-fields",
-        "what": "Fetches custom field metadata from Jira and writes .agents/jira-fields.json.",
-        "interactive": false
-      },
-      {
-        "step": "jira:sync-workflows",
-        "what": "Fetches workflow transitions from Jira and writes .agents/jira-workflows.json.",
-        "interactive": false
-      },
-      {
-        "step": "jira:check",
-        "what": "Validates the Jira setup manifest against the fetched field catalog.",
-        "interactive": false
-      },
-      {
-        "step": "api:sync",
-        "what": "Runs bun run api:sync — fetches OpenAPI spec from the configured backend and regenerates api/schemas/ TypeScript types.",
-        "interactive": false
-      },
-      {
-        "step": "xray auth login",
-        "what": "Runs bun xray auth login — authenticates against Xray Cloud. Only when TMS_PROVIDER=xray; skipped for Jira-native (Modality jira-native).",
-        "interactive": true
       }
     ]
   },
+  "phases": [
+    {
+      "id": "pre",
+      "title": "Preflight",
+      "hint": "tools, network, disk",
+      "steps": [
+        {
+          "step": "Preflight",
+          "what": "Checks tools, AI agents, network and disk in a few seconds (cli/preflight.ts). A blocking row stops the run before anything is written; a warning only skips the step it affects.",
+          "interactive": false
+        },
+        {
+          "step": "Start confirmation",
+          "what": "Asks once whether to start; --non-interactive skips it.",
+          "interactive": true
+        },
+        {
+          "step": "Clean project.yaml",
+          "what": "A project copied with \"Use this template\" gets a clean .agents/project.yaml from the schema before anything writes to it.",
+          "interactive": false
+        }
+      ]
+    },
+    {
+      "id": "team",
+      "title": "Your team",
+      "hint": "which AI agents it uses",
+      "steps": [
+        {
+          "step": "AI agents",
+          "what": "Which agents the project supports (Claude Code, OpenCode, Codex), recorded in .agents/project.yaml `harnesses:`; the files of an agent you drop can be removed.",
+          "interactive": true,
+          "prompts": ["agents", "drop-*"]
+        },
+        {
+          "step": "Engram",
+          "what": "Detects Engram 3.0+ and, for Claude Code, offers its plugin (session hooks, installed once per machine).",
+          "interactive": true,
+          "prompts": ["engram-incompatible", "engram-plugin"]
+        },
+        {
+          "step": "User-level skills",
+          "what": "Which user-level community skills to install, one by one; a declined skill is left out of later runs.",
+          "interactive": true,
+          "prompts": ["user-skills"]
+        }
+      ]
+    },
+    {
+      "id": "install",
+      "title": "Install",
+      "hint": "downloads, memory, skills",
+      "steps": [
+        {
+          "step": "Dependencies",
+          "what": "bun install when node_modules is missing or stale. Runs in the background while the next phases ask their questions.",
+          "interactive": false
+        },
+        {
+          "step": "Chromium",
+          "what": "Downloads the Playwright test browser (bunx playwright install chromium).",
+          "interactive": false
+        },
+        {
+          "step": "Engram wiring",
+          "what": "engram setup for each selected agent, plus the Claude Code plugin when accepted.",
+          "interactive": false
+        },
+        {
+          "step": "Community skills",
+          "what": "bunx skills add: project-level skills into .agents/skills/, the chosen user-level skills globally.",
+          "interactive": false
+        },
+        {
+          "step": "Link the skills",
+          "what": "Repairs the agent contract: the .claude/skills alias onto .agents/skills/ and the CLAUDE.md shim.",
+          "interactive": false
+        }
+      ]
+    },
+    {
+      "id": "project",
+      "title": "Your project",
+      "hint": "name, environments, URLs",
+      "steps": [
+        {
+          "step": "Project identity",
+          "what": "Project name, key, web domain, local and staging URLs and the default environment, written to .agents/project.yaml by agents-setup --non-interactive (bun run agents:setup changes them later).",
+          "interactive": true,
+          "prompts": ["project-identity", "project-envs", "project-default-env"]
+        }
+      ]
+    },
+    {
+      "id": "creds",
+      "title": "Credentials",
+      "hint": "where and which",
+      "steps": [
+        {
+          "step": "Retired keys",
+          "what": "Offers to remove the .env keys this version no longer reads.",
+          "interactive": true,
+          "prompts": ["retired-keys"]
+        },
+        {
+          "step": "Secrets provider",
+          "what": "Where secret values live: .env (default) or 1Password, which writes the committed .env.provider.schema with references only.",
+          "interactive": true,
+          "prompts": ["secrets-provider", "op-vault", "op-auth"]
+        },
+        {
+          "step": "MCP variables",
+          "what": "Checks the variables each project MCP server reads and asks for the ones the installer manages.",
+          "interactive": true,
+          "prompts": ["var-*"]
+        },
+        {
+          "step": "Day-0 credentials",
+          "what": "The Atlassian email and API token (and the other core variables) the skills use today; the rest is added when needed.",
+          "interactive": true,
+          "prompts": ["day0"]
+        },
+        {
+          "step": "API login",
+          "what": "Optional bun run api:login, offered only when the test user and API_BASE_URL exist and the API answers.",
+          "interactive": true,
+          "prompts": ["api-login"]
+        }
+      ]
+    },
+    {
+      "id": "jira",
+      "title": "Connect Jira",
+      "hint": "session and catalogs",
+      "steps": [
+        {
+          "step": "acli session",
+          "what": "Signs the Atlassian CLI in with the .env email and token; a rejected token is asked again.",
+          "interactive": true,
+          "prompts": ["token-retry-*"]
+        },
+        {
+          "step": "Jira catalogs",
+          "what": "Custom fields, workflows and link types, from your own Jira (workflow pickers through jira:sync-workflows --plan-json / --answers) or from the UPEX reference catalog; writes .agents/jira-*.json.",
+          "interactive": true,
+          "prompts": ["jira-catalogs", "wf-*"]
+        },
+        {
+          "step": "Jira check",
+          "what": "bun run jira:check validates the Jira setup manifest against the synced catalogs.",
+          "interactive": false
+        }
+      ]
+    },
+    {
+      "id": "github",
+      "title": "GitHub",
+      "hint": "remote repository",
+      "steps": [
+        {
+          "step": "GitHub repository",
+          "what": "Optional: creates the remote with gh (account, visibility, name) and pushes the first commit, after the background downloads finish.",
+          "interactive": true,
+          "prompts": ["gh-create", "gh-account", "gh-visibility", "gh-name"]
+        }
+      ]
+    },
+    {
+      "id": "verify",
+      "title": "Verify",
+      "hint": "that everything answers",
+      "steps": [
+        {
+          "step": "Command-line tools",
+          "what": "Reports which external CLIs are on PATH (information only; nothing is installed).",
+          "interactive": false
+        },
+        {
+          "step": "Agent contract",
+          "what": "Counts the project MCP servers that are ready and checks instructions, skills and MCP configs for every selected agent.",
+          "interactive": false
+        },
+        {
+          "step": "Plaintext copies",
+          "what": "Retires the plaintext MCP credential copies an older install left behind.",
+          "interactive": false
+        },
+        {
+          "step": "Save progress",
+          "what": "Writes .template/installer.state.json so the next run repeats nothing.",
+          "interactive": false
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "hint": "summary and next steps",
+      "steps": [
+        {
+          "step": "Report",
+          "what": "One report: what was done, what is pending and what to run next.",
+          "interactive": false
+        }
+      ]
+    }
+  ],
+  "prompts": [
+    "agents",
+    "user-skills",
+    "retired-keys",
+    "var-*",
+    "secrets-provider",
+    "op-vault",
+    "op-auth",
+    "day0",
+    "api-login",
+    "gh-create",
+    "gh-account",
+    "gh-visibility",
+    "gh-name",
+    "drop-*",
+    "project-identity",
+    "project-envs",
+    "project-default-env",
+    "token-retry-*",
+    "wf-*",
+    "jira-catalogs",
+    "engram-incompatible",
+    "engram-plugin"
+  ],
+  "flags": [
+    "--non-interactive",
+    "--force",
+    "--force-step",
+    "--variables",
+    "--variables-mode",
+    "--variables-local",
+    "--variables-remote",
+    "--dry-run",
+    "--yes",
+    "--sync-skills",
+    "--validate-skills",
+    "--headless",
+    "--ui",
+    "--help",
+    "-h"
+  ],
+  "usage": [
+    {
+      "command": "bun setup",
+      "what": "page when there is a screen, terminal otherwise"
+    },
+    {
+      "command": "bun setup --headless",
+      "what": "terminal only; questions in the terminal"
+    },
+    {
+      "command": "bun setup --ui",
+      "what": "page even where the rules say terminal"
+    },
+    {
+      "command": "bun setup --non-interactive",
+      "what": "every question takes its default (agents, CI)"
+    },
+    {
+      "command": "bun setup --force",
+      "what": "re-run every step"
+    },
+    {
+      "command": "bun setup --force-step <key>",
+      "what": "re-run one step (keys in .template/installer.state.json)"
+    },
+    {
+      "command": "bun setup --sync-skills",
+      "what": "re-install the community skills only"
+    },
+    {
+      "command": "bun setup --validate-skills",
+      "what": "probe the community skill sources, install nothing"
+    },
+    {
+      "command": "bun setup --variables [--variables-mode local|remote|both] [--dry-run] [--yes]"
+    }
+  ],
   "willNotInstall": [
     {
       "name": "bun",
