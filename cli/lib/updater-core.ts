@@ -2518,10 +2518,13 @@ export async function runUpdate(
           sink.warn(`El sync anterior sigue sin commitear. Commit sugerido: ${lastApply.suggestedCommit}${lastApply.promptFile ? `; prompt de paridad: ${lastApply.promptFile}` : ''}.`);
         }
         if (opts.auto) {
-          sink.error('Abortado: árbol sucio en modo --auto. Re-ejecuta con --force para forzar.');
+          // Name the files and the reversible fix, never `--force` (analysis §8 #20):
+          // that flag also deletes files and takes upstream's package.json values.
+          const paths = blocking.slice(0, 5).map(p => JSON.stringify(p)).join(' ');
+          sink.error(`Abortado: ${blocking.length} ruta(s) que este updater sincroniza tienen cambios sin commitear (${shown}). Commitéalas, o guárdalas con \`git stash push -- ${paths}\`, y vuelve a correr.`);
           return abortedSummary;
         }
-        const proceed = confirmedByParent('dirty-tree') || await sink.confirm('¿Continuar de todas formas pese a los cambios sin commitear?', false);
+        const proceed = confirmedByParent('dirty-tree') || await sink.confirm('Continuar de todas formas pese a los cambios sin commitear?', false);
         if (!proceed) {
           return abortedSummary;
         }
@@ -2568,7 +2571,7 @@ export async function runUpdate(
   if (fromV5 || fromV6) {
     const sourceLabel = fromV5 ? 'v5 (legacy)' : 'v6';
     sink.warn(`Detectado esquema ${sourceLabel} en .template/boilerplate.lock.json.`);
-    const ok = opts.auto || confirmedByParent('lock-migration')
+    const ok = opts.auto || opts.force || confirmedByParent('lock-migration')
       ? true
       : await sink.confirm(`Migrar esquema ${sourceLabel} → v7 (rastreo per-component SHA + ignore-files + flags ampliados)?`, true);
     if (!ok) {
@@ -2735,8 +2738,9 @@ export async function runUpdate(
         // A2: confirm before clobbering cli/. A user who customized the updater
         // gets a chance to bail; files are backed up + restorable via --rollback,
         // but .backups/ is gitignored, so the explicit OK matters. Auto skips.
-        if (!opts.auto) {
-          const okSelf = await sink.confirm(`Se reemplazarán ${stale.length} archivo(s) de cli/ (backup en .backups/, restaurable con --rollback). ¿Continuar?`, true);
+        // `--force` never asks either (analysis §8 #21: the help says so).
+        if (!opts.auto && !opts.force) {
+          const okSelf = await sink.confirm(`Se reemplazarán ${stale.length} archivo(s) de cli/ (backup en .backups/, restaurable con --rollback). Continuar?`, true);
           if (!okSelf) {
             sink.warn('Self-update cancelado. Re-ejecuta cuando quieras actualizar el CLI.');
             cleanupTempDir(cfg.tempDir);

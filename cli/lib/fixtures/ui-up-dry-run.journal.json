@@ -105,7 +105,7 @@
   {
     "t": "phase.start",
     "id": "self",
-    "why": "La versión nueva trae cambios en el propio actualizador. El proceso se reinicia con el código nuevo para que haga el resto. [[selfupdate|¿Por qué?]]",
+    "why": "La versión nueva trae cambios en el propio actualizador. El proceso se reinicia con el código nuevo para que haga el resto. [[selfupdate|Por qué?]]",
     "seq": 10,
     "ts": 6239
   },
@@ -577,7 +577,7 @@
   {
     "t": "phase.start",
     "id": "report",
-    "why": "Lo que quedó distinto entre tu proyecto y el boilerplate, y por qué. [[parity|¿Qué es esto?]]",
+    "why": "Lo que quedó distinto entre tu proyecto y el boilerplate, y por qué. [[parity|Qué es esto?]]",
     "seq": 70,
     "ts": 17657
   },

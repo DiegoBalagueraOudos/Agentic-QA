@@ -95,7 +95,7 @@ describe('when the page opens (plan §5)', () => {
 });
 
 describe('preflight in the page', () => {
-  test('a clear checklist starts directly (Q4: up asks no "¿Empezamos?")', async () => {
+  test('a clear checklist starts directly (Q4: up asks no "Empezamos?")', async () => {
     const { ui } = await start([]);
     expect(await ui!.preflight({ checks: [{ label: 'git', state: 'ok' }], verdict: 'clear', text: 'ok' }, async () => { throw new Error('no recheck'); })).toBe('go');
   });

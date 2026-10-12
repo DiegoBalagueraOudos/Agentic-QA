@@ -74,7 +74,7 @@ describe.skipIf(!HAVE_CHROMIUM)('installer page in a browser', () => {
     r.start();
     r.phaseStart('project');
 
-    const go = r.ask<boolean>({ id: 'confirm', kind: 'confirm', title: '¿Empezamos?', spec: { yes: 'Empezar', no: 'Todavía no' } });
+    const go = r.ask<boolean>({ id: 'confirm', kind: 'confirm', title: 'Empezamos?', spec: { yes: 'Empezar', no: 'Todavía no' } });
     await card(page, 'confirm').getByRole('button', { name: 'Empezar' }).click();
     expect(await go).toBe(true);
     await pw(card(page, 'confirm').locator('.answer-line')).toHaveText(/Empezar/);

@@ -47,11 +47,11 @@ const PHASES_READONLY: PhaseDef[] = [
 
 const PHASE_WHY: Record<string, string> = {
   fetch: 'Descargamos la versión actual del boilerplate ([[upstream|upstream]]) en una carpeta temporal. Tu proyecto no se toca todavía.',
-  self: 'La versión nueva trae cambios en el propio actualizador. El proceso se reinicia con el código nuevo para que haga el resto. [[selfupdate|¿Por qué?]]',
+  self: 'La versión nueva trae cambios en el propio actualizador. El proceso se reinicia con el código nuevo para que haga el resto. [[selfupdate|Por qué?]]',
   detect: 'Comparamos cada archivo con la versión anterior del boilerplate y con la tuya, para separar lo nuevo de lo que tú editaste.',
   scope: 'En modo automático se trae todo lo nuevo. Lo que exige decidir no se toca.',
   apply: 'Escribimos los cambios, mezclamos tu configuración sin borrar lo tuyo y corremos las comprobaciones del proyecto.',
-  report: 'Lo que quedó distinto entre tu proyecto y el boilerplate, y por qué. [[parity|¿Qué es esto?]]',
+  report: 'Lo que quedó distinto entre tu proyecto y el boilerplate, y por qué. [[parity|Qué es esto?]]',
 };
 
 /** Updater phase number (cli/lib/updater-core.ts) -> page phase id. 3 SCOPE and 4 FILES share one page phase. */

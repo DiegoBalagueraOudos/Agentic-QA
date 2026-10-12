@@ -173,7 +173,7 @@ describe('questions go to the page (Q6: page only while it is connected)', () =>
 
   test('the page answering first aborts the terminal prompt through the signal', async () => {
     const { r, sink, signals } = setup({ connected: false });
-    const p = sink.confirm('¿Seguimos?', true);
+    const p = sink.confirm('Seguimos?', true);
     await sleep(80); // the terminal prompt is open now (it never answers by itself)
     const signal = signals.find(Boolean)!;
     expect(signal.aborted).toBe(false);
@@ -186,7 +186,7 @@ describe('questions go to the page (Q6: page only while it is connected)', () =>
 describe('read-only run (explicit --auto in the page)', () => {
   test('a question never reaches the page: the terminal sink answers it as without a page', async () => {
     const { r, sink, term } = setup({ mode: 'readonly', answers: { confirm: true } });
-    expect(await sink.confirm('¿Migrar?', true)).toBe(true);
+    expect(await sink.confirm('Migrar?', true)).toBe(true);
     expect(term.calls).toContain('ask:confirm');
     expect(r.journal.all().some(e => e.t === 'ask')).toBe(false);
   });

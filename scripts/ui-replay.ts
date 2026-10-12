@@ -82,7 +82,7 @@ async function concurrent(opts: { port?: number, open: boolean, lang: Lang }): P
   await waitForClient(sink.hasClient);
 
   reporter.start();
-  reporter.phaseStart('install', { why: 'Las descargas largas corren en segundo plano mientras respondes las preguntas del proyecto. [[lane|¿Cómo?]]' });
+  reporter.phaseStart('install', { why: 'Las descargas largas corren en segundo plano mientras respondes las preguntas del proyecto. [[lane|Cómo?]]' });
   const stream = async (title: string, lines: string[], every: number): Promise<void> => {
     const s = reporter.step({ phase: 'install', title, lane: 'descargas' });
     for (const l of lines) { await sleep(every); s.log(l); }
@@ -99,7 +99,7 @@ async function concurrent(opts: { port?: number, open: boolean, lang: Lang }): P
     kind: 'text',
     phase: 'project',
     kicker: 'Identidad',
-    title: '¿Cómo se llama el proyecto?',
+    title: 'Cómo se llama el proyecto?',
     spec: { fields: [{ id: 'name', label: 'Nombre', short: 'Nombre', required: true, placeholder: 'Acme QA' }, { id: 'key', label: 'Clave de Jira', short: 'Clave', required: true, pattern: '^[A-Z][A-Z0-9]{1,9}$', patternMsg: 'Mayúsculas y números, 2 a 10 caracteres.', placeholder: 'ACME' }] },
   });
   reporter.notice('info', `Proyecto \`${name}\` con clave \`${key}\`.`, 'project');
@@ -107,7 +107,7 @@ async function concurrent(opts: { port?: number, open: boolean, lang: Lang }): P
     kind: 'select',
     phase: 'project',
     kicker: 'Entorno',
-    title: '¿Qué entorno se prueba por defecto?',
+    title: 'Qué entorno se prueba por defecto?',
     spec: { options: [{ value: 'staging', label: 'staging', rec: true, desc: 'Lo habitual: datos de prueba, sin clientes reales.' }, { value: 'local', label: 'local', desc: 'Tu máquina, `http://localhost:3000`.' }] },
     default: 'staging',
   });

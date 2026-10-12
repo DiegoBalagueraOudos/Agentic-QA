@@ -348,7 +348,11 @@ export function parseArgs(args: string[]): ParsedArgs {
     }
     else if (aliases[a]) { out.commands.push(aliases[a]); }
     else if (valid.has(a)) { out.commands.push(a); }
+    // The page flags are read by cli/lib/ui/env-detect.ts.
+    else if (a === '--headless' || a === '--ui') { /* known */ }
     else if (!a.startsWith('-')) { tui.log.error(`Comando/componente desconocido: ${a}. Usa --help para ver los validos.`); process.exit(1); }
+    // An unknown flag used to be ignored, so `--dryrun` ran a REAL sync (analysis §8 #28).
+    else { tui.log.error(`Opción desconocida: ${a}. Usa --help para ver las válidas.`); process.exit(1); }
   }
   return out;
 }
@@ -988,7 +992,7 @@ async function backfillProjectYamlFromSchema(
       ? `el bloque \`${gap.block}\` completo (${gap.paths.length} clave(s))`
       : `${gap.paths.length} clave(s) nueva(s) en \`${gap.block}\`: ${gap.paths.join(', ')}`;
     const proceed = await sink.confirm(
-      `Tu \`${SCHEMA_SOURCE}\` no tiene ${what}. ¿Insertarlas ahora? (insert-only — ningún valor tuyo se modifica)`,
+      `Tu \`${SCHEMA_SOURCE}\` no tiene ${what}. Insertarlas ahora? (insert-only — ningún valor tuyo se modifica)`,
       false,
     );
     if (!proceed) { continue; }
@@ -1150,7 +1154,7 @@ function makeYamlBackfillHook(
     }
 
     const proceed = await sink.confirm(
-      `Tu \`${spec.consumerRel}\` no tiene el bloque \`${spec.label}\` (estándar de defect-management). ¿Agregarlo ahora? (insert-only — tus valores existentes nunca se modifican)`,
+      `Tu \`${spec.consumerRel}\` no tiene el bloque \`${spec.label}\` (estándar de defect-management). Agregarlo ahora? (insert-only — tus valores existentes nunca se modifican)`,
       false,
     );
     if (!proceed) {
@@ -1853,7 +1857,7 @@ function buildSink(signal: () => AbortSignal | undefined = () => undefined): Rep
         ? `, +${stats.addedTotal}/-${stats.removedTotal} líneas`
         : '';
       const r = await tui.select({
-        message: `${scope} (${stats.changedCount} archivo(s)${divergedSuffix}${locSuffix}) — ¿como proceder?`,
+        message: `${scope} (${stats.changedCount} archivo(s)${divergedSuffix}${locSuffix}) — cómo proceder?`,
         options: [
           { value: 'all', label: `aceptar todos (${stats.changedCount})` },
           { value: 'pick', label: 'elegir individualmente' },
@@ -1920,7 +1924,7 @@ function buildSink(signal: () => AbortSignal | undefined = () => undefined): Rep
       const body = `=== Tu versión (local) ===\n${drift.localValue}\n\n=== Versión del boilerplate (upstream) ===\n${drift.upstreamValue}`;
       tui.note(body, `${file} → ${section}.${key}`);
       const r = await tui.select({
-        message: `${section}.${key} difiere — ¿qué hacemos?`,
+        message: `${section}.${key} difiere — qué hacemos?`,
         options: [
           { value: 'mine', label: 'Mantener la mía (predeterminado)' },
           { value: 'theirs', label: 'Actualizar a la del boilerplate' },
@@ -1936,7 +1940,7 @@ function buildSink(signal: () => AbortSignal | undefined = () => undefined): Rep
       const body = `=== Cambios upstream ===\n${diff.templateDiff.trim() || '(sin diff)'}\n\n=== Tus cambios locales ===\n${diff.localDiff.trim() || '(sin diff)'}`;
       tui.note(body, `Divergencia en ${entry.path}`);
       const r = await tui.select({
-        message: '¿Como resolver?',
+        message: 'Cómo resolver?',
         options: [
           { value: 'skip', label: 'skip (predeterminado — preservar tu version)' },
           { value: 'theirs', label: 'theirs (descartar locales, usar upstream)' },
@@ -1949,7 +1953,7 @@ function buildSink(signal: () => AbortSignal | undefined = () => undefined): Rep
     },
 
     confirmDelete: async (entry) => {
-      const r = await tui.confirm({ message: `¿Eliminar ${entry.path} localmente? (upstream lo borro)`, initialValue: false, signal: signal() });
+      const r = await tui.confirm({ message: `Eliminar ${entry.path} localmente? (upstream lo borro)`, initialValue: false, signal: signal() });
       return abortOnCancel<boolean>(r);
     },
 
