@@ -80,7 +80,7 @@
     "repo:fix": "bun run format:fix && bun run lint:fix && bun run types:check && bun run vars:check && bun run vars:schema && bun run skills:check && bun run skills:registry:check && bun run agents:compat && bun run vars:env:check",
     "setup:doctor": "bun cli/doctor.ts",
     "shared:check": "bun scripts/shared-check.ts",
-    "setup": "bun cli/doctor.ts --preflight && bun cli/install.ts",
+    "setup": "bun cli/preflight.ts --for setup --gate && bun cli/install.ts",
     "skills:check": "bun scripts/lint-skills.ts && bun scripts/lint-instructions.ts",
     "skills:evals": "bun scripts/run-skill-evals.ts",
     "skills:registry:check": "bun scripts/build-skill-registry.ts --check",

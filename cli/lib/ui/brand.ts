@@ -17,6 +17,8 @@ export interface Brand {
   glossary: { es: Record<string, GlossaryEntry>, en: Record<string, GlossaryEntry> }
   /** The upstream `bun sync` syncs from when `UPEX_TEMPLATE_REPO` is unset. */
   templateRepo: string
+  /** What `bun setup` downloads in its Install phase: the preflight proves those hosts answer (owner answer Q2). */
+  setupDownloads: ('chromium' | 'skills')[]
 }
 
 export const BRAND: Brand = {
@@ -24,4 +26,5 @@ export const BRAND: Brand = {
   accent: null,
   glossary: { es: {}, en: {} },
   templateRepo: 'upex-galaxy/agentic-qa-boilerplate',
+  setupDownloads: ['chromium', 'skills'],
 };

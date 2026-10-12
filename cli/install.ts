@@ -1,82 +1,77 @@
 #!/usr/bin/env bun
 /**
- * Project installer for agentic-qa-boilerplate.
+ * Project installer for agentic-qa-boilerplate (`bun setup`).
  *
- * Drives the end-to-end onboarding for a freshly-cloned QA boilerplate across
- * 5 named phases:
+ * The run is a sequence of named phases, shown in a local browser page when the
+ * run has a screen and always in the terminal (installer-ui plan §3):
  *
- *   PHASE 1 — DETECTION
- *     1-repo-verify     Verify repo root (package.json name / installer.lock.json)
- *     2-gentle-ai-detect  Detect the engram binary (presence + version)
- *     3-gentle-ai-install engram install instructions / skip decision
- *     4-agent-detect    Detect agents (Claude Code / OpenCode / Codex) and prompt selection
+ *   pre       Preflight: everything knowable in seconds, before any write
+ *             (cli/preflight.ts), then one "Empezamos?" confirmation.
+ *   team      Which AI agents this project supports, and the questions the
+ *             Install phase needs (user-level skills, the Engram plugin).
+ *   install   Background lane `downloads`, started as soon as Team is answered
+ *             (owner answer Q2): Chromium, Engram wiring, community skills,
+ *             compatibility repair. The questions below are asked meanwhile.
+ *   project   `.agents/project.yaml` identity and environments (agents:setup,
+ *             absorbed: the page asks, `agents-setup --non-interactive` writes).
+ *   creds     Where secrets live, MCP variables, day-0 Atlassian credentials,
+ *             API login (only when its credentials exist and the API answers).
+ *   jira      acli session, catalogs (workflow pickers through
+ *             `jira:sync-workflows --plan-json` / `--answers`), manifest check.
+ *   github    Optional repository + push (waits for the Install lane).
+ *   verify    External CLIs (information only), state, plaintext copies.
+ *   done      One report: what was done, what is pending, what to run next.
  *
- *   PHASE 2 — INSTALLATION
- *     5-deps-install    Install dependencies (`bun install`)
- *     6-playwright      Install Playwright browsers (`bun run pw:install`)
- *     8-skills-gentle-ai Wire Engram memory per agent via `engram setup` (or skip)
- *     9-skills-community Install community skills via `bunx skills add`
+ * Every step stamps `.template/installer.state.json` the moment it finishes, so
+ * an interrupted run resumes where it stopped. The step keys keep their old
+ * names (`5-deps-install`, `8-skills-gentle-ai`, ...) so state files and
+ * `--force-step` stay backward compatible.
  *
- *   PHASE 3 — CONFIGURATION
- *     10-mcp-env        Wire `.env` for MCP servers
- *     13-github-repo    GitHub repository (optional)
+ * Core code never prints and never imports a prompt library: it emits through
+ * the run's reporter (`cli/lib/ui/installer-run.ts`), and the terminal printer
+ * (`cli/lib/install-terminal.ts`) renders the same journal the page renders.
  *
- *   PHASE 4 — VERIFICATION
- *     11-verify-clis    Verify external CLIs (bun, gh, acli, playwright-cli, resend, jq)
- *     14-state-write    Persist `.template/installer.state.json`
- *
- *   PHASE 5 — INITIAL CONFIGURATION
- *     7-agents-setup    Run agents:setup (.agents/project.yaml populator)
- *     12.4-acli-auth    Atlassian credentials + acli session login
- *     13-jira-sync        Catalog-source prompt (own / upex / skip) → fields +
- *                         workflows + link-types sync; empty {} placeholders for
- *                         any catalog still missing (anti STALE-PATH)
- *     14-jira-check     `bun run jira:check`
- *
- * The `*-gentle-ai*` step keys predate the switch to `engram setup`; they keep
- * their names so `.template/installer.state.json` and `--force-step` stay
- * backward compatible.
- *
- * Idempotency: each step writes an ISO timestamp to state.steps[<key>] on success.
- * Re-runs skip completed steps unless overridden via:
- *   INSTALL_FORCE_ALL=1                  Clear all step timestamps before running
- *   INSTALL_FORCE_<STEP_KEY>=1           Clear one step (e.g. INSTALL_FORCE_5_DEPS_INSTALL=1)
- *   --force (CLI flag)                   Same as INSTALL_FORCE_ALL=1
- *   --force-step <key> (CLI flag)        Same as INSTALL_FORCE_<key>=1
- *   --validate-skills (CLI flag)         Smoke-test mode: probe skills.sh, no install
+ * Idempotency overrides:
+ *   INSTALL_FORCE_ALL=1 / --force          Clear all step timestamps before running
+ *   INSTALL_FORCE_<STEP_KEY>=1             Clear one step (e.g. INSTALL_FORCE_6_PLAYWRIGHT=1)
+ *   --force-step <key>                     Same as INSTALL_FORCE_<key>=1
+ *   --validate-skills                      Smoke-test mode: probe skills.sh, no install
  *
  * Usage:
- *   bun setup
- *   bun setup --non-interactive
- *   bun setup --force
- *   bun setup --force-step 5-deps-install
- *   bun setup --validate-skills
+ *   bun setup                              Page when there is a screen, terminal otherwise
+ *   bun setup --headless                   Terminal only (today's flow, questions in clack)
+ *   bun setup --ui                         Page even where the rules say terminal
+ *   bun setup --non-interactive            Every question takes its default
+ *   bun setup --force | --force-step <key> | --sync-skills | --validate-skills
+ *   bun setup --variables [--variables-mode local|remote|both] [--dry-run] [--yes]
  *
  * Non-interactive env vars:
  *   INSTALL_AGENTS=claude-code,opencode,codex   Comma-list of agents to configure
  *   INSTALL_SKIP_ENGRAM=1                 Treat Engram as skipped (legacy alias: INSTALL_SKIP_GENTLE_AI=1)
- *   INSTALL_SKIP_DEPS=1                   Skip `bun install`
- *   INSTALL_SKIP_PLAYWRIGHT=1             Skip `bun run pw:install`
- *   INSTALL_SKIP_AGENTS_SETUP=1           Skip `bun run agents:setup`
- *   INSTALL_FORCE_AGENTS_SETUP=1          Re-run agents:setup even if state shows it ran
+ *   INSTALL_SKIP_DEPS=1                   Skip the dependency check
+ *   INSTALL_SKIP_PLAYWRIGHT=1             Skip the Chromium download
+ *   INSTALL_SKIP_AGENTS_SETUP=1           Skip the Project phase
+ *   INSTALL_FORCE_AGENTS_SETUP=1          Ask the Project phase even if state shows it ran
  *   INSTALL_FORCE_ENGRAM=1                Re-run `engram setup` even if state shows it ran (legacy alias: INSTALL_FORCE_GENTLE_AI=1)
  *   INSTALL_FORCE_COMMUNITY=1             Re-run community skill install even if state shows it ran
  *   INSTALL_FORCE_GITHUB=1                Re-run GitHub remote setup even if a remote is already wired
- *   INSTALL_SKIP_COMMUNITY=1              Skip `bunx skills add` step
- *   INSTALL_SKIP_JIRA=1                   Skip optional Jira bootstrap
- *   INSTALL_SKIP_API=1                    Skip optional API auth bootstrap
+ *   INSTALL_SKIP_COMMUNITY=1              Skip `bunx skills add`
+ *   INSTALL_SKIP_JIRA=1                   Skip the Jira phase
+ *   INSTALL_SKIP_API=1                    Skip the optional API login
  *   INSTALL_SECRETS_PROVIDER=1password    Opt in to a secret manager (default: .env); with
  *   INSTALL_SECRETS_VAULT=<vault>         the vault its references point at
  */
 
 import type { Harness } from './lib/harness-selection.ts';
-import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
+import type { NextStep, Tile } from './lib/ui/events.ts';
+import type { InstallerUi } from './lib/ui/installer-run.ts';
+import type { AskInput, StepHandle } from './lib/ui/reporter.ts';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { chmod, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { basename, dirname, join, resolve } from 'node:path';
 
-import { checkbox, password } from '@inquirer/prompts';
 import { parse as parseYaml } from 'yaml';
 import {
   checkAgentCompatibility,
@@ -84,13 +79,14 @@ import {
   repairClaudeSkillsAlias,
   SHADOWING_COMMANDS_BACKUP_DIR,
 } from './lib/agent-compatibility.ts';
+import { classifyProjectYaml, SCHEMA_FILE, seedFromSchema } from './lib/agents-schema.ts';
 import {
   resolveAtlassianInstance,
   toSiteSlug,
   writeAtlassianUrlToYaml,
 } from './lib/atlassian-instance.ts';
 import { removeRetiredEnvLines, retiredEnvKeysIn } from './lib/env-schema.ts';
-import { CLI_LOGINS, HARNESS_LEVEL_HOWTO, HARNESS_LEVEL_MCPS } from './lib/harness-level-mcps.ts';
+import { CLI_LOGINS, HARNESS_LEVEL_MCPS } from './lib/harness-level-mcps.ts';
 import {
   declaredHarnesses,
   explicitHarnesses,
@@ -100,6 +96,7 @@ import {
   HARNESSES_KEY,
   withHarnesses,
 } from './lib/harness-selection.ts';
+import { createInstallerTerminal, PromptCancelled } from './lib/install-terminal.ts';
 import { playwrightBrowsersInstalled } from './lib/playwright-cache.ts';
 import {
   ADAPTERS,
@@ -110,8 +107,11 @@ import {
   SECRET_PROVIDERS,
 } from './lib/secret-providers.ts';
 import * as tui from './lib/tui.ts';
+import { startInstallerUi } from './lib/ui/installer-run.ts';
+import { pickLang } from './lib/ui/strings.ts';
 import { runVariablesFlow } from './lib/variables-flow.ts';
 import { criticalVars, nonCriticalVars, valueSourceOf, VAR_MANIFEST, varsFor } from './lib/variables-manifest.ts';
+import { runSetupPreflight } from './preflight.ts';
 
 // ============================================================================
 // Types
@@ -150,6 +150,11 @@ interface GithubRemoteInfo {
   visibility: 'private' | 'public' | 'internal' | 'unknown'
   url: string
   createdAt: string
+  /**
+   * Whether the first push reached the remote, verified with `git ls-remote`
+   * (analysis §8 #7). Absent on state files written before it existed.
+   */
+  pushed?: boolean
 }
 
 interface InstallState {
@@ -234,6 +239,7 @@ const ENV_EXAMPLE_PATH = join(REPO_ROOT, '.env.example');
 const PROJECT_YAML_FILE = join(REPO_ROOT, '.agents', 'project.yaml');
 
 const REPO_NAME = 'agentic-qa-boilerplate';
+const TEMPLATE_MARKER = 'upex-galaxy/agentic-qa-boilerplate';
 
 const MIN_ENGRAM_VERSION = [3, 0, 0] as const;
 
@@ -500,35 +506,66 @@ const INSTALLER_DEFERRED_VARS = new Set<string>(VAR_MANIFEST.filter(s => s.scope
 const CRITICAL_VAR_NAMES = new Set<string>(criticalVars().map(s => s.name));
 
 // ============================================================================
-// CLI flags
+// CLI flags (one interactivity decision, made once: analysis §8 #13)
 // ============================================================================
 
-// Auto-detect non-TTY (e.g. when an AI agent or CI pipeline invokes the
-// installer) so prompts don't hang waiting for stdin. The flag still wins
-// explicitly when passed; without it, lack of a TTY forces the same mode.
+const ARGV = process.argv.slice(2);
+
+/** Every flag this installer understands; anything else is refused (analysis §8 #28). */
+const KNOWN_FLAGS = new Set([
+  '--non-interactive',
+  '--force',
+  '--force-step',
+  '--variables',
+  '--variables-mode',
+  '--variables-local',
+  '--variables-remote',
+  '--dry-run',
+  '--yes',
+  '--sync-skills',
+  '--validate-skills',
+  '--headless',
+  '--ui',
+  '--help',
+  '-h',
+]);
+/** Flags followed by a value. */
+const VALUE_FLAGS = new Set(['--force-step', '--variables-mode']);
+
+export function unknownFlags(argv: readonly string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (VALUE_FLAGS.has(a)) { i += 1; continue; }
+    if (!KNOWN_FLAGS.has(a)) { out.push(a); }
+  }
+  return out;
+}
+
+// Auto-detect non-TTY (an AI agent or a CI pipeline invoking the installer) so
+// questions never hang waiting for stdin: they take their defaults. `--ui`
+// keeps them, because the page answers. The ONE decision every phase reads.
 const NON_INTERACTIVE
-  = process.argv.includes('--non-interactive') || !process.stdin.isTTY;
-const AUTO_NON_INTERACTIVE
-  = !process.argv.includes('--non-interactive') && !process.stdin.isTTY;
+  = ARGV.includes('--non-interactive') || (!process.stdin.isTTY && !ARGV.includes('--ui'));
 
 // --force: clear all step timestamps → re-run everything
-const FORCE_ALL = process.argv.includes('--force') || process.env.INSTALL_FORCE_ALL === '1';
+const FORCE_ALL = ARGV.includes('--force') || process.env.INSTALL_FORCE_ALL === '1';
 
 // --force-step <key>: clear one step
-const FORCE_STEP_IDX = process.argv.indexOf('--force-step');
-const FORCE_STEP_KEY = FORCE_STEP_IDX !== -1 ? (process.argv[FORCE_STEP_IDX + 1] ?? '') : '';
+const FORCE_STEP_IDX = ARGV.indexOf('--force-step');
+const FORCE_STEP_KEY = FORCE_STEP_IDX !== -1 ? (ARGV[FORCE_STEP_IDX + 1] ?? '') : '';
 
 // --variables: run ONLY the env-var setup flow (local + remote), then exit —
 // skipping the normal install pipeline. Companion flags below are scoped to it.
-const VARIABLES_MODE = process.argv.includes('--variables');
+const VARIABLES_MODE = ARGV.includes('--variables');
 // --variables-mode <local|remote|both> (default: both). Accepts the bare
 // `--variables-local` / `--variables-remote` shorthands too.
-const VARIABLES_MODE_IDX = process.argv.indexOf('--variables-mode');
-const VARIABLES_MODE_ARG = VARIABLES_MODE_IDX !== -1 ? (process.argv[VARIABLES_MODE_IDX + 1] ?? '') : '';
+const VARIABLES_MODE_IDX = ARGV.indexOf('--variables-mode');
+const VARIABLES_MODE_ARG = VARIABLES_MODE_IDX !== -1 ? (ARGV[VARIABLES_MODE_IDX + 1] ?? '') : '';
 // --dry-run: print what WOULD be set (names + scopes, never values) without writing.
-const DRY_RUN = process.argv.includes('--dry-run');
+const DRY_RUN = ARGV.includes('--dry-run');
 // --yes: pre-approve remote secret writes (required for non-interactive remote push).
-const YES = process.argv.includes('--yes');
+const YES = ARGV.includes('--yes');
 
 const SKIP_ENGRAM = process.env.INSTALL_SKIP_ENGRAM === '1' || process.env.INSTALL_SKIP_GENTLE_AI === '1';
 const SKIP_DEPS = process.env.INSTALL_SKIP_DEPS === '1';
@@ -539,7 +576,7 @@ const FORCE_ENGRAM = process.env.INSTALL_FORCE_ENGRAM === '1' || process.env.INS
 // --sync-skills: standalone repair mode. Re-installs project community skills
 // into `.agents/skills/` and global community skills into each selected
 // harness's user-level store. Implies a forced community re-run.
-const SYNC_SKILLS = process.argv.includes('--sync-skills');
+const SYNC_SKILLS = ARGV.includes('--sync-skills');
 const FORCE_COMMUNITY = process.env.INSTALL_FORCE_COMMUNITY === '1' || SYNC_SKILLS;
 const FORCE_GITHUB = process.env.INSTALL_FORCE_GITHUB === '1';
 const SKIP_JIRA = process.env.INSTALL_SKIP_JIRA === '1';
@@ -547,8 +584,12 @@ const SKIP_API = process.env.INSTALL_SKIP_API === '1';
 const SKIP_COMMUNITY = process.env.INSTALL_SKIP_COMMUNITY === '1';
 
 // ============================================================================
-// Logger (wraps tui + keeps inline COLORS for printClosingSummary)
+// Language (owner answer Q1) and output
 // ============================================================================
+
+const LANG = pickLang(process.env);
+/** The run's copy in the run's language: Spanish when unsure. */
+const tr = (es: string, en: string): string => (LANG === 'en' ? en : es);
 
 const COLORS = {
   reset: '\x1B[0m',
@@ -560,18 +601,45 @@ const COLORS = {
   bold: '\x1B[1m',
 };
 
-const log = {
-  info: (msg: string) => tui.log.info(msg),
-  success: (msg: string) => tui.log.success(msg),
-  warn: (msg: string) => tui.log.warn(msg),
-  error: (msg: string) => tui.log.error(msg),
-  banner: (msg: string) => tui.section(msg),
-  step: (_n: number, _total: number, title: string) => tui.section(title),
-  dim: (msg: string) => process.stdout.write(`${COLORS.dim}${msg}${COLORS.reset}\n`),
+/** Where a helper's lines go: a step row of the run, or the bare terminal (tests, `--variables`). */
+export interface Out {
+  info: (msg: string) => void
+  success: (msg: string) => void
+  warn: (msg: string) => void
+  error: (msg: string) => void
+  dim: (msg: string) => void
+}
+
+const consoleOut: Out = {
+  info: msg => tui.log.info(msg),
+  success: msg => tui.log.success(msg),
+  warn: msg => tui.log.warn(msg),
+  error: msg => tui.log.error(msg),
+  dim: msg => process.stdout.write(`${COLORS.dim}${msg}${COLORS.reset}\n`),
 };
 
+/** Lines of one step: they land under its row in the page and indented in the terminal. */
+function stepOut(step: StepHandle): Out {
+  return {
+    info: msg => step.log(msg.trim()),
+    success: msg => step.log(`✔ ${msg.trim()}`),
+    warn: msg => step.log(`▲ ${msg.trim()}`),
+    error: msg => step.log(`✖ ${msg.trim()}`, 'err'),
+    dim: msg => step.log(msg.trim()),
+  };
+}
+
+/** The run in progress (null in tests and in the `--variables` / `--validate-skills` modes). */
+let UI: InstallerUi | null = null;
+
+/** Ask through the run; with no run (a helper called from a test), take the default. */
+async function ask<T>(input: AskInput): Promise<T> {
+  if (UI) { return UI.ask<T>(input); }
+  return input.default as T;
+}
+
 // ============================================================================
-// Idempotency helpers
+// Idempotency helpers — state is written after EVERY step (analysis §8 #2)
 // ============================================================================
 
 /**
@@ -581,29 +649,28 @@ const log = {
 function shouldRunStep(state: InstallState, key: string, forceKeys: Set<string>): boolean {
   if (FORCE_ALL) { return true; }
   if (forceKeys.has(key)) { return true; }
-  // Env-var override: e.g. INSTALL_FORCE_5_DEPS_INSTALL=1
+  // Env-var override: e.g. INSTALL_FORCE_6_PLAYWRIGHT=1
   const envKey = `INSTALL_FORCE_${key.toUpperCase().replace(/-/g, '_')}`;
   if (process.env[envKey] === '1') { return true; }
   return !state.steps[key];
 }
 
+/** The state of THIS run; every stamp and every postInstall change is persisted at once. */
+let RUN_STATE: InstallState | null = null;
+
+function saveState(state: InstallState = RUN_STATE!): void {
+  if (!state) { return; }
+  mkdirSync(dirname(STATE_PATH), { recursive: true });
+  writeFileSync(STATE_PATH, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+}
+
 function markStepDone(state: InstallState, key: string): void {
   state.steps[key] = new Date().toISOString();
+  saveState(state);
 }
 
 // ============================================================================
-// Prompt helpers
-// ============================================================================
-
-async function maybeConfirm(message: string, defaultYes: boolean): Promise<boolean> {
-  if (NON_INTERACTIVE) { return defaultYes; }
-  const result = await tui.confirm({ message, initialValue: defaultYes });
-  if (tui.isCancel(result)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-  return result;
-}
-
-// ============================================================================
-// Subprocess helpers
+// Subprocess helpers (children are piped: no child owns the terminal any more)
 // ============================================================================
 
 function which(binary: string): string | null {
@@ -634,61 +701,103 @@ function tryRun(binary: string, args: string[]): { ok: boolean, stdout: string, 
   }
 }
 
+export interface StreamResult {
+  code: number | null
+  stdout: string
+  stderr: string
+  timedOut: boolean
+}
+
+// eslint-disable-next-line no-control-regex
+const ANSI = /\x1B\[[0-9;?]*[\x20-\x2F]*[\x40-\x7E]|\x1B\][^\x07]*\x07/g;
+
 /**
- * Spawn a long-running script with stdio inherited. Used for nested interactive
- * scripts (agents:setup) and for visible output (bun install, pw:install).
- * Returns ok=true iff exit code 0.
+ * Runs a child with stdout and stderr piped, streaming each line into `step`
+ * (redacted by the journal before it reaches the page or the terminal). Lines
+ * ended by a carriage return (progress bars) are thinned to about two a second.
+ * Never throws: a missing binary is `code: null`.
  */
-function runInherited(binary: string, args: string[], env: NodeJS.ProcessEnv = process.env): { ok: boolean } {
-  const result = spawnSync(binary, args, { stdio: 'inherit', env });
-  return { ok: result.status === 0 };
-}
-
-// ============================================================================
-// Phase 1 — DETECTION
-// Step 1 (1-repo-verify): repo identity check
-// ============================================================================
-
-async function verifyRepoRoot(): Promise<void> {
-  const pkgPath = join(REPO_ROOT, 'package.json');
-  if (!existsSync(pkgPath)) {
-    log.error(`No package.json found at ${pkgPath}. Run this from the repo root.`);
-    log.dim('  Once you are in the repo root, re-run: bun setup');
-    process.exit(1);
-  }
-  const raw = await readFile(pkgPath, 'utf8');
-  const pkg = JSON.parse(raw) as { name?: string };
-
-  if (pkg.name === REPO_NAME) { return; }
-
-  // Accept projects bootstrapped from this template — they keep a marker
-  // file even though their package.json name is the user-chosen name.
-  const markerPath = join(REPO_ROOT, '.template', 'installer.lock.json');
-  if (existsSync(markerPath)) {
+export async function runStreamed(
+  cmd: string,
+  args: string[],
+  o: { step?: StepHandle, env?: NodeJS.ProcessEnv, input?: string, timeoutMs?: number, cwd?: string } = {},
+): Promise<StreamResult> {
+  return new Promise((resolvePromise) => {
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+    let lastProgress = 0;
+    let child: ReturnType<typeof spawn>;
     try {
-      const marker = JSON.parse(await readFile(markerPath, 'utf8')) as { template?: string };
-      if (marker.template === 'upex-galaxy/agentic-qa-boilerplate') {
-        log.info(`Bootstrapped project detected: ${pkg.name ?? '(unknown)'}`);
-        return;
-      }
+      child = spawn(cmd, args, { cwd: o.cwd ?? REPO_ROOT, env: o.env ?? process.env, stdio: [o.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
     }
-    catch {
-      // fall through to confirm
+    catch (err) {
+      resolvePromise({ code: null, stdout: '', stderr: (err as Error).message, timedOut: false });
+      return;
     }
-  }
-
-  const proceed = await tui.confirm({
-    message: `package.json name is "${pkg.name ?? '(unknown)'}" (expected "${REPO_NAME}"). Continue anyway?`,
-    initialValue: false,
+    const feed = (stream: 'out' | 'err') => {
+      let buf = '';
+      return (chunk: Buffer): void => {
+        const text = chunk.toString('utf8');
+        if (stream === 'out') { stdout += text; }
+        else { stderr += text; }
+        buf += text;
+        const parts = buf.split(/(\r\n|\n|\r)/);
+        buf = parts.pop() ?? '';
+        for (let i = 0; i < parts.length; i += 2) {
+          const line = parts[i].replace(ANSI, '').trimEnd();
+          const sep = parts[i + 1];
+          if (!line.trim() || !o.step) { continue; }
+          if (sep === '\r') {
+            const now = Date.now();
+            if (now - lastProgress < 500) { continue; }
+            lastProgress = now;
+          }
+          o.step.log(line, stream);
+        }
+      };
+    };
+    child.stdout?.on('data', feed('out'));
+    child.stderr?.on('data', feed('err'));
+    if (o.input !== undefined) {
+      child.stdin?.end(o.input);
+    }
+    const timer = o.timeoutMs ? setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, o.timeoutMs) : null;
+    child.on('error', (err) => {
+      if (timer) { clearTimeout(timer); }
+      resolvePromise({ code: null, stdout, stderr: stderr || err.message, timedOut });
+    });
+    child.on('close', (code) => {
+      if (timer) { clearTimeout(timer); }
+      resolvePromise({ code, stdout, stderr, timedOut });
+    });
   });
-  if (tui.isCancel(proceed) || !proceed) {
-    log.dim('  Aborted. Re-run anytime: bun setup');
-    process.exit(0);
+}
+
+/**
+ * The line of a failed child's output that says why: the last one that names an
+ * error, else the last line. The skills CLI prints its reason mid-output and a
+ * routine line ("Saved lockfile") last.
+ */
+export function failureReason(output: string): string {
+  const lines = output.replace(ANSI, '').split(/\r?\n|\r/).map(l => l.replace(/^[\s│└┌◇◒◐◓◑]+/, '').trim()).filter(Boolean);
+  const named = lines.filter(l => /error|fail|not found|no valid|no skills|denied|timed? ?out|could not|cannot/i.test(l));
+  return (named.at(-1) ?? lines.at(-1) ?? 'unknown error').slice(0, 160);
+}
+
+/** The environment of a child that must not see stray seeds from the parent shell. */
+function childEnv(drop: (name: string) => boolean, add: Record<string, string> = {}): NodeJS.ProcessEnv {
+  // A plain record, cast once: a host that augments ProcessEnv (Next.js adds a
+  // required NODE_ENV) must still compile this file (cli/updater-host-types.test.ts).
+  const env: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (!drop(k)) { env[k] = v; }
   }
+  return { ...env, ...add } as NodeJS.ProcessEnv;
 }
 
 // ============================================================================
-// Phase 1 — Step 2 (2-gentle-ai-detect): detect the engram binary
+// Engram detection
 // ============================================================================
 
 function parseEngramVersion(output: string): string | undefined {
@@ -732,40 +841,7 @@ function detectEngram(): EngramInfo {
 }
 
 // ============================================================================
-// Phase 1 — Step 3 (3-gentle-ai-install): engram install instructions / skip
-// ============================================================================
-
-const ENGRAM_INSTALL_DOCS = 'https://github.com/Gentleman-Programming/engram/blob/main/docs/INSTALLATION.md';
-
-async function handleMissingEngram(): Promise<'show-and-exit' | 'skip'> {
-  log.warn('engram not detected on PATH.');
-  log.info('engram is the persistent-memory binary; the installer wires it into each selected agent with `engram setup`.');
-  log.info('See INSTALLER.md for what gets installed and what stays local.');
-  process.stdout.write('\n');
-
-  const choice = await maybeConfirm(
-    'Show install commands and exit so you can install it? (No = continue without Engram)',
-    true,
-  );
-
-  if (choice) {
-    log.banner('Install engram with one of these commands:');
-    // Homebrew refuses formulas from an untrusted tap, so the tap is trusted first.
-    process.stdout.write('  macOS / Linux (Homebrew) : brew trust gentleman-programming/tap && brew install gentleman-programming/tap/engram\n');
-    process.stdout.write('  Any OS with Go           : go install github.com/Gentleman-Programming/engram/v3/cmd/engram@latest\n\n');
-    log.dim(`  Docs: ${ENGRAM_INSTALL_DOCS}`);
-    log.dim('After installing, re-run: bun setup');
-    return 'show-and-exit';
-  }
-
-  log.warn('Continuing without Engram. Cross-session memory will NOT be wired.');
-  log.dim(`  To add it later, install engram (${ENGRAM_INSTALL_DOCS})`);
-  log.dim('  and re-run: bun setup');
-  return 'skip';
-}
-
-// ============================================================================
-// Phase 1 — Step 4 (4-agent-detect): detect agents
+// Agents
 // ============================================================================
 
 export async function detectAgents(options: {
@@ -802,132 +878,110 @@ export function parseAgentsEnv(raw = process.env.INSTALL_AGENTS): AgentId[] | nu
   return [...valid];
 }
 
-async function promptAgentSelection(detected: AgentDetection): Promise<AgentId[]> {
-  // A validation, not a prompt — it must run in both modes. Skipping it in
-  // non-interactive mode would let the installer proceed with zero agents and
-  // silently configure nothing.
-  const codexAvailable = detected.codexCli || detected.codexConfigured;
-  if (!detected.claudeCode && !detected.opencode && !codexAvailable) {
-    log.error('No agent executable or Codex repository configuration detected.');
-    log.dim('  Claude Code: https://docs.claude.com/en/docs/claude-code');
-    log.dim('  OpenCode:    https://opencode.ai/docs');
-    log.dim('  Codex:       https://developers.openai.com/codex/');
-    log.dim('  Then re-run: bun setup');
-    process.exit(1);
-  }
+/** The agents detected on this machine, in the order the question lists them. */
+function detectedAgentIds(detected: AgentDetection): AgentId[] {
+  const out: AgentId[] = [];
+  if (detected.claudeCode) { out.push('claude-code'); }
+  if (detected.opencode) { out.push('opencode'); }
+  if (detected.codexCli || detected.codexConfigured) { out.push('codex'); }
+  return out;
+}
 
-  if (NON_INTERACTIVE) {
-    const fromEnv = parseAgentsEnv();
-    if (fromEnv && fromEnv.length > 0) { return fromEnv; }
-    // Default to whatever is detected
-    const out: AgentId[] = [];
-    if (detected.claudeCode) { out.push('claude-code'); }
-    if (detected.opencode) { out.push('opencode'); }
-    if (codexAvailable) { out.push('codex'); }
-    return out;
-  }
-
-  const selected = await checkbox<AgentId>({
-    message: 'Which detected/configured agents should this repository support?',
-    choices: [
-      ...(detected.claudeCode ? [{ name: 'Claude Code (executable/config found)', value: 'claude-code' as const, checked: true }] : []),
-      ...(detected.opencode ? [{ name: 'OpenCode (executable/config found)', value: 'opencode' as const, checked: true }] : []),
-      ...(codexAvailable
-        ? [{
-            name: detected.codexCli
-              ? 'Codex (CLI found; Desktop uses the same repository config)'
-              : 'Codex Desktop target (repository configured; CLI not found)',
-            value: 'codex' as const,
-            checked: true,
-          }]
-        : []),
-    ],
-    required: true,
+/**
+ * Which agents this repository supports. All three are offered: a teammate may
+ * use one this machine does not have. Non-interactive: `INSTALL_AGENTS`, else
+ * whatever is detected.
+ */
+async function askAgents(detected: AgentDetection, prior: AgentId[]): Promise<AgentId[]> {
+  const found = detectedAgentIds(detected);
+  const fromEnv = parseAgentsEnv();
+  const preset = fromEnv && fromEnv.length > 0 ? fromEnv : prior.length > 0 ? prior : found;
+  const codexDesc = detected.codexCli
+    ? tr('Instalado · CLI; la app de escritorio usa la misma configuración', 'Installed · CLI; the desktop app uses the same repository config')
+    : detected.codexConfigured
+      ? tr('Configurado en el repositorio para la app de escritorio; CLI no encontrada', 'Repository configured for the desktop app; CLI not found')
+      : tr('No instalado en esta máquina', 'Not installed on this machine');
+  const desc = (on: boolean): string => (on ? tr('Instalado en esta máquina', 'Installed on this machine') : tr('No instalado en esta máquina', 'Not installed on this machine'));
+  const picked = await ask<string[]>({
+    id: 'agents',
+    kind: 'multi',
+    kicker: tr('Agentes', 'Agents'),
+    title: tr('Con qué agentes de IA va a trabajar este proyecto?', 'Which AI agents will this project work with?'),
+    g: 'harness',
+    why: tr(
+      `Encontramos ${found.length} en esta máquina. Puedes elegir uno que no tengas instalado si alguien del equipo lo usa.`,
+      `We found ${found.length} on this machine. You can pick one you do not have installed if someone on the team uses it.`,
+    ),
+    spec: {
+      options: [
+        { value: 'claude-code', label: 'Claude Code', desc: desc(detected.claudeCode), checked: preset.includes('claude-code') },
+        { value: 'codex', label: 'Codex', desc: codexDesc, checked: preset.includes('codex') },
+        { value: 'opencode', label: 'OpenCode', desc: desc(detected.opencode), checked: preset.includes('opencode') },
+      ],
+      min: 1,
+      minMsg: tr('Elige al menos uno: sin agente no hay a quién configurar.', 'Pick at least one: without an agent there is nothing to configure.'),
+      cta: tr('Guardar elección', 'Save choice'),
+    },
+    default: preset,
   });
-  return selected;
+  return migrateAgentIds(picked);
 }
 
 // ============================================================================
-// Phase 2 — INSTALLATION
-// Step 5 (5-deps-install): bun install
+// Install lane: Chromium
 // ============================================================================
 
 function nodeModulesLooksReady(): boolean {
   return existsSync(join(REPO_ROOT, 'node_modules', '@playwright', 'test'));
 }
 
-async function runDepsInstall(state: InstallState, forceKeys: Set<string>): Promise<void> {
+/**
+ * `bun setup` installs the dependencies before this file can even load
+ * (`cli/preflight.ts --gate`). This step records it, and re-runs `bun install`
+ * only when forced.
+ */
+async function runDepsStep(state: InstallState, forceKeys: Set<string>, lane: string): Promise<void> {
   const key = '5-deps-install';
-  if (SKIP_DEPS) {
-    log.dim('  INSTALL_SKIP_DEPS=1, skipping bun install.');
+  const step = UI!.step({ id: 'deps', phase: 'install', lane, title: tr('Dependencias del proyecto', 'Project dependencies') });
+  if (SKIP_DEPS) { step.end('skipped', 'INSTALL_SKIP_DEPS=1'); return; }
+  const forced = FORCE_ALL || forceKeys.has(key) || process.env.INSTALL_FORCE_5_DEPS_INSTALL === '1';
+  if (nodeModulesLooksReady() && !forced) {
+    if (!state.steps[key]) { markStepDone(state, key); }
+    step.end('ok', tr('ya instaladas', 'already installed'));
     return;
   }
-  if (!shouldRunStep(state, key, forceKeys) && nodeModulesLooksReady()) {
-    log.dim('  Dependencies already installed (state + node_modules present). Use --force-step 5-deps-install to re-run.');
-    return;
-  }
-  if (nodeModulesLooksReady() && !shouldRunStep(state, key, forceKeys)) {
-    log.dim('  node_modules looks populated; skipping bun install.');
+  const r = await runStreamed('bun', ['install'], { step });
+  if (r.code === 0) {
     markStepDone(state, key);
-    return;
-  }
-
-  const proceed = await maybeConfirm('Run `bun install` now?', true);
-  if (!proceed) {
-    log.warn('Skipping bun install. Run it manually before using the test scripts.');
-    return;
-  }
-
-  const s = tui.spinner();
-  s.start('Installing dependencies (bun install)…');
-  const { ok } = runInherited('bun', ['install']);
-  if (ok) {
-    markStepDone(state, key);
-    s.stop('Dependencies installed.');
+    step.end('ok');
   }
   else {
-    s.stop('bun install failed. Review the output above and retry.');
+    step.end('failed', tr('bun install falló: corre `bun install` y vuelve a correr el instalador.', 'bun install failed: run `bun install` and run the installer again.'));
   }
 }
 
-// ============================================================================
-// Phase 2 — Step 6 (6-playwright): Playwright browsers
-// ============================================================================
-
-async function runPlaywrightInstall(state: InstallState, forceKeys: Set<string>): Promise<void> {
+async function runPlaywrightStep(state: InstallState, forceKeys: Set<string>, lane: string): Promise<void> {
   const key = '6-playwright';
-  if (SKIP_PLAYWRIGHT) {
-    log.dim('  INSTALL_SKIP_PLAYWRIGHT=1, skipping playwright install.');
-    return;
-  }
+  const step = UI!.step({ id: 'chromium', phase: 'install', lane, why: 'playwright', title: tr('Navegador para los tests (Chromium)', 'Browser for the tests (Chromium)') });
+  if (SKIP_PLAYWRIGHT) { step.end('skipped', 'INSTALL_SKIP_PLAYWRIGHT=1'); return; }
   if (!shouldRunStep(state, key, forceKeys) && playwrightBrowsersInstalled()) {
-    log.dim('  Playwright already installed (state + browsers cached). Use --force-step 6-playwright to re-run.');
+    step.end('skipped', tr('ya descargado en esta máquina', 'already downloaded on this machine'));
     return;
   }
-
-  const proceed = await maybeConfirm(
-    'Run `bun run pw:install` to download Chromium (~300 MB)?',
-    true,
-  );
-  if (!proceed) {
-    log.warn('Skipping playwright install. Run `bun run pw:install` later when ready.');
-    return;
-  }
-
-  const s = tui.spinner();
-  s.start('Installing Playwright browsers (bun run pw:install)…');
-  const { ok } = runInherited('bun', ['run', 'pw:install']);
-  if (ok) {
+  // No `--with-deps`: on Linux it asks for sudo in the middle of the run. The
+  // preflight told the person the one `install-deps` command instead.
+  const r = await runStreamed('bun', ['x', 'playwright', 'install', 'chromium'], { step });
+  if (r.code === 0) {
     markStepDone(state, key);
-    s.stop('Playwright browsers installed.');
+    step.end('ok', tr('una sola vez por máquina', 'once per machine'));
   }
   else {
-    s.stop('pw:install failed. Review the output above and retry.');
+    step.end('failed', tr('La descarga no terminó. Más tarde: `bun run pw:install`.', 'The download did not finish. Later: `bun run pw:install`.'));
   }
 }
 
 // ============================================================================
-// Phase 2 — Step 8 (8-skills-gentle-ai): wire Engram per agent
+// Install lane: Engram wiring
 // ============================================================================
 
 // LINT.IfChange(engram-setup)
@@ -954,6 +1008,8 @@ export interface EngramPluginDeps {
   hasClaude: () => boolean
   confirm: (message: string) => Promise<boolean>
   run: (args: string[]) => { ok: boolean, stderr: string }
+  /** Where the lines go (a step of the run); the bare terminal by default. */
+  out?: Out
 }
 
 export type EngramPluginOutcome = 'installed' | 'declined' | 'skipped-non-interactive' | 'no-claude-cli' | 'failed';
@@ -964,9 +1020,10 @@ export type EngramPluginOutcome = 'installed' | 'declined' | 'skipped-non-intera
  * runs never install it, because it writes user-level Claude Code config.
  */
 export async function offerEngramClaudePlugin(deps: EngramPluginDeps): Promise<EngramPluginOutcome> {
+  const out = deps.out ?? consoleOut;
   const printManual = (): void => {
-    log.dim('  For Engram session hooks in Claude Code, install the plugin once:');
-    log.dim(`    ${ENGRAM_PLUGIN_MANUAL}`);
+    out.dim('  For Engram session hooks in Claude Code, install the plugin once:');
+    out.dim(`    ${ENGRAM_PLUGIN_MANUAL}`);
   };
   if (deps.nonInteractive) { printManual(); return 'skipped-non-interactive'; }
   if (!deps.hasClaude()) { printManual(); return 'no-claude-cli'; }
@@ -980,85 +1037,65 @@ export async function offerEngramClaudePlugin(deps: EngramPluginDeps): Promise<E
   deps.run(marketplaceAdd);
   const result = deps.run(pluginInstall);
   if (!result.ok) {
-    log.warn(`  Engram plugin install failed: ${result.stderr.trim() || 'unknown error'}`);
+    out.warn(`  Engram plugin install failed: ${result.stderr.trim() || 'unknown error'}`);
     printManual();
     return 'failed';
   }
-  log.success('  Engram Claude Code plugin installed.');
+  out.success('  Engram Claude Code plugin installed.');
   return 'installed';
 }
 // LINT.ThenChange(README.md, INSTALLER.md, docs/core/empezar-aqui.html)
 
-function runEngramSetup(agent: AgentId): { ok: boolean, reason?: string } {
-  const result = tryRun('engram', engramSetupArgs(agent));
-  if (result.ok) { return { ok: true }; }
-  return { ok: false, reason: result.stderr.trim() || result.stdout.trim() || 'unknown error' };
+interface EngramPlan {
+  run: boolean
+  /** The plugin question, asked in Team (null = not offered in this run). */
+  plugin: boolean | null
 }
 
-async function installEngramPerAgent(
-  agents: AgentId[],
-  state: InstallState,
-  forceKeys: Set<string>,
-): Promise<void> {
+async function runEngramStep(agents: AgentId[], state: InstallState, forceKeys: Set<string>, plan: EngramPlan, lane: string): Promise<void> {
   const key = '8-skills-gentle-ai';
-  if (agents.length === 0) {
-    log.info('No agents selected, skipping engram install.');
-    return;
-  }
-  if (!shouldRunStep(state, key, forceKeys) && !FORCE_ENGRAM) {
-    log.dim(`  Engram already wired at ${state.steps[key]}.`);
-    log.dim('  Set INSTALL_FORCE_ENGRAM=1 or --force-step 8-skills-gentle-ai to re-run.');
-    return;
-  }
-
-  // One `engram setup <agent>` call per agent. It registers the Engram MCP
-  // server for that agent and writes nothing else. The `engram::<agent>`
-  // state keys feed the closing summary.
-  log.info(`This will run ${agents.length} \`engram setup\` command(s) — one per agent.`);
-
-  const proceed = await maybeConfirm('Continue with engram installation?', true);
-  if (!proceed) {
-    log.warn('Skipping engram installation.');
+  const step = UI!.step({ id: 'engram', phase: 'install', lane, why: 'engram', title: tr('Memoria entre sesiones (Engram)', 'Memory across sessions (Engram)') });
+  if (!plan.run) {
     for (const agent of agents) {
       const k = `${ENGRAM_COMPONENT}::${agent}`;
       if (!state.skills[k]) { state.skills[k] = 'skipped'; }
     }
+    saveState(state);
+    step.end('skipped', state.engram.status === 'missing' || state.engram.status === 'skipped'
+      ? tr('Engram no está instalado (aviso del chequeo previo)', 'Engram is not installed (preflight warning)')
+      : tr('versión de Engram sin confirmar', 'Engram version not confirmed'));
     return;
   }
-
+  if (!shouldRunStep(state, key, forceKeys) && !FORCE_ENGRAM) {
+    step.end('skipped', tr('ya conectado en una corrida anterior', 'already wired in an earlier run'));
+    return;
+  }
+  const out = stepOut(step);
+  let failed = 0;
   for (const agent of agents) {
-    log.banner(`Wiring engram for: ${agent}`);
-
-    const s = tui.spinner();
-    s.start(`Running engram ${engramSetupArgs(agent).join(' ')}…`);
-
-    const result = runEngramSetup(agent);
-
-    const status: InstallStatus = result.ok ? 'installed' : 'failed';
-    if (result.ok) {
-      s.stop(`Installed: engram (${agent})`);
-    }
-    else {
-      s.stop(`Failed: engram (${agent}) — ${result.reason}`);
-    }
-    if (result.ok && agent === 'claude-code') {
+    out.dim(`engram ${engramSetupArgs(agent).join(' ')}`);
+    const r = await runStreamed('engram', engramSetupArgs(agent), { step, timeoutMs: 60_000 });
+    const ok = r.code === 0;
+    state.skills[`${ENGRAM_COMPONENT}::${agent}`] = ok ? 'installed' : 'failed';
+    if (!ok) { failed += 1; out.error(`engram (${agent}): ${(r.stderr || r.stdout).trim().slice(0, 160) || 'unknown error'}`); }
+    if (ok && agent === 'claude-code') {
       // `engram setup` registers the MCP server only; the session hooks ship
       // in the Claude Code plugin, installed once per machine.
       await offerEngramClaudePlugin({
-        nonInteractive: NON_INTERACTIVE,
+        nonInteractive: plan.plugin === null,
         hasClaude: () => which('claude') !== null,
-        confirm: async message => maybeConfirm(message, true),
+        confirm: async () => plan.plugin === true,
         run: args => tryRun('claude', args),
+        out,
       });
     }
-
-    state.skills[`${ENGRAM_COMPONENT}::${agent}`] = status;
   }
   markStepDone(state, key);
+  step.end(failed > 0 ? 'warn' : 'ok', agents.join(', '));
 }
 
 // ============================================================================
-// Phase 2 — Step 9 (9-skills-community): community skills via bunx skills CLI
+// Install lane: community skills
 // ============================================================================
 
 function describeSkill(item: CommunitySkill): string {
@@ -1087,100 +1124,103 @@ export function partitionDeclinedSkills(
 }
 
 /**
- * The per-skill ask for the user level: a multiselect with every offered skill
- * pre-checked. Non-interactive runs take them all.
+ * The per-skill ask for the user level: every offered skill pre-checked; an
+ * unchecked one is recorded as declined and never offered again. Asked in Team,
+ * so the downloads can start without waiting for anyone. Null = nothing to ask.
  */
-async function pickUserLevelSkills(offered: CommunitySkill[]): Promise<CommunitySkill[]> {
-  if (NON_INTERACTIVE) { return offered; }
-  const result = await tui.multiselect({
-    message: 'User-level skills to install (an unchecked one is declined and not offered again):',
-    options: offered.map(item => ({ value: describeSkill(item), label: describeSkill(item), hint: item.package })),
-    initialValues: offered.map(describeSkill),
-    required: false,
+async function askUserLevelSkills(state: InstallState, forceKeys: Set<string>, agents: AgentId[]): Promise<CommunitySkill[] | null> {
+  const key = '9-skills-community-global';
+  if (SKIP_COMMUNITY || USER_LEVEL_SKILLS.length === 0) { return null; }
+  if (!shouldRunStep(state, key, forceKeys) && !FORCE_COMMUNITY) { return null; }
+  const { offered, declined } = partitionDeclinedSkills(USER_LEVEL_SKILLS, state.skills);
+  if (offered.length === 0) { return []; }
+  const declinedNote = declined.length > 0
+    ? tr(
+        ` Rechazadas antes, no se ofrecen: ${declined.map(describeSkill).join(', ')} (se instalan a mano con <code>bunx ${buildCommunitySkillArgs(declined[0], 'global', agents).join(' ')}</code>).`,
+        ` Declined earlier, not offered: ${declined.map(describeSkill).join(', ')} (install by hand with <code>bunx ${buildCommunitySkillArgs(declined[0], 'global', agents).join(' ')}</code>).`,
+      )
+    : '';
+  const picked = await ask<string[]>({
+    id: 'user-skills',
+    kind: 'multi',
+    kicker: tr('Skills de usuario', 'User skills'),
+    title: tr('Qué skills quieres para todos tus proyectos?', 'Which skills do you want for all your projects?'),
+    g: 'skill',
+    why: tr(
+      `Se instalan una vez en tu usuario, no en este repositorio. La que desmarques queda rechazada y no se vuelve a ofrecer.${declinedNote}`,
+      `They install once in your user, not in this repository. One you uncheck is declined and not offered again.${declinedNote}`,
+    ),
+    spec: {
+      options: offered.map(item => ({ value: describeSkill(item), label: describeSkill(item), desc: item.package.replace(/^https:\/\/github\.com\//, ''), checked: true })),
+      cta: tr('Guardar elección', 'Save choice'),
+    },
+    default: offered.map(describeSkill),
   });
-  if (tui.isCancel(result)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-  const picked = new Set(result);
-  return offered.filter(item => picked.has(describeSkill(item)));
+  const set = new Set(picked);
+  for (const item of offered) {
+    if (!set.has(describeSkill(item))) { state.skills[`community:global:${describeSkill(item)}`] = 'declined'; }
+  }
+  saveState(state);
+  return offered.filter(item => set.has(describeSkill(item)));
 }
 
-async function installCommunitySkills(
+async function runCommunityStep(
   agents: AgentId[],
   state: InstallState,
   level: 'project' | 'global',
   forceKeys: Set<string>,
+  picked: CommunitySkill[] | null,
+  lane: string,
 ): Promise<void> {
-  const list = level === 'project' ? PROJECT_LEVEL_SKILLS : USER_LEVEL_SKILLS;
-  const label = level === 'project' ? 'project-level' : 'user-level (global)';
   const key = `9-skills-community-${level}`;
-
-  if (list.length === 0) {
-    log.dim(`  No ${label} community skills configured for this repo.`);
+  const step = UI!.step({
+    id: `skills-${level}`,
+    phase: 'install',
+    lane,
+    why: 'skill',
+    title: level === 'project'
+      ? tr('Skills de la comunidad para este proyecto', 'Community skills for this project')
+      : tr('Skills de usuario (para todos tus proyectos)', 'User skills (for all your projects)'),
+  });
+  const list = level === 'project' ? PROJECT_LEVEL_SKILLS : USER_LEVEL_SKILLS;
+  if (SKIP_COMMUNITY) {
+    for (const item of list) {
+      const k = `community:${level}:${describeSkill(item)}`;
+      if (!state.skills[k]) { state.skills[k] = 'skipped'; }
+    }
+    saveState(state);
+    step.end('skipped', 'INSTALL_SKIP_COMMUNITY=1');
     return;
   }
+  if (list.length === 0) { step.end('skipped', tr('ninguna configurada', 'none configured')); return; }
   if (!shouldRunStep(state, key, forceKeys) && !FORCE_COMMUNITY) {
-    log.dim(`  ${label} community skills already installed at ${state.steps[key]}.`);
-    log.dim('  Set INSTALL_FORCE_COMMUNITY=1 to re-run.');
+    step.end('skipped', tr('ya instaladas en una corrida anterior', 'already installed in an earlier run'));
     return;
   }
-
-  log.banner(`Community skills — ${label}`);
-
-  let toInstall: ReadonlyArray<CommunitySkill> = list;
-  if (level === 'global') {
-    const { offered, declined } = partitionDeclinedSkills(list, state.skills);
-    for (const item of declined) {
-      log.dim(`  ${describeSkill(item)}: declined earlier, not offered. Install by hand: bunx ${buildCommunitySkillArgs(item, level, agents).join(' ')}`);
-    }
-    const picked = offered.length > 0 ? await pickUserLevelSkills(offered) : [];
-    for (const item of offered) {
-      if (!picked.includes(item)) { state.skills[`community:${level}:${describeSkill(item)}`] = 'declined'; }
-    }
-    if (picked.length === 0) {
-      log.warn(`No ${label} community skills to install.`);
-      markStepDone(state, key);
-      return;
-    }
-    toInstall = picked;
-    log.info(`This will run ${toInstall.length} \`bunx skills add\` commands (${label}).`);
+  const toInstall: ReadonlyArray<CommunitySkill> = level === 'project' ? list : (picked ?? []);
+  if (toInstall.length === 0) {
+    markStepDone(state, key);
+    step.end('skipped', tr('ninguna elegida', 'none chosen'));
+    return;
   }
-  else {
-    log.info(`This will run ${list.length} \`bunx skills add\` commands (${label}).`);
-    const proceed = await maybeConfirm(`Install ${label} community skills?`, true);
-    if (!proceed) {
-      log.warn(`Skipping ${label} community skills.`);
-      for (const item of list) {
-        const slug = describeSkill(item);
-        const stateKey = `community:${level}:${slug}`;
-        if (!state.skills[stateKey]) {
-          state.skills[stateKey] = 'skipped';
-        }
-      }
-      return;
-    }
-  }
-
+  const out = stepOut(step);
+  let ok = 0;
   for (const item of toInstall) {
     const slug = describeSkill(item);
     const stateKey = `community:${level}:${slug}`;
-    if (state.skills[stateKey] === 'installed' && !shouldRunStep(state, key, forceKeys) && !FORCE_COMMUNITY) {
-      log.dim(`  skipping ${slug} (already installed)`);
-      continue;
-    }
     // Project skills install once into the canonical `.agents/skills/` store.
     // Claude discovers that same tree through the generated `.claude/skills`
     // alias. Global skills remain harness-specific, so only that level receives
     // one `--agent` argument per selected agent.
     const args = buildCommunitySkillArgs(item, level, agents);
-
-    const s = tui.spinner();
-    s.start(`Installing ${slug}…`);
-    const result = tryRun('bunx', args);
-    if (result.ok) {
-      s.stop(`Installed: ${slug}`);
+    out.dim(`bunx skills add ${slug}${level === 'global' ? ' -g' : ''}`);
+    const r = await runStreamed('bunx', args, { timeoutMs: 180_000 });
+    if (r.code === 0) {
+      ok += 1;
       state.skills[stateKey] = 'installed';
-      // Only PROJECT level: these three are gitignored, re-fetched on every
-      // install and invisible to the updater, so they are the ones that can
-      // silently run their scaffold-day version forever.
+      // Only PROJECT level: these are gitignored, re-fetched on every install
+      // and invisible to the updater, so they are the ones that can silently
+      // run their scaffold-day version forever.
       if (level === 'project') {
         state.communitySkillRefs = {
           ...state.communitySkillRefs,
@@ -1189,24 +1229,34 @@ async function installCommunitySkills(
       }
     }
     else {
-      s.stop(`Failed: ${slug} — ${(result.stderr || result.stdout).trim().slice(0, 120) || 'unknown error'}`);
       state.skills[stateKey] = 'failed';
+      out.error(`${slug}: ${failureReason(`${r.stdout}\n${r.stderr}`)}`);
     }
+    saveState(state);
   }
   markStepDone(state, key);
+  const where = level === 'project' ? '<code>.agents/skills/</code>' : tr('tu usuario', 'your user');
+  step.end(ok === toInstall.length ? 'ok' : 'warn', tr(`${ok} de ${toInstall.length} en ${where}`, `${ok} of ${toInstall.length} in ${where}`));
 }
 
 // ============================================================================
-// Phase 3 — CONFIGURATION
-// Step 10 (10-mcp-env): Wire .env for MCP servers
+// .env helpers (shared with cli/lib/variables-flow.ts and cli/lib/harness-env.ts)
 // ============================================================================
 //
 // `.mcp.json` and `opencode.jsonc` are committed with `${VAR}` / `{env:VAR}`
-// expansion. The installer no longer rewrites those files — it only ensures
-// `.env` contains the required values. Nothing is exported into the shell:
-// every MCP server reads `.env` itself through the `.env` loader.
+// expansion. The installer never rewrites those files — it only ensures `.env`
+// contains the required values. Nothing is exported into the shell: every MCP
+// server reads `.env` itself through the `.env` loader.
 
+/**
+ * Whether a variable's value must be masked. Decided by the manifest's
+ * `secret:` flag (the same truth `scripts/env-set.ts` uses, analysis §8 #14);
+ * the name suffix is only the fallback for a variable the manifest does not
+ * declare.
+ */
 export function isSecretName(name: string): boolean {
+  const spec = VAR_MANIFEST.find(s => s.name === name);
+  if (spec) { return spec.secret; }
   return SECRET_NAME_HINTS.some(hint => name.endsWith(hint) || name.endsWith(`_${hint}`));
 }
 
@@ -1311,46 +1361,49 @@ export function parseEnvFile(content: string): Record<string, string> {
   return out;
 }
 
-export async function ensureEnvFileExists(): Promise<void> {
+/** Creates `.env` (from `.env.example` when it exists) with mode 600 from the first byte. */
+export async function ensureEnvFileExists(out: Out = consoleOut): Promise<void> {
   if (existsSync(ENV_PATH)) { return; }
-  if (existsSync(ENV_EXAMPLE_PATH)) {
-    const tmpl = await readFile(ENV_EXAMPLE_PATH, 'utf8');
-    await writeFile(ENV_PATH, tmpl, 'utf8');
-    log.success('Created .env from .env.example (values are empty — fill them below).');
-    return;
-  }
-  await writeFile(ENV_PATH, '', 'utf8');
-  log.warn('.env.example missing; created empty .env.');
+  const tmpl = existsSync(ENV_EXAMPLE_PATH) ? await readFile(ENV_EXAMPLE_PATH, 'utf8') : '';
+  await writeFile(ENV_PATH, tmpl, { encoding: 'utf8', mode: 0o600 });
+  try { chmodSync(ENV_PATH, 0o600); }
+  catch { /* best effort; a no-op on Windows */ }
+  if (tmpl) { out.success('Created .env from .env.example (permissions 600).'); }
+  else { out.warn('.env.example missing; created an empty .env (permissions 600).'); }
 }
 
 /**
- * Delete the `.env` lines that assign a retired key (`RETIRED_KEYS`), after one
- * confirmation. The schema no longer declares them, and an undeclared EMPTY
- * key fails `varlock load`, so this runs before anything validates `.env`.
- * Non-interactive: report the names and edit nothing. Values are never printed.
+ * The retired keys `.env` still assigns (`RETIRED_KEYS`). The schema no longer
+ * declares them, and an undeclared EMPTY key fails `varlock load`, so they are
+ * deleted, after one question, before anything validates `.env`. Values are
+ * never printed.
  */
-export async function cleanRetiredEnvKeys(): Promise<void> {
+export async function cleanRetiredEnvKeys(out: Out = consoleOut): Promise<void> {
   if (!existsSync(ENV_PATH)) { return; }
   const text = await readFile(ENV_PATH, 'utf8');
   const present = retiredEnvKeysIn(text);
   if (present.length === 0) { return; }
-  if (NON_INTERACTIVE) {
-    log.warn(`.env still sets retired key(s) nothing reads any more: ${present.join(', ')}. Delete those lines (or run \`bun run setup:doctor\` in a terminal and accept the cleanup).`);
-    return;
-  }
-  const remove = await maybeConfirm(`.env still sets ${present.length} retired key(s) nothing reads any more (${present.join(', ')}). Delete those lines?`, true);
+  const remove = await ask<boolean>({
+    id: 'retired-keys',
+    kind: 'confirm',
+    kicker: '.env',
+    title: tr(`Borramos de .env ${present.length} variable(s) que ya nada lee?`, `Delete ${present.length} key(s) from .env that nothing reads any more?`),
+    why: tr(`Son: <code>${present.join(', ')}</code>. El esquema ya no las declara y una vacía hace fallar la validación de <code>.env</code>.`, `They are: <code>${present.join(', ')}</code>. The schema no longer declares them and an empty one fails the <code>.env</code> validation.`),
+    spec: { yes: tr('Borrarlas', 'Delete them'), no: tr('Conservarlas', 'Keep them') },
+    default: !NON_INTERACTIVE,
+  });
   if (!remove) {
-    log.dim('  Kept. `bun run setup:doctor` keeps listing them until they are gone.');
+    out.dim(tr('Se conservan. `bun run setup:doctor` las sigue listando hasta que no estén.', 'Kept. `bun run setup:doctor` keeps listing them until they are gone.'));
     return;
   }
   const { text: next, removed } = removeRetiredEnvLines(text);
   await writeFile(ENV_PATH, next, { mode: 0o600 });
-  log.success(`Deleted from .env: ${removed.join(', ')}`);
+  out.success(`${tr('Borradas de .env', 'Deleted from .env')}: ${removed.join(', ')}`);
 }
 
 export async function appendVarsToEnv(vars: Record<string, string>): Promise<void> {
   if (Object.keys(vars).length === 0) { return; }
-  const existing = await readFile(ENV_PATH, 'utf8');
+  const existing = existsSync(ENV_PATH) ? await readFile(ENV_PATH, 'utf8') : '';
   // Upsert: replace an existing declaration of KEY in place — whether it is an
   // active `KEY=`, a commented-out `# KEY=`, or an `export KEY=` line — so re-runs
   // and the acli retry loop never accumulate duplicate lines, and a commented
@@ -1388,249 +1441,49 @@ export async function appendVarsToEnv(vars: Record<string, string>): Promise<voi
   catch { /* best effort */ }
 }
 
+/**
+ * A terminal prompt for one variable (the `bun setup --variables` flow). The
+ * installer's own runs ask through the page instead (`askVar`).
+ */
 export async function promptForVar(name: string): Promise<string> {
-  if (isSecretName(name)) {
-    const entered = await password({
-      message: `${name} (Enter to skip — fill later in .env):`,
-      mask: '*',
-    });
-    return (entered ?? '').trim();
-  }
-  const entered = await tui.text({
-    message: `${name} (Enter to skip — fill later in .env):`,
-  });
+  const message = `${name} (Enter to skip — fill later in .env):`;
+  const entered = isSecretName(name)
+    ? await tui.password({ message, mask: '*' })
+    : await tui.text({ message });
   if (tui.isCancel(entered)) { return ''; }
-  return (entered ?? '').trim();
+  return String(entered ?? '').trim();
 }
 
-async function configureMcps(agents: AgentId[], state: InstallState): Promise<void> {
-  if (agents.length === 0) {
-    log.info('No agents selected, skipping MCP config.');
-    return;
+/** One variable through the run: masked when the manifest marks it secret. Empty = skipped. */
+async function askVar(name: string, opts: { title?: string, why?: string, kicker?: string } = {}): Promise<string> {
+  const later = tr('Lo haré después', 'I will do it later');
+  if (isSecretName(name)) {
+    const v = await ask<string>({
+      id: `var-${name}`,
+      kind: 'secret',
+      kicker: opts.kicker ?? tr('Secreto', 'Secret'),
+      title: opts.title ?? name,
+      ...(opts.why ? { why: opts.why } : {}),
+      spec: { varName: name, label: tr('Valor', 'Value'), cta: tr('Guardar', 'Save'), secondary: [{ value: '__later__', label: later }] },
+      default: '__later__',
+    });
+    return v === '__later__' ? '' : v;
   }
-
-  await ensureEnvFileExists();
-
-  const required = await discoverRequiredEnvVars(agents);
-  if (required.length === 0) {
-    log.warn('No env-var placeholders found in .mcp.json or opencode.jsonc.');
-    state.pendingEnvVars = [];
-    return;
-  }
-
-  log.info(`Required MCP env vars (from committed configs): ${required.join(', ')}`);
-
-  const envValues = parseEnvFile(await readFile(ENV_PATH, 'utf8'));
-  const newValues: Record<string, string> = {};
-  const stillPending: string[] = [];
-
-  for (const name of required) {
-    const fromEnvFile = envValues[name];
-    if (fromEnvFile && fromEnvFile.trim().length > 0) {
-      log.dim(`  ${name}: already set in .env`);
-      continue;
-    }
-    const fromProcessEnv = process.env[name];
-    if (fromProcessEnv && fromProcessEnv.trim().length > 0) {
-      newValues[name] = fromProcessEnv.trim();
-      log.dim(`  ${name}: captured from shell environment`);
-      continue;
-    }
-    if (CRITICAL_VAR_NAMES.has(name)) {
-      // OFFERED credentials are owned by the day-0 step, which prompts the
-      // whole set with the right context. Skip here to avoid double-asking; do
-      // NOT mark pending (day-0 offers it).
-      log.dim(`  ${name}: offered in the day-0 credentials step.`);
-      continue;
-    }
-    if (INSTALLER_DEFERRED_VARS.has(name)) {
-      stillPending.push(name);
-      const scope = VAR_MANIFEST.find(s => s.name === name)?.scope ?? 'project';
-      log.dim(`  ${name}: deferred to \`bun run setup:doctor\` (${scope}-scoped: ${scope === 'project' ? 'needs your backend / DB' : 'a tool credential, optional'}).`);
-      continue;
-    }
-    if (NON_INTERACTIVE) {
-      stillPending.push(name);
-      continue;
-    }
-    const value = await promptForVar(name);
-    if (value.length === 0) {
-      stillPending.push(name);
-    }
-    else {
-      newValues[name] = value;
-    }
-  }
-
-  if (Object.keys(newValues).length > 0) {
-    await appendVarsToEnv(newValues);
-    log.success(`Wrote ${Object.keys(newValues).length} var(s) to .env: ${Object.keys(newValues).join(', ')}`);
-  }
-  if (stillPending.length > 0) {
-    log.warn(`Pending (fill in .env manually): ${stillPending.join(', ')}`);
-  }
-
-  state.pendingEnvVars = stillPending;
-
-  // Per-server status — placeholder if any of its required vars are still pending.
-  const merged = { ...envValues, ...newValues };
-  for (const [server, secrets] of Object.entries(MCP_SERVER_SECRETS)) {
-    if (secrets.length === 0) {
-      state.mcps[server] = 'configured-no-key';
-    }
-    else {
-      const anyMissing = secrets.some(s => !merged[s] || merged[s].trim().length === 0);
-      state.mcps[server] = anyMissing ? 'placeholder' : 'configured-with-key';
-    }
-  }
+  const v = await ask<string[]>({
+    id: `var-${name}`,
+    kind: 'text',
+    kicker: opts.kicker ?? '.env',
+    title: opts.title ?? name,
+    ...(opts.why ? { why: opts.why } : {}),
+    spec: { fields: [{ id: name, label: name, hint: tr('Vacío = lo completas después en .env.', 'Empty = fill it later in .env.') }], cta: tr('Guardar', 'Save') },
+    default: [''],
+  });
+  return (v[0] ?? '').trim();
 }
 
-// ----------------------------------------------------------------------------
-// Day-0 credentials: the OFFERED set (manifest `critical: true`)
-// ----------------------------------------------------------------------------
-//
-// The installer OFFERS the credentials the manifest marks `critical` and never
-// requires one: skip is a first-class answer, and nothing later blocks on it
-// (ADR-0005). Which vars those are is the manifest's call (`criticalVars()`);
-// today it is the Atlassian pair plus the site host, which goes to
-// .agents/project.yaml rather than .env. A human is at the keyboard at day-0,
-// so it is the cheapest moment to paste a credential the Jira scripts will
-// need; that is the whole reason the offer exists.
-//
-// Everything else is NEVER asked here (nor warned about):
-//   - TEST_ENV — written to its manifest default ("local") WITHOUT prompting.
-//   - every project-scoped var (your app's login, database, API) and every
-//     tooling var — listed by scope in the closing "Next steps", settable
-//     later via `bun setup --variables`.
-//   - MCP servers that run at harness level (web search, Postman) and CLI
-//     logins (acli, resend) — printed as guidance at the close; nothing to
-//     type into .env.
-
-// Per-offered-var prompt context (grouped note shown before the prompt block).
-// Vars without an entry are prompted with just their name.
-const CRITICAL_VAR_NOTES: Record<string, { title: string, body: string }> = {
-  ATLASSIAN_URL: {
-    title: 'Atlassian site host (Jira / acli)',
-    body: 'e.g. https://your-org.atlassian.net\n'
-      + 'Stored in .agents/project.yaml (versioned), NOT in .env — it is project\n'
-      + 'identity, and a stale copy in .env silently pointed the sync scripts and\n'
-      + 'the Jira-Direct TMS provider at a dead site. Read it back any time with\n'
-      + '`bun run --silent jira:url`.',
-  },
-  ATLASSIAN_EMAIL: {
-    title: 'Atlassian credentials (Jira / acli)',
-    body: 'Used by acli + scripts/sync-jira-*.ts. Get a token at: https://id.atlassian.com/manage-profile/security/api-tokens',
-  },
-};
-
-async function configureDayZeroCredentials(state: InstallState): Promise<void> {
-  await ensureEnvFileExists();
-  const envValues = parseEnvFile(await readFile(ENV_PATH, 'utf8'));
-  const newValues: Record<string, string> = {};
-
-  // ── TEST_ENV default (NO prompt) ─────────────────────────────────────────
-  // Project-dependent; the user reconfigures it manually or via /test-framework-adaptation
-  // when wiring the framework to their project-under-test. Write the manifest
-  // default only when absent — never clobber an existing value.
-  const currentTestEnv = (envValues.TEST_ENV ?? process.env.TEST_ENV ?? '').trim();
-  if (currentTestEnv.length === 0) {
-    const defaultEnv = nonCriticalVars().find(s => s.name === 'TEST_ENV')?.defaultValue ?? 'local';
-    newValues.TEST_ENV = defaultEnv;
-    log.dim(`  TEST_ENV: defaulting to "${defaultEnv}" (reconfigure later via /test-framework-adaptation).`);
-  }
-  else {
-    log.dim(`  TEST_ENV: already set to "${currentTestEnv}".`);
-  }
-
-  // ── OFFERED credentials (idempotent; skip is a first-class answer) ────────
-  for (const spec of criticalVars()) {
-    const name = spec.name;
-
-    // A var sourced outside `.env` is asked for here like any other, but
-    // PERSISTED to its own home. ATLASSIAN_URL goes to `.agents/project.yaml`:
-    // it is a public hostname and project identity, and while it lived in `.env`
-    // a stale copy inherited from the parent shell shadowed the file in silence.
-    if (valueSourceOf(spec) === 'atlassian-instance') {
-      let existing: string | null = null;
-      try { existing = resolveAtlassianInstance().baseUrl; }
-      catch { existing = null; }
-
-      if (existing !== null) {
-        log.dim(`  ${name}: already set (${existing}).`);
-        continue;
-      }
-      if (NON_INTERACTIVE) {
-        log.warn(
-          `${name}: the Atlassian host is not set in .agents/project.yaml and non-interactive mode `
-          + 'cannot prompt. Jira steps will be skipped — fix with `bun run agents:setup`.',
-        );
-        continue;
-      }
-      const noteInfo = CRITICAL_VAR_NOTES[name];
-      if (noteInfo) { tui.note(noteInfo.body, noteInfo.title); }
-      const value = await promptForVar(name);
-      if (value.length === 0) {
-        log.warn('  Atlassian host left empty — Jira steps will be skipped. Set it later with `bun run agents:setup`.');
-        continue;
-      }
-      try {
-        const written = writeAtlassianUrlToYaml(value);
-        log.dim(`  ${name} → .agents/project.yaml (${written}).`);
-      }
-      catch (err) {
-        log.warn(`  Could not write the Atlassian host: ${(err as Error).message}`);
-      }
-      continue;
-    }
-
-    const fromFile = (envValues[name] ?? '').trim();
-    const fromProcess = (process.env[name] ?? '').trim();
-    if (fromFile.length > 0 || fromProcess.length > 0) {
-      log.dim(`  ${name}: already set.`);
-      continue;
-    }
-
-    if (NON_INTERACTIVE) {
-      log.warn(`${name}: missing (non-interactive mode — set later in .env or via \`bun setup --variables\`).`);
-      continue;
-    }
-
-    const noteInfo = CRITICAL_VAR_NOTES[name];
-    if (noteInfo) {
-      tui.note(noteInfo.body, noteInfo.title);
-    }
-    const value = await promptForVar(name);
-    if (value.length > 0) {
-      newValues[name] = value;
-      process.env[name] = value;
-    }
-  }
-
-  if (Object.keys(newValues).length > 0) {
-    await appendVarsToEnv(newValues);
-    reloadDotEnv();
-    log.success(`Wrote ${Object.keys(newValues).length} day-0 var(s) to .env: ${Object.keys(newValues).join(', ')}`);
-  }
-
-  // Refresh MCP per-server status for any server whose secrets include an
-  // offered var we just collected, since configureMcps deferred those to this
-  // step. (No committed server depends on one today; kept so a project that
-  // adds such a server keeps an accurate status line.)
-  const merged = { ...envValues, ...newValues };
-  for (const [server, secrets] of Object.entries(MCP_SERVER_SECRETS)) {
-    if (secrets.length === 0) { continue; }
-    if (!secrets.some(s => CRITICAL_VAR_NAMES.has(s))) { continue; }
-    const anyMissing = secrets.some(s => !merged[s] || merged[s].trim().length === 0);
-    state.mcps[server] = anyMissing ? 'placeholder' : 'configured-with-key';
-  }
-}
-
-// ----------------------------------------------------------------------------
-// Step 10a: where SECRET values live. `.env` is the default and stays first
-// (ADR-0010); a secret manager is the advanced opt-in. Choosing one writes the
-// committed overlay `.env.provider.schema` (references only) and records the
-// choice in `.agents/project.yaml` `secrets:`. Logic: cli/lib/secret-providers.ts.
-// ----------------------------------------------------------------------------
+// ============================================================================
+// Credentials: where secrets live (ADR-0010), MCP variables, day-0 set
+// ============================================================================
 
 function suggestedVault(): string {
   try {
@@ -1647,32 +1500,39 @@ function suggestedVault(): string {
  * is the project's (the updater does not sync it): re-include the one file,
  * which holds references only, and say so.
  */
-function ensureOverlayTracked(): void {
+function ensureOverlayTracked(out: Out): void {
   const ignored = spawnSync('git', ['check-ignore', '-q', PROVIDER_SCHEMA_FILE], { cwd: REPO_ROOT }).status === 0;
   if (!ignored) { return; }
   const gitignore = join(REPO_ROOT, '.gitignore');
   const before = existsSync(gitignore) ? readFileSync(gitignore, 'utf8') : '';
   const sep = before === '' || before.endsWith('\n') ? '' : '\n';
   writeFileSync(gitignore, `${before}${sep}# The secret-manager overlay holds references only (ADR-0010): it travels.\n!${PROVIDER_SCHEMA_FILE}\n`, 'utf8');
-  log.success(`Re-included ${PROVIDER_SCHEMA_FILE} in .gitignore (it was ignored by an .env* rule).`);
+  out.success(`Re-included ${PROVIDER_SCHEMA_FILE} in .gitignore (it was ignored by an .env* rule).`);
 }
 
-async function offerSecretManager(): Promise<void> {
+async function secretsProviderStep(state: InstallState, forceKeys: Set<string>): Promise<void> {
+  const key = '10a-secrets-provider';
   if (existsSync(join(REPO_ROOT, PROVIDER_SCHEMA_FILE))) {
-    log.info(`Secret manager overlay present (${PROVIDER_SCHEMA_FILE}): uncommented keys resolve from the manager; a non-empty .env value still wins.`);
+    const step = UI!.step({ phase: 'creds', why: 'secrets', title: tr('Dónde viven los secretos', 'Where secrets live') });
+    step.end('ok', tr(`gestor de secretos (<code>${PROVIDER_SCHEMA_FILE}</code>); un valor no vacío en .env sigue ganando`, `secret manager (<code>${PROVIDER_SCHEMA_FILE}</code>); a non-empty .env value still wins`));
     return;
   }
   let config;
   try { config = readSecretsConfig(PROJECT_YAML_FILE); }
   catch (err) {
-    log.warn(`${(err as Error).message} Keeping secrets in .env.`);
+    UI!.notice('warn', `${(err as Error).message} ${tr('Los secretos quedan en .env.', 'Secrets stay in .env.')}`);
+    return;
+  }
+  if (!shouldRunStep(state, key, forceKeys) && !process.env.INSTALL_SECRETS_PROVIDER) {
+    const step = UI!.step({ phase: 'creds', why: 'secrets', title: tr('Dónde viven los secretos', 'Where secrets live') });
+    step.end('skipped', config.provider === 'local' ? tr('.env (elegido antes)', '.env (chosen earlier)') : `${config.provider} ${tr('(elegido antes)', '(chosen earlier)')}`);
     return;
   }
 
   const requested = process.env.INSTALL_SECRETS_PROVIDER?.trim();
   if (requested) {
     if (!(SECRET_PROVIDERS as readonly string[]).includes(requested)) {
-      log.warn(`INSTALL_SECRETS_PROVIDER=${requested} is not one of ${SECRET_PROVIDERS.join(' | ')}; keeping secrets in .env.`);
+      UI!.notice('warn', `INSTALL_SECRETS_PROVIDER=${requested} ${tr('no es uno de', 'is not one of')} ${SECRET_PROVIDERS.join(' | ')}; ${tr('los secretos quedan en .env.', 'secrets stay in .env.')}`);
       return;
     }
     config.provider = requested as typeof config.provider;
@@ -1680,70 +1540,290 @@ async function offerSecretManager(): Promise<void> {
   const vaultFromEnv = process.env.INSTALL_SECRETS_VAULT?.trim();
   if (vaultFromEnv) { config.onepassword.vault = vaultFromEnv; }
 
-  if (!NON_INTERACTIVE) {
-    const choice = await tui.select({
-      message: 'Where will this project keep its SECRET values?',
+  config.provider = await ask<typeof config.provider>({
+    id: 'secrets-provider',
+    kind: 'select',
+    kicker: tr('Dónde guardarlas', 'Where to keep them'),
+    title: tr('Dónde viven los secretos de este proyecto?', 'Where do this project\'s secrets live?'),
+    g: 'secrets',
+    spec: {
       options: [
-        { label: '.env file (default: no account needed, works offline)', value: 'local' as const },
-        { label: '1Password (advanced: shared vault for the team, service account for CI)', value: '1password' as const },
+        { value: 'local', label: tr('En un archivo .env de esta máquina', 'In a .env file on this machine'), desc: tr('Lo más simple. El archivo está ignorado por git y solo tú lo ves.', 'The simplest. git ignores the file and only you see it.'), rec: true },
+        { value: '1password', label: tr('En 1Password', 'In 1Password'), desc: tr('El repo guarda solo referencias. Útil si el equipo comparte una bóveda; CI usa un service account.', 'The repo keeps references only. Useful when the team shares a vault; CI uses a service account.') },
       ],
-      initialValue: config.provider,
-    });
-    if (tui.isCancel(choice)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-    config.provider = choice;
-    if (config.provider === '1password') {
-      const vault = await tui.text({
-        message: '1Password vault the references point at (team: <project>-dev; personal plan: Private)',
-        initialValue: config.onepassword.vault ?? suggestedVault(),
-        validate: v => (v && isValidVaultName(v.trim()) ? undefined : 'Letters, digits, ".", "_" or "-" only.'),
-      });
-      if (tui.isCancel(vault)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-      config.onepassword.vault = vault.trim();
-      const account = await tui.text({
-        message: 'Account shorthand from `op account list` (Enter = the CLI default account)',
-        initialValue: config.onepassword.account ?? '',
-      });
-      if (tui.isCancel(account)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-      config.onepassword.account = account.trim() === '' ? null : account.trim();
-      const auth = await tui.select({
-        message: 'How does a laptop authenticate?',
-        options: [
-          { label: 'Desktop app (biometric; CI uses the service-account token)', value: 'app' as const },
-          { label: 'Service-account token only (no desktop app)', value: 'service-account' as const },
+      cta: tr('Elegir', 'Choose'),
+    },
+    default: config.provider,
+  });
+  if (config.provider === '1password') {
+    const [vault, account] = await ask<string[]>({
+      id: 'op-vault',
+      kind: 'text',
+      kicker: '1Password',
+      title: tr('Qué bóveda y qué cuenta?', 'Which vault and which account?'),
+      spec: {
+        fields: [
+          { id: 'vault', label: tr('Bóveda', 'Vault'), short: tr('Bóveda', 'Vault'), value: config.onepassword.vault ?? suggestedVault(), required: true, pattern: '^[A-Za-z0-9._-]+$', patternMsg: tr('Solo letras, dígitos, ".", "_" o "-".', 'Letters, digits, ".", "_" or "-" only.'), hint: tr('Equipo: &lt;proyecto&gt;-dev; plan personal: Private.', 'Team: &lt;project&gt;-dev; personal plan: Private.') },
+          { id: 'account', label: tr('Cuenta (de op account list)', 'Account (from op account list)'), short: tr('Cuenta', 'Account'), value: config.onepassword.account ?? '', hint: tr('Vacío = la cuenta por defecto de la CLI.', 'Empty = the CLI default account.') },
         ],
-        initialValue: config.onepassword.auth,
-      });
-      if (tui.isCancel(auth)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-      config.onepassword.auth = auth;
-    }
+        cta: tr('Guardar', 'Save'),
+      },
+      default: [config.onepassword.vault ?? suggestedVault(), config.onepassword.account ?? ''],
+    });
+    config.onepassword.vault = isValidVaultName(vault) ? vault : suggestedVault();
+    config.onepassword.account = account === '' ? null : account;
+    config.onepassword.auth = await ask<typeof config.onepassword.auth>({
+      id: 'op-auth',
+      kind: 'select',
+      kicker: '1Password',
+      title: tr('Cómo se autentica una laptop?', 'How does a laptop authenticate?'),
+      spec: {
+        options: [
+          { value: 'app', label: tr('App de escritorio (biometría; CI usa el token del service account)', 'Desktop app (biometric; CI uses the service-account token)'), rec: true },
+          { value: 'service-account', label: tr('Solo token de service account (sin app)', 'Service-account token only (no desktop app)') },
+        ],
+      },
+      default: config.onepassword.auth,
+    });
   }
 
+  const step = UI!.step({ phase: 'creds', why: 'secrets', title: tr('Dónde viven los secretos', 'Where secrets live') });
+  const out = stepOut(step);
   if (config.provider === 'local') {
     applySecretsChoice(REPO_ROOT, PROJECT_YAML_FILE, config);
-    log.dim('  Secrets: .env (default). A secret manager is optional: docs/core/variables-de-entorno.html, "Gestores de secretos".');
+    markStepDone(state, key);
+    step.end('ok', tr('.env (por defecto). Un gestor de secretos es opcional: docs/core/variables-de-entorno.html.', '.env (default). A secret manager is optional: docs/core/variables-de-entorno.html.'));
     return;
   }
-
   try {
     const result = applySecretsChoice(REPO_ROOT, PROJECT_YAML_FILE, config);
     const adapter = ADAPTERS[config.provider];
     if (result.overlayWritten) {
-      log.success(`Wrote ${PROVIDER_SCHEMA_FILE} (${adapter.label} references only; commit it).`);
-      ensureOverlayTracked();
+      out.success(`Wrote ${PROVIDER_SCHEMA_FILE} (${adapter.label} references only; commit it).`);
+      ensureOverlayTracked(out);
     }
-    if (result.yamlWritten) { log.success(`Recorded secrets.provider: ${config.provider} in .agents/project.yaml.`); }
-    log.info(`${adapter.label} setup, once per person:`);
-    for (const line of adapter.setupSteps(config)) { log.dim(`  ${line}`); }
-    log.dim('  The next prompts may still offer .env: skip (Enter) every value the vault holds.');
+    if (result.yamlWritten) { out.success(`Recorded secrets.provider: ${config.provider} in .agents/project.yaml.`); }
+    out.info(`${adapter.label} setup, once per person:`);
+    for (const line of adapter.setupSteps(config)) { out.dim(`  ${line}`); }
+    markStepDone(state, key);
+    step.end('ok', `${adapter.label} · ${tr('lo que la bóveda tenga, déjalo vacío en las preguntas siguientes', 'leave what the vault holds empty in the next questions')}`);
   }
   catch (err) {
-    log.warn(`Secret manager not configured: ${(err as Error).message} Secrets stay in .env.`);
+    step.end('warn', `${tr('Gestor no configurado', 'Manager not configured')}: ${(err as Error).message} ${tr('Los secretos quedan en .env.', 'Secrets stay in .env.')}`);
+  }
+}
+
+async function configureMcps(agents: AgentId[], state: InstallState): Promise<void> {
+  const title = tr('Variables de los servidores MCP', 'MCP server variables');
+  if (agents.length === 0) {
+    UI!.step({ phase: 'creds', why: 'mcp', title }).end('skipped', tr('sin agentes', 'no agents'));
+    return;
+  }
+  const required = await discoverRequiredEnvVars(agents);
+  const envValues = existsSync(ENV_PATH) ? parseEnvFile(await readFile(ENV_PATH, 'utf8')) : {};
+  const newValues: Record<string, string> = {};
+  const stillPending: string[] = [];
+  const toAsk: string[] = [];
+
+  for (const name of required) {
+    if ((envValues[name] ?? '').trim().length > 0) { continue; }
+    const fromProcessEnv = process.env[name];
+    if (fromProcessEnv && fromProcessEnv.trim().length > 0) { newValues[name] = fromProcessEnv.trim(); continue; }
+    // OFFERED credentials are owned by the day-0 step, which asks the whole set
+    // with the right context; NOT pending (day-0 offers it).
+    if (CRITICAL_VAR_NAMES.has(name)) { continue; }
+    if (INSTALLER_DEFERRED_VARS.has(name)) { stillPending.push(name); continue; }
+    toAsk.push(name);
+  }
+  for (const name of toAsk) {
+    const value = NON_INTERACTIVE ? '' : await askVar(name, { kicker: 'MCP' });
+    if (value.length === 0) { stillPending.push(name); }
+    else { newValues[name] = value; }
+  }
+
+  const step = UI!.step({ phase: 'creds', why: 'mcp', title });
+  const out = stepOut(step);
+  await ensureEnvFileExists(out);
+  if (Object.keys(newValues).length > 0) {
+    await appendVarsToEnv(newValues);
+    out.success(`${tr('Escritas en .env', 'Written to .env')}: ${Object.keys(newValues).join(', ')}`);
+  }
+  const deferred = stillPending.filter(n => INSTALLER_DEFERRED_VARS.has(n));
+  if (deferred.length > 0) {
+    out.dim(tr(`Para después (dependen de tu backend, base de datos o herramientas): ${deferred.join(', ')}. \`bun run setup:doctor\` las lista con su alcance.`, `For later (they depend on your backend, database or tools): ${deferred.join(', ')}. \`bun run setup:doctor\` lists them with their scope.`));
+  }
+  state.pendingEnvVars = stillPending;
+
+  // Per-server status — placeholder if any of its required vars are still pending.
+  const merged = { ...envValues, ...newValues };
+  for (const [server, secrets] of Object.entries(MCP_SERVER_SECRETS)) {
+    if (secrets.length === 0) {
+      state.mcps[server] = 'configured-no-key';
+    }
+    else {
+      const anyMissing = secrets.some(s => !merged[s] || merged[s].trim().length === 0);
+      state.mcps[server] = anyMissing ? 'placeholder' : 'configured-with-key';
+    }
+  }
+  saveState(state);
+  step.end('ok', required.length === 0
+    ? tr('ninguna declarada', 'none declared')
+    : tr(`${required.length} declaradas · ${stillPending.length} para después`, `${required.length} declared · ${stillPending.length} for later`));
+}
+
+/**
+ * Day-0 credentials: the OFFERED set (manifest `critical: true`). The installer
+ * OFFERS them and never requires one: skip is a first-class answer (ADR-0005).
+ * The plain values go in one card (the Atlassian site and the email), each
+ * secret in its own masked card. The site is persisted to `.agents/project.yaml`
+ * (project identity), everything else to `.env`. TEST_ENV is written to its
+ * manifest default WITHOUT a question.
+ */
+async function configureDayZeroCredentials(state: InstallState): Promise<void> {
+  if (!existsSync(ENV_PATH)) {
+    const step = UI!.step({ phase: 'creds', title: tr('Crear <code>.env</code>', 'Create <code>.env</code>') });
+    await ensureEnvFileExists(stepOut(step));
+    step.end('ok', tr('permisos 600', 'permissions 600'));
+  }
+  const envValues = parseEnvFile(await readFile(ENV_PATH, 'utf8'));
+  const newValues: Record<string, string> = {};
+  const has = (name: string): boolean => (envValues[name] ?? '').trim().length > 0 || (process.env[name] ?? '').trim().length > 0;
+
+  const currentTestEnv = (envValues.TEST_ENV ?? process.env.TEST_ENV ?? '').trim();
+  if (currentTestEnv.length === 0) {
+    newValues.TEST_ENV = nonCriticalVars().find(s => s.name === 'TEST_ENV')?.defaultValue ?? 'local';
+  }
+
+  let atlassianSet = true;
+  try { resolveAtlassianInstance(); }
+  catch { atlassianSet = false; }
+
+  const plain = criticalVars().filter(spec => !spec.secret && (valueSourceOf(spec) === 'atlassian-instance' ? !atlassianSet : !has(spec.name)));
+  const secrets = criticalVars().filter(spec => spec.secret && !has(spec.name));
+
+  if (plain.length > 0) {
+    const fieldOf = (name: string): { label: string, short: string, placeholder?: string, prefix?: string, pattern?: string, patternMsg?: string } => {
+      if (name === 'ATLASSIAN_URL') {
+        return { label: tr('Sitio de Atlassian', 'Atlassian site'), short: tr('Sitio', 'Site'), prefix: 'https://', placeholder: 'acme.atlassian.net', pattern: '^(https?://)?[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+/?$', patternMsg: tr('Un nombre de sitio, por ejemplo acme.atlassian.net.', 'A site name, for example acme.atlassian.net.') };
+      }
+      if (name === 'ATLASSIAN_EMAIL') {
+        return { label: tr('Correo de tu cuenta Atlassian', 'Your Atlassian account email'), short: tr('Correo', 'Email'), placeholder: 'tu@acme.dev', pattern: '^\\S+@\\S+\\.\\S+$', patternMsg: tr('Escribe el correo con el que entras a Jira.', 'Type the email you sign in to Jira with.') };
+      }
+      return { label: name, short: name };
+    };
+    const values = await ask<string[]>({
+      id: 'day0',
+      kind: 'text',
+      kicker: 'Jira',
+      title: tr('Cuál es tu sitio de Atlassian y con qué correo entras?', 'What is your Atlassian site and which email do you sign in with?'),
+      g: 'jira',
+      why: tr('El sitio queda en <code>.agents/project.yaml</code> (no es secreto). El correo va a <code>.env</code>. Vacío = lo completas después y la fase de Jira se salta.', 'The site goes to <code>.agents/project.yaml</code> (it is not a secret). The email goes to <code>.env</code>. Empty = you fill it later and the Jira phase is skipped.'),
+      spec: { fields: plain.map(spec => ({ id: spec.name, ...fieldOf(spec.name) })), cta: tr('Guardar', 'Save') },
+      default: plain.map(() => ''),
+    });
+    plain.forEach((spec, i) => {
+      const v = (values[i] ?? '').trim();
+      if (!v) { return; }
+      if (valueSourceOf(spec) === 'atlassian-instance') {
+        try { writeAtlassianUrlToYaml(/^https?:\/\//.test(v) ? v : `https://${v}`); }
+        catch (err) { UI?.notice('warn', `${tr('No se pudo escribir el sitio de Atlassian', 'Could not write the Atlassian host')}: ${(err as Error).message}`); }
+      }
+      else {
+        newValues[spec.name] = v;
+        process.env[spec.name] = v;
+      }
+    });
+  }
+
+  for (const spec of secrets) {
+    const isToken = spec.name === 'ATLASSIAN_API_TOKEN';
+    const value = await askVar(spec.name, {
+      title: isToken ? tr('Pega tu token de API de Atlassian', 'Paste your Atlassian API token') : spec.name,
+      why: isToken
+        ? tr('Lo creas en <code>id.atlassian.com/manage-profile/security/api-tokens</code> → Crear token de API. Copia el valor completo: Atlassian lo muestra una sola vez.', 'Create it at <code>id.atlassian.com/manage-profile/security/api-tokens</code> → Create API token. Copy the whole value: Atlassian shows it only once.')
+        : spec.obtainHint,
+    });
+    if (value.length > 0) {
+      newValues[spec.name] = value;
+      process.env[spec.name] = value;
+    }
+  }
+
+  const step = UI!.step({ phase: 'creds', title: tr('Escribir <code>.env</code> (permisos 600)', 'Write <code>.env</code> (permissions 600)') });
+  if (Object.keys(newValues).length > 0) {
+    await appendVarsToEnv(newValues);
+    reloadDotEnv();
+  }
+  // Refresh MCP per-server status for any server whose secrets include an
+  // offered var just collected (configureMcps deferred those to this step).
+  const merged = { ...envValues, ...newValues };
+  for (const [server, secretsOf] of Object.entries(MCP_SERVER_SECRETS)) {
+    if (secretsOf.length === 0 || !secretsOf.some(s => CRITICAL_VAR_NAMES.has(s))) { continue; }
+    const anyMissing = secretsOf.some(s => !merged[s] || merged[s].trim().length === 0);
+    state.mcps[server] = anyMissing ? 'placeholder' : 'configured-with-key';
+  }
+  saveState(state);
+  const names = Object.keys(newValues);
+  step.end('ok', names.length > 0
+    ? tr(`${names.length} variable(s) guardada(s): ${names.join(', ')} · ningún valor secreto se imprime`, `${names.length} variable(s) saved: ${names.join(', ')} · no secret value is printed`)
+    : tr('nada nuevo', 'nothing new'));
+}
+
+/**
+ * The optional API login (`bun run api:login`), offered only when it can work
+ * (analysis §8 #16): the test-user pair of the active environment is set and
+ * the API answers. Otherwise the step says what is missing.
+ */
+async function optionalApiBootstrap(state: InstallState, forceKeys: Set<string>): Promise<void> {
+  const key = '12-api-bootstrap';
+  const title = tr('Login de la API de tu app', 'Your app\'s API login');
+  if (SKIP_API) { UI!.step({ phase: 'creds', title }).end('skipped', 'INSTALL_SKIP_API=1'); return; }
+  if (!shouldRunStep(state, key, forceKeys)) { UI!.step({ phase: 'creds', title }).end('skipped', tr('ya hecho', 'already done')); return; }
+  reloadDotEnv();
+  const envName = (process.env.TEST_ENV ?? 'local').trim() || 'local';
+  const prefix = `${envName}_USER`.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+  const missing = [`${prefix}_EMAIL`, `${prefix}_PASSWORD`].filter(n => !(process.env[n] ?? '').trim());
+  const base = (process.env.API_BASE_URL ?? '').trim();
+  if (missing.length > 0 || !base) {
+    UI!.step({ phase: 'creds', title }).end('skipped', tr(
+      `Necesita ${[...missing, ...(base ? [] : ['API_BASE_URL'])].join(', ')} y la app corriendo. Después: <code>bun run api:login</code>`,
+      `Needs ${[...missing, ...(base ? [] : ['API_BASE_URL'])].join(', ')} and the app running. Later: <code>bun run api:login</code>`,
+    ));
+    return;
+  }
+  let answers = false;
+  try {
+    await fetch(base, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+    answers = true;
+  }
+  catch { answers = false; }
+  if (!answers) {
+    UI!.step({ phase: 'creds', title }).end('skipped', tr(`${base} no responde. Con la app corriendo: <code>bun run api:login</code>`, `${base} does not answer. With the app running: <code>bun run api:login</code>`));
+    return;
+  }
+  const go = await ask<boolean>({
+    id: 'api-login',
+    kind: 'confirm',
+    kicker: tr('Opcional', 'Optional'),
+    title: tr('Configuramos ahora el login de la API de tu app?', 'Set up your app\'s API login now?'),
+    why: tr(`Sirve para los tests de API. Usa el usuario de prueba de <code>${envName}</code> contra <code>${base}</code>.`, `It serves the API tests. It uses the <code>${envName}</code> test user against <code>${base}</code>.`),
+    spec: { yes: tr('Sí, ahora', 'Yes, now'), no: tr('Después', 'Later') },
+    default: false,
+  });
+  const step = UI!.step({ phase: 'creds', title });
+  if (!go) { step.end('skipped', tr('Después: <code>bun run api:login</code>', 'Later: <code>bun run api:login</code>')); return; }
+  const r = await runStreamed('bun', ['run', 'api:login'], { step, timeoutMs: 60_000 });
+  if (r.code === 0) {
+    markStepDone(state, key);
+    step.end('ok');
+  }
+  else {
+    step.end('warn', tr('No pasó. Más tarde: <code>bun run api:login</code>', 'It did not pass. Later: <code>bun run api:login</code>'));
   }
 }
 
 // ============================================================================
-// Phase 3 — Step 13 (13-github-repo): GitHub remote (optional)
-// Ported from sibling commit 316dc1c + 8f82561 verbatim, adapted for QA repo
+// GitHub
 // ============================================================================
 
 interface GhStatus {
@@ -1779,232 +1859,171 @@ function sanitizeRepoName(name: string): string {
     .slice(0, 100);
 }
 
-// ============================================================================
-// Phase 3 — Step 12 (12-api-bootstrap): Optional API auth bootstrap
-// ============================================================================
+/** Whether `origin` has `branch`, read from the remote itself (a push can fail after the repo was created). */
+function remoteHasBranch(branch: string): boolean {
+  const r = spawnSync('git', ['ls-remote', '--heads', 'origin', branch], { cwd: REPO_ROOT, encoding: 'utf8', timeout: 15_000 });
+  return r.status === 0 && r.stdout.trim().length > 0;
+}
 
-/**
- * Offer to run `bun run api:login` to mint a session token into
- * `.auth/tokens.env` (sourceable) for curl-based agentic API testing. The
- * token is NOT injected into the OpenAPI MCP (which is schema-read-only) — it
- * is used to execute authenticated requests via curl after install.
- */
-async function optionalApiBootstrap(state: InstallState, forceKeys: Set<string>): Promise<void> {
-  const key = '12-api-bootstrap';
-  if (SKIP_API) {
-    log.dim('  INSTALL_SKIP_API=1, skipping API bootstrap.');
-    return;
+function writeTemplateMarker(): void {
+  const markerPath = join(REPO_ROOT, '.template', 'installer.lock.json');
+  if (existsSync(markerPath)) { return; }
+  try {
+    mkdirSync(dirname(markerPath), { recursive: true });
+    writeFileSync(markerPath, `${JSON.stringify({ template: TEMPLATE_MARKER }, null, 2)}\n`, 'utf8');
   }
-  if (!shouldRunStep(state, key, forceKeys)) {
-    log.dim(`  ${key} already done; skipping (set INSTALL_FORCE_12_API_BOOTSTRAP=1 to re-run).`);
-    return;
-  }
-  const proceed = await maybeConfirm(
-    'Configure API auth now? (Runs `bun run api:login`.)',
-    false,
-  );
-  if (!proceed) {
-    return;
-  }
-  log.info('Running: bun run api:login');
-  const { ok } = runInherited('bun', ['run', 'api:login']);
-  if (ok) {
-    log.success('API auth green.');
-    markStepDone(state, key);
-  }
-  else {
-    log.warn('api:login did not pass. Re-run later: bun run api:login');
-  }
+  catch { /* best effort */ }
 }
 
 async function setupGithubRemote(state: InstallState, forceKeys: Set<string>): Promise<void> {
   const key = '13-github-repo';
-  if (NON_INTERACTIVE) {
-    log.dim('Non-interactive mode — skipping GitHub remote creation.');
+  const title = tr('Repositorio en GitHub', 'GitHub repository');
+  const skip = (note: string): void => { UI!.step({ phase: 'github', why: 'gh', title }).end('skipped', note); };
+
+  const branchRes = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: REPO_ROOT, encoding: 'utf8' });
+  const currentBranch = branchRes.status === 0 ? branchRes.stdout.trim() : 'main';
+
+  // A recorded repo whose push never landed: retry the push only (analysis §8 #7).
+  if (state.github && state.github.pushed === false) {
+    const step = UI!.step({ phase: 'github', title: tr(`Subir la rama ${currentBranch}`, `Push the ${currentBranch} branch`) });
+    const push = await runStreamed('git', ['push', '-u', 'origin', currentBranch], { step, timeoutMs: 600_000 });
+    if (push.code === 0 && remoteHasBranch(currentBranch)) {
+      state.github.pushed = true;
+      markStepDone(state, key);
+      step.end('ok', state.github.url);
+    }
+    else {
+      saveState(state);
+      step.end('failed', tr(`El repositorio existe pero la subida falló. Arregla lo que digan los hooks y corre <code>git push -u origin ${currentBranch}</code>.`, `The repository exists but the push failed. Fix what the hooks report and run <code>git push -u origin ${currentBranch}</code>.`));
+    }
     return;
   }
 
-  // Idempotency: if a prior run already created a repo and the local `origin`
-  // points at the same URL, skip silently. INSTALL_FORCE_GITHUB=1 or
-  // --force-step 13-github-repo bypasses this.
+  if (NON_INTERACTIVE) { skip(tr('modo no interactivo', 'non-interactive mode')); return; }
+
+  // Idempotency: a recorded repo that `origin` still points at.
   if (state.github && !FORCE_GITHUB && !shouldRunStep(state, key, forceKeys)) {
     const originUrl = tryRun('git', ['remote', 'get-url', 'origin']);
     if (originUrl.ok && originUrl.stdout.trim().includes(`${state.github.account}/${state.github.repo}`)) {
-      log.dim(`GitHub remote already configured: ${state.github.url} — skipping. (Force: INSTALL_FORCE_GITHUB=1)`);
+      skip(tr(`ya conectado: ${state.github.url}`, `already wired: ${state.github.url}`));
       return;
     }
   }
 
-  // Hydrate state.github from an existing `origin` remote when state has no
-  // record of it (e.g. user manually ran `gh repo create` between installer
-  // runs, or cloned a repo that already had origin set). Parsing the URL
-  // populates the closing-summary GitHub block without re-creating the repo.
+  // An `origin` this installer did not create (a manual `gh repo create`, a clone): record it, create nothing.
   if (!state.github) {
     const originUrl = tryRun('git', ['remote', 'get-url', 'origin']);
     if (originUrl.ok) {
       const url = originUrl.stdout.trim();
-      // Match SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo[.git]).
+      // SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo[.git]).
       const match = url.match(/github\.com[:/]([^/]+)\/([^/.]+)(?:\.git)?$/);
       if (match) {
         const [, account, repo] = match;
-        state.github = {
-          account,
-          repo,
-          visibility: 'unknown',
-          url: `https://github.com/${account}/${repo}`,
-          createdAt: 'pre-existing',
-        };
-        log.dim(`Detected existing GitHub remote: ${state.github.url} — hydrating state, skipping create.`);
+        state.github = { account, repo, visibility: 'unknown', url: `https://github.com/${account}/${repo}`, createdAt: 'pre-existing', pushed: remoteHasBranch(currentBranch) };
         markStepDone(state, key);
+        skip(tr(`ya tiene remoto: ${state.github.url}`, `already has a remote: ${state.github.url}`));
         return;
       }
     }
   }
 
   const gh = detectGh();
-  if (!gh.found) {
-    log.warn('gh CLI not found. Skipping GitHub repository creation.');
-    log.dim('  Install: https://cli.github.com  (then run `gh auth login`).');
-    log.dim('  To wire a remote later:  gh repo create --source=. --remote=origin --push');
-    return;
-  }
-  if (!gh.authenticated) {
-    log.warn(`gh ${gh.version ?? ''} detected but not authenticated.`);
-    log.dim('  Run `gh auth login`, then re-run this installer to create the remote.');
-    return;
-  }
-  log.success(`gh ${gh.version ?? ''} detected (authenticated).`);
+  if (!gh.found) { skip(tr('GitHub CLI no está instalada. Después: <code>gh repo create --source=. --remote=origin --push</code>', 'GitHub CLI is not installed. Later: <code>gh repo create --source=. --remote=origin --push</code>')); return; }
+  if (!gh.authenticated) { skip(tr('GitHub CLI sin sesión. <code>gh auth login</code> y vuelve a correr el instalador.', 'GitHub CLI has no session. <code>gh auth login</code> and run the installer again.')); return; }
 
-  const wantRepoRaw = await tui.confirm({
-    message: 'Create a GitHub repository for this project now?',
-    initialValue: true,
+  const want = await ask<boolean>({
+    id: 'gh-create',
+    kind: 'confirm',
+    kicker: 'GitHub',
+    title: tr('Creamos el repositorio en GitHub ahora?', 'Create the GitHub repository now?'),
+    g: 'gh',
+    spec: { yes: tr('Sí, crearlo', 'Yes, create it'), no: tr('No, solo local', 'No, local only') },
+    default: true,
   });
-  if (tui.isCancel(wantRepoRaw)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-  const wantRepo = wantRepoRaw;
-  if (!wantRepo) {
-    log.dim('Skipped. To wire later:  gh repo create --source=. --remote=origin --push');
-    return;
-  }
+  if (!want) { skip(tr('solo local. Después: <code>gh repo create --source=. --remote=origin --push</code>', 'local only. Later: <code>gh repo create --source=. --remote=origin --push</code>')); return; }
 
-  // Resolve current package name as default repo name.
-  const pkgPath = join(REPO_ROOT, 'package.json');
   let defaultRepoName = 'my-project';
   try {
-    const pkg = JSON.parse(await readFile(pkgPath, 'utf8')) as { name?: string };
+    const pkg = JSON.parse(await readFile(join(REPO_ROOT, 'package.json'), 'utf8')) as { name?: string };
     if (pkg.name) { defaultRepoName = sanitizeRepoName(pkg.name); }
   }
   catch { /* fall through with default */ }
 
-  // Resolve account choices: personal login + org memberships.
   const userRes = ghApi(['user', '--jq', '.login']);
-  if (!userRes.ok || !userRes.stdout) {
-    log.error('Could not resolve GitHub user via `gh api user`. Skipping.');
-    return;
-  }
+  if (!userRes.ok || !userRes.stdout) { skip(tr('No se pudo leer tu usuario de GitHub (`gh api user`).', 'Could not read your GitHub user (`gh api user`).')); return; }
   const userLogin = userRes.stdout;
-
   const orgsRes = ghApi(['user/orgs', '--jq', '.[].login']);
   const orgs = orgsRes.ok && orgsRes.stdout.length > 0 ? orgsRes.stdout.split('\n').filter(Boolean) : [];
 
-  const accountChoices = [
-    { label: `${userLogin} (personal)`, value: userLogin },
-    ...orgs.map(o => ({ label: `${o} (organization)`, value: o })),
-  ];
-
-  const accountRaw = await tui.select({
-    message: 'Where should the repository live?',
-    options: accountChoices,
-    initialValue: userLogin,
+  const account = await ask<string>({
+    id: 'gh-account',
+    kind: 'select',
+    kicker: tr('Repositorio', 'Repository'),
+    title: tr('Dónde vive el repositorio?', 'Where does the repository live?'),
+    spec: {
+      options: [
+        { value: userLogin, label: userLogin, desc: tr('Tu cuenta personal', 'Your personal account'), rec: true },
+        ...orgs.map(org => ({ value: org, label: org, desc: tr('Organización', 'Organization') })),
+      ],
+      cta: tr('Elegir', 'Choose'),
+    },
+    default: userLogin,
   });
-  if (tui.isCancel(accountRaw)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-  const account = accountRaw;
-
-  const visibilityRaw = await tui.select<'private' | 'public' | 'internal'>({
-    message: 'Repository visibility?',
-    options: [
-      { label: 'private (default)', value: 'private' as const },
-      { label: 'public', value: 'public' as const },
-      { label: 'internal (org only)', value: 'internal' as const },
-    ],
-    initialValue: 'private' as const,
+  const visibility = await ask<'private' | 'public' | 'internal'>({
+    id: 'gh-visibility',
+    kind: 'select',
+    kicker: tr('Repositorio', 'Repository'),
+    title: tr('Quién puede verlo?', 'Who can see it?'),
+    spec: {
+      options: [
+        { value: 'private', label: tr('Privado', 'Private'), desc: tr('Solo quien invites.', 'Only the people you invite.'), rec: true },
+        { value: 'public', label: tr('Público', 'Public'), desc: tr('Cualquiera en internet.', 'Anyone on the internet.') },
+        { value: 'internal', label: tr('Interno', 'Internal'), desc: tr('Toda la organización (solo organizaciones).', 'The whole organization (organizations only).') },
+      ],
+    },
+    default: 'private',
   });
-  if (tui.isCancel(visibilityRaw)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-  const visibility = visibilityRaw;
-
-  const rawNameRaw = await tui.text({
-    message: 'Repository name:',
-    initialValue: defaultRepoName,
+  const [rawName] = await ask<string[]>({
+    id: 'gh-name',
+    kind: 'text',
+    kicker: tr('Repositorio', 'Repository'),
+    title: tr('Cómo se llama?', 'What is it called?'),
+    spec: {
+      fields: [{ id: 'repo', label: tr('Nombre', 'Name'), short: 'Repo', prefix: `${account}/`, value: defaultRepoName, required: true, pattern: '^[A-Za-z0-9._-]+$', patternMsg: tr('Letras, dígitos, ".", "_" o "-".', 'Letters, digits, ".", "_" or "-".') }],
+      cta: tr('Crear y subir', 'Create and push'),
+    },
+    default: [defaultRepoName],
   });
-  if (tui.isCancel(rawNameRaw)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-  const rawName = rawNameRaw;
   const repoName = sanitizeRepoName(rawName);
-  if (!repoName) {
-    log.error('Invalid repository name. Skipping.');
+  if (!repoName) { skip(tr('nombre de repositorio inválido', 'invalid repository name')); return; }
+
+  const create = UI!.step({ phase: 'github', title: tr(`Crear <code>${account}/${repoName}</code> (${visibility})`, `Create <code>${account}/${repoName}</code> (${visibility})`) });
+  const createRes = await runStreamed('gh', ['repo', 'create', `${account}/${repoName}`, `--${visibility}`, '--source=.', '--remote=origin'], { step: create, timeoutMs: 120_000 });
+  if (createRes.code !== 0) {
+    create.end('failed', tr('No se creó el remoto; los archivos locales quedan intactos. Puedes reintentar después.', 'The remote was NOT created; local files are intact. You can retry later.'));
     return;
   }
-
-  log.info(`Creating ${account}/${repoName} (${visibility})…`);
-  // Step 1: create remote (no push)
-  const createRes = spawnSync('gh', [
-    'repo',
-    'create',
-    `${account}/${repoName}`,
-    `--${visibility}`,
-    '--source=.',
-    '--remote=origin',
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
-
-  if (createRes.status !== 0) {
-    log.error(`gh repo create failed (exit ${createRes.status}).`);
-    if (createRes.stderr) { log.dim(`  ${createRes.stderr.trim()}`); }
-    log.dim('  Remote was NOT created. Local files left intact. You can retry later.');
-    return;
-  }
-  log.success(`Remote created: ${account}/${repoName}`);
-
-  // Step 2: push (separate so we can distinguish failure modes)
-  const branchRes = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' });
-  const currentBranch = branchRes.status === 0 ? branchRes.stdout.trim() : 'main';
-  const pushRes = spawnSync('git', ['push', '-u', 'origin', currentBranch], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf8',
-  });
-  if (pushRes.status !== 0) {
-    log.warn(`Remote was created but local push failed (exit ${pushRes.status}).`);
-    if (pushRes.stderr) { log.dim(`  ${pushRes.stderr.trim()}`); }
-    log.dim('  This usually means pre-push hooks rejected the push.');
-    log.dim('  Fix the hook errors then retry:');
-    log.dim(`    git push -u origin ${currentBranch}`);
-    return;
-  }
-  log.success('Initial push succeeded.');
-
   const url = `https://github.com/${account}/${repoName}`;
-  state.github = {
-    account,
-    repo: repoName,
-    visibility,
-    url,
-    createdAt: new Date().toISOString(),
-  };
-  markStepDone(state, key);
+  // Recorded BEFORE the push: a failed push must not read as "(pushed)" next time (analysis §8 #7).
+  state.github = { account, repo: repoName, visibility, url, createdAt: new Date().toISOString(), pushed: false };
+  saveState(state);
+  create.end('ok', url);
 
-  // Write template marker so re-runs of verifyRepoRoot() accept the renamed package.json.
-  const markerPath = join(REPO_ROOT, '.template', 'installer.lock.json');
-  if (!existsSync(markerPath)) {
-    try {
-      await mkdir(dirname(markerPath), { recursive: true });
-      await writeFile(markerPath, `${JSON.stringify({ template: 'upex-galaxy/agentic-qa-boilerplate' }, null, 2)}\n`, 'utf8');
-    }
-    catch { /* best-effort */ }
+  const push = UI!.step({ phase: 'github', title: tr(`Subir la rama ${currentBranch}`, `Push the ${currentBranch} branch`), detail: tr('los hooks pre-push corren sus comprobaciones', 'the pre-push hooks run their checks') });
+  const pushRes = await runStreamed('git', ['push', '-u', 'origin', currentBranch], { step: push, timeoutMs: 600_000 });
+  if (pushRes.code === 0 && remoteHasBranch(currentBranch)) {
+    state.github.pushed = true;
+    markStepDone(state, key);
+    push.end('ok', url);
   }
-
-  log.success(`Repository created and pushed: ${url}`);
+  else {
+    saveState(state);
+    push.end('failed', tr(`El repositorio se creó pero la subida falló (casi siempre un hook pre-push). Arréglalo y corre <code>git push -u origin ${currentBranch}</code>, o vuelve a correr el instalador.`, `The repository was created but the push failed (almost always a pre-push hook). Fix it and run <code>git push -u origin ${currentBranch}</code>, or run the installer again.`));
+  }
 }
 
 // ============================================================================
-// Phase 4 — VERIFICATION
-// Step 11 (11-verify-clis): verify external CLIs
+// Verify: external CLIs (information only: a missing one never stops the run)
 // ============================================================================
 
 interface CliResult {
@@ -2023,37 +2042,23 @@ function installHintForOS(cli: { name: string, install?: string }): string {
 }
 
 function verifyExternalClis(state: InstallState): CliResult[] {
+  const step = UI!.step({ phase: 'verify', title: tr('Herramientas de línea de comandos', 'Command-line tools') });
   const results: CliResult[] = EXTERNAL_CLIS.map((cli) => {
     const found = which(cli.name) !== null;
     const status: CliStatus = found ? 'found' : 'missing';
     state.externalClis[cli.name] = status;
     return { name: cli.name, status, purpose: cli.purpose, install: cli.install, docs: cli.docs };
   });
-
-  const rows = results.map(r => [
-    r.name,
-    r.status === 'found' ? tui.statusIcon('ok') : tui.statusIcon('fail'),
-    r.status === 'found' ? '' : installHintForOS(r),
-    r.purpose,
-  ]);
-  process.stdout.write(`${tui.table(['CLI', 'Found', 'Install hint', 'Purpose'], rows)}\n`);
-
-  // Hard-abort when any `required: true` CLI is missing. Escape hatch:
-  // `INSTALL_SKIP_JIRA=1` downgrades the requirement (for non-Jira projects).
-  if (!SKIP_JIRA) {
-    const missingRequired = EXTERNAL_CLIS.filter(
-      cli => cli.required === true && state.externalClis[cli.name] !== 'found',
-    );
-    for (const cli of missingRequired) {
-      process.stdout.write(`\n${tui.statusIcon('fail')} ${cli.name} is required for Jira/Confluence integration but was not found on PATH.\n`);
-      process.stdout.write(`    Install via: ${cli.docs}\n`);
-      process.stdout.write('    Then re-run: bun setup\n');
-    }
-    if (missingRequired.length > 0) {
-      process.exit(1);
-    }
+  saveState(state);
+  for (const r of results.filter(x => x.status === 'missing')) {
+    step.log(`– ${r.name}: ${installHintForOS(r)}  (${r.purpose})`);
   }
-
+  const found = results.filter(r => r.status === 'found').length;
+  const missingRequired = EXTERNAL_CLIS.filter(cli => cli.required === true && state.externalClis[cli.name] !== 'found' && !SKIP_JIRA);
+  step.end(found === results.length ? 'ok' : 'warn', tr(
+    `${found} de ${results.length} encontradas${missingRequired.length ? ` · falta ${missingRequired.map(c => c.name).join(', ')} (Jira)` : ''}`,
+    `${found} of ${results.length} found${missingRequired.length ? ` · ${missingRequired.map(c => c.name).join(', ')} missing (Jira)` : ''}`,
+  ));
   return results;
 }
 
@@ -2086,7 +2091,6 @@ async function loadPriorState(): Promise<InstallState | null> {
     return parsed;
   }
   catch {
-    log.warn(`Could not parse ${STATE_PATH}, starting fresh.`);
     return null;
   }
 }
@@ -2094,7 +2098,6 @@ async function loadPriorState(): Promise<InstallState | null> {
 async function writeInstallState(state: InstallState): Promise<void> {
   await mkdir(dirname(STATE_PATH), { recursive: true });
   await writeFile(STATE_PATH, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-  log.success(`Wrote ${STATE_PATH}`);
 }
 
 export function buildInitialState(prior: InstallState | null): InstallState {
@@ -2172,14 +2175,9 @@ export function buildInitialState(prior: InstallState | null): InstallState {
   };
 }
 
-function describeAgentDetection(detected: AgentDetection): string {
-  const codex = detected.codexCli
-    ? 'CLI found; Desktop uses repository config'
-    : detected.codexConfigured
-      ? 'repository configured for Desktop; CLI not found'
-      : 'not configured';
-  return `Claude Code: ${detected.claudeCode ? 'found' : 'not found'} | OpenCode: ${detected.opencode ? 'found' : 'not found'} | Codex: ${codex}`;
-}
+// ============================================================================
+// Harness selection + compatibility repair
+// ============================================================================
 
 /**
  * Repair the generated surfaces and run the check. Only the harnesses in use
@@ -2224,12 +2222,12 @@ export function mergedHarnesses(existing: readonly Harness[], agents: readonly A
  * OFFER to delete the files of every harness left out (default keep). The
  * boilerplate itself checks all three and is left alone.
  */
-export async function recordHarnessSelection(agents: readonly AgentId[], root = REPO_ROOT): Promise<void> {
+export async function recordHarnessSelection(agents: readonly AgentId[], root = REPO_ROOT, out: Out = consoleOut): Promise<void> {
   const selection = declaredHarnesses(root);
   if (selection.source === 'boilerplate' || agents.length === 0) { return; }
   const yamlPath = join(root, '.agents', 'project.yaml');
   if (!existsSync(yamlPath)) {
-    log.dim(`  .agents/project.yaml not found: ${HARNESSES_KEY} not recorded (the gates detect the harnesses from the files present).`);
+    out.dim(`.agents/project.yaml not found: ${HARNESSES_KEY} not recorded (the gates detect the harnesses from the files present).`);
     return;
   }
   const existing = explicitHarnesses(root);
@@ -2242,25 +2240,30 @@ export async function recordHarnessSelection(agents: readonly AgentId[], root = 
     if (written.join(',') !== next.join(',')) {
       throw new Error(`${HARNESSES_KEY} in .agents/project.yaml reads [${written.join(', ')}] after writing [${next.join(', ')}]`);
     }
-    log.success(`Harnesses in use recorded in .agents/project.yaml: ${HARNESSES_KEY}: [${next.join(', ')}]`);
+    out.success(`${HARNESSES_KEY}: [${next.join(', ')}]`);
   }
 
   for (const harness of HARNESSES.filter(h => !next.includes(h))) {
     const present = HARNESS_FILES[harness].filter(file => existsSync(join(root, file)));
     if (present.length === 0) { continue; }
-    const remove = await maybeConfirm(
-      `${HARNESS_LABEL[harness]} is not a harness this project uses. Delete its files (${present.join(', ')})?`,
-      false,
-    );
+    const remove = await ask<boolean>({
+      id: `drop-${harness}`,
+      kind: 'confirm',
+      kicker: tr('Archivos que no se usan', 'Unused files'),
+      title: tr(`Borramos los archivos de ${HARNESS_LABEL[harness]}?`, `Delete the ${HARNESS_LABEL[harness]} files?`),
+      why: tr(`Este proyecto no usa ${HARNESS_LABEL[harness]}. Son: <code>${present.join(', ')}</code>. Si los conservas, no se comprueban mientras no lo elijas.`, `This project does not use ${HARNESS_LABEL[harness]}. They are: <code>${present.join(', ')}</code>. Kept, they are not checked while you do not pick it.`),
+      spec: { yes: tr('Borrarlos', 'Delete them'), no: tr('Conservarlos', 'Keep them') },
+      default: false,
+    });
     if (!remove) {
-      log.dim(`  Kept ${present.join(', ')}: not checked while ${HARNESSES_KEY} leaves out ${harness}.`);
+      out.dim(`Kept ${present.join(', ')}: not checked while ${HARNESSES_KEY} leaves out ${harness}.`);
       continue;
     }
     for (const file of present) {
       rmSync(join(root, file), { force: true });
       removeEmptyParents(root, file);
     }
-    log.success(`Deleted the ${HARNESS_LABEL[harness]} files: ${present.join(', ')}`);
+    out.success(`Deleted the ${HARNESS_LABEL[harness]} files: ${present.join(', ')}`);
   }
 }
 
@@ -2273,14 +2276,184 @@ function removeEmptyParents(root: string, file: string): void {
   }
 }
 
+function compatibilityStep(lane: string): void {
+  const step = UI!.step({ id: 'compat', phase: 'install', lane, title: tr('Enlazar las skills a tus agentes', 'Link the skills to your agents') });
+  try {
+    const compatibility = repairRepositoryCompatibility();
+    const moved = compatibility.shadowingCommandsMoved;
+    step.end('ok', `${compatibility.alias ? '<code>.claude/skills</code> → <code>.agents/skills/</code>' : tr('sin alias de Claude', 'no Claude alias')}${moved.length > 0 ? tr(` · movidos a ${SHADOWING_COMMANDS_BACKUP_DIR}/: ${moved.join(', ')}`, ` · moved to ${SHADOWING_COMMANDS_BACKUP_DIR}/: ${moved.join(', ')}`) : ''}`);
+  }
+  catch (err) {
+    for (const line of (err as Error).message.split('\n').slice(1, 8)) { step.log(line, 'err'); }
+    step.end('failed', tr('El contrato de los agentes quedó incompleto: corre <code>bun run agents:compat</code>.', 'The agent contract is incomplete: run <code>bun run agents:compat</code>.'));
+  }
+}
+
 // ============================================================================
-// Phase 5 — INITIAL CONFIGURATION
-// Ported from sibling runPostInstallSteps() — Steps 7, 12.4, 13, 13b, 14
+// Project: .agents/project.yaml (agents:setup, absorbed into the run)
 // ============================================================================
 
 /**
- * Reload .env in-process so that values edited by the user during the Jira
- * auth-retry loop are visible without a shell restart.
+ * GitHub "Use this template" copies the maintainers' own `.agents/project.yaml`.
+ * Reseeded from the schema BEFORE anything writes to it (the Team phase writes
+ * `harnesses:`), so nothing this run records is wiped later (analysis §8 #6).
+ */
+function reseedCopiedTemplate(): 'reseeded' | 'kept' | 'failed' {
+  if (!existsSync(PROJECT_YAML_FILE)) { return 'kept'; }
+  const origin = tryRun('git', ['remote', 'get-url', 'origin']);
+  if (classifyProjectYaml(readFileSync(PROJECT_YAML_FILE, 'utf8'), origin.ok ? origin.stdout.trim() : null) !== 'copied-template') { return 'kept'; }
+  const schemaPath = join(REPO_ROOT, SCHEMA_FILE);
+  const seeded = existsSync(schemaPath) ? seedFromSchema(readFileSync(schemaPath, 'utf8')) : null;
+  if (seeded === null) { return 'failed'; }
+  writeFileSync(PROJECT_YAML_FILE, seeded, 'utf8');
+  return 'reseeded';
+}
+
+interface ProjectValues {
+  name: string
+  key: string
+  domain: string
+  local: string
+  staging: string
+  defaultEnv: string
+}
+
+function readProjectValues(): ProjectValues {
+  const empty: ProjectValues = { name: '', key: '', domain: '', local: '', staging: '', defaultEnv: '' };
+  try {
+    const y = parseYaml(readFileSync(PROJECT_YAML_FILE, 'utf8')) as {
+      project?: { project_name?: unknown, project_key?: unknown, webapp_domain?: unknown }
+      environments?: Record<string, { web_url?: unknown }>
+      testing?: { default_env?: unknown }
+    };
+    const s = (v: unknown): string => (typeof v === 'string' ? v : '');
+    return {
+      name: s(y.project?.project_name),
+      key: s(y.project?.project_key),
+      domain: s(y.project?.webapp_domain),
+      local: s(y.environments?.local?.web_url),
+      staging: s(y.environments?.staging?.web_url),
+      defaultEnv: s(y.testing?.default_env),
+    };
+  }
+  catch { return empty; }
+}
+
+/** `localhost:3000` → `http://localhost:3000`; `staging.acme.shop` → `https://staging.acme.shop`. */
+export function withScheme(raw: string, fallback: 'http' | 'https'): string {
+  const v = raw.trim();
+  if (!v) { return ''; }
+  return /^https?:\/\//i.test(v) ? v : `${fallback}://${v}`;
+}
+
+const URL_PATTERN = '^(https?://)?(localhost|[^\\s/.]+(\\.[^\\s/.]+)+)(:\\d+)?(/\\S*)?$';
+
+async function projectPhase(state: InstallState): Promise<void> {
+  const title = tr('Guardar <code>.agents/project.yaml</code>', 'Save <code>.agents/project.yaml</code>');
+  if (!existsSync(PROJECT_YAML_FILE)) {
+    UI!.step({ phase: 'project', title }).end('skipped', tr('.agents/project.yaml no existe', '.agents/project.yaml does not exist'));
+    return;
+  }
+  if (SKIP_AGENTS_SETUP) {
+    state.postInstall.agentsSetup = 'skipped-non-interactive';
+    saveState(state);
+    UI!.step({ phase: 'project', title }).end('skipped', 'INSTALL_SKIP_AGENTS_SETUP=1');
+    return;
+  }
+  if (state.postInstall.agentsSetup === 'completed' && !FORCE_AGENTS_SETUP && !FORCE_ALL) {
+    UI!.step({ phase: 'project', title }).end('skipped', tr('ya hecho; para cambiarlo: <code>bun run agents:setup</code>', 'already done; to change it: <code>bun run agents:setup</code>'));
+    return;
+  }
+  if (NON_INTERACTIVE) {
+    state.postInstall.agentsSetup = 'skipped-non-interactive';
+    saveState(state);
+    UI!.step({ phase: 'project', title }).end('skipped', tr('modo no interactivo. Después: <code>bun run agents:setup</code>', 'non-interactive mode. Later: <code>bun run agents:setup</code>'));
+    return;
+  }
+
+  const cur = readProjectValues();
+  // A first run proposes the package name, so Enter in a terminal moves on.
+  if (!cur.name) {
+    try { cur.name = (JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8')) as { name?: string }).name ?? ''; }
+    catch { cur.name = ''; }
+  }
+  const [name, keyRaw, domain] = await ask<string[]>({
+    id: 'project-identity',
+    kind: 'text',
+    kicker: tr('Identidad', 'Identity'),
+    title: tr('Cómo se llama el proyecto que vas a probar?', 'What is the project you are going to test called?'),
+    why: tr('La clave del proyecto es el prefijo de los tickets en Jira (en <code>ACME-123</code> es <code>ACME</code>).', 'The project key is the prefix of the Jira tickets (in <code>ACME-123</code> it is <code>ACME</code>).'),
+    spec: {
+      fields: [
+        { id: 'pname', label: tr('Nombre del proyecto', 'Project name'), short: tr('Nombre', 'Name'), placeholder: 'Acme Shop', value: cur.name, required: true },
+        { id: 'pkey', label: tr('Clave en Jira', 'Jira key'), short: tr('Clave', 'Key'), placeholder: 'ACME', value: cur.key, hint: tr('Letras y números, como en tus tickets. Vacío = lo completas después.', 'Letters and digits, like in your tickets. Empty = fill it later.'), pattern: '^[A-Za-z][A-Za-z0-9]{0,9}$', patternMsg: tr('Hasta 10 letras o números, empezando por letra (ej. ACME).', 'Up to 10 letters or digits, starting with a letter (e.g. ACME).') },
+        { id: 'pdomain', label: tr('Dominio de la app', 'App domain'), short: tr('Dominio', 'Domain'), placeholder: 'acme.shop', value: cur.domain, hint: tr('Sin https://. Vacío si todavía no está publicada.', 'Without https://. Empty if it is not published yet.') },
+      ],
+      cta: tr('Guardar', 'Save'),
+    },
+    default: [cur.name, cur.key, cur.domain],
+  });
+  const [localRaw, stagingRaw] = await ask<string[]>({
+    id: 'project-envs',
+    kind: 'text',
+    kicker: tr('Entornos', 'Environments'),
+    title: tr('Dónde corre la app en cada entorno?', 'Where does the app run in each environment?'),
+    why: tr('Los tests y las skills eligen la URL según el entorno activo. Empezamos con local y staging; agregas más después con <code>bun run agents:setup</code>.', 'Tests and skills pick the URL from the active environment. We start with local and staging; add more later with <code>bun run agents:setup</code>.'),
+    spec: {
+      fields: [
+        { id: 'local', label: 'Local', short: 'local', placeholder: 'localhost:3000', value: cur.local || 'http://localhost:3000', pattern: URL_PATTERN, patternMsg: tr('Una URL: localhost:3000 o un dominio con punto.', 'A URL: localhost:3000 or a domain with a dot.') },
+        { id: 'staging', label: 'Staging', short: 'staging', placeholder: 'staging.acme.shop', value: cur.staging, hint: tr('Vacío = lo completas después; nada se inventa por ti.', 'Empty = fill it later; nothing is made up for you.'), pattern: URL_PATTERN, patternMsg: tr('Una URL con dominio, por ejemplo staging.acme.shop.', 'A URL with a domain, for example staging.acme.shop.') },
+      ],
+      cta: tr('Guardar entornos', 'Save environments'),
+    },
+    default: [cur.local || 'http://localhost:3000', cur.staging],
+  });
+  const defaultEnv = await ask<string>({
+    id: 'project-default-env',
+    kind: 'select',
+    kicker: tr('Entorno por defecto', 'Default environment'),
+    title: tr('Contra qué entorno se prueba si nadie dice otra cosa?', 'Which environment do tests run against when nobody says otherwise?'),
+    spec: {
+      options: [
+        { value: 'staging', label: 'Staging', desc: tr('Lo habitual para QA: datos de prueba, sin riesgo para usuarios reales.', 'The usual for QA: test data, no risk for real users.'), rec: true },
+        { value: 'local', label: 'Local', desc: tr('Útil si levantas la app en tu máquina.', 'Useful if you run the app on your machine.') },
+      ],
+      cta: tr('Elegir', 'Choose'),
+    },
+    default: cur.defaultEnv === 'local' ? 'local' : 'staging',
+  });
+
+  // agents-setup writes the yaml (comments, order, validation): seeded from the
+  // answers only, never from stray variables of the parent shell.
+  const seedNames = new Set(['PROJECT_NAME', 'PROJECT_KEY', 'WEBAPP_DOMAIN', 'BACKEND_REPO', 'BACKEND_STACK', 'BACKEND_ENTRY', 'FRONTEND_REPO', 'FRONTEND_STACK', 'FRONTEND_ENTRY', 'DB_TYPE', 'ISSUE_TRACKER', 'ISSUE_TRACKER_CLI', 'DEFAULT_ENV', 'TMS_CLI']);
+  const seeds: Record<string, string> = { DEFAULT_ENV: defaultEnv };
+  if (name) { seeds.PROJECT_NAME = name; }
+  if (keyRaw) { seeds.PROJECT_KEY = keyRaw.toUpperCase(); }
+  if (domain) { seeds.WEBAPP_DOMAIN = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, ''); }
+  if (localRaw) { seeds.WEB_URL_LOCAL = withScheme(localRaw, 'http'); }
+  if (stagingRaw) { seeds.WEB_URL_STAGING = withScheme(stagingRaw, 'https'); }
+  const env = childEnv(n => seedNames.has(n) || /^(?:WEB_URL|API_URL|DB_MCP|API_MCP)_/.test(n), seeds);
+
+  const step = UI!.step({ phase: 'project', title });
+  const r = await runStreamed('bun', [join(REPO_ROOT, 'scripts', 'agents-setup.ts'), '--non-interactive'], { step, env, timeoutMs: 60_000 });
+  state.postInstall.agentsSetup = r.code === 0 ? 'completed' : 'failed';
+  saveState(state);
+  if (r.code === 0) {
+    markStepDone(state, '7-agents-setup');
+    step.end('ok', tr(`${Object.keys(seeds).length} valores escritos · el resto queda vacío a propósito (<code>bun run agents:setup</code>)`, `${Object.keys(seeds).length} values written · the rest stays empty on purpose (<code>bun run agents:setup</code>)`));
+  }
+  else {
+    step.end('failed', tr('agents:setup no terminó. Corre <code>bun run agents:setup</code>.', 'agents:setup did not finish. Run <code>bun run agents:setup</code>.'));
+  }
+}
+
+// ============================================================================
+// Jira: acli session, catalogs, manifest check
+// ============================================================================
+
+/**
+ * Reload .env in-process so that values written during the run (a retried
+ * token) are visible without a shell restart.
  */
 export function reloadDotEnv(): void {
   try {
@@ -2314,83 +2487,81 @@ export function reloadDotEnv(): void {
   }
 }
 
-/**
- * Interactive loop that checks Atlassian access and probes /rest/api/3/myself.
- * The HOST comes from `.agents/project.yaml`; only ATLASSIAN_EMAIL /
- * ATLASSIAN_API_TOKEN are env vars.
- * Up to 5 attempts; lets the user skip at any time.
- */
-async function jiraAuthLoop(): Promise<'authenticated' | 'skipped'> {
-  const probe = async (): Promise<{ ok: boolean, reason: string }> => {
-    let url: string | null = null;
-    try { url = resolveAtlassianInstance().baseUrl; }
-    catch { url = null; }
-    const email = process.env.ATLASSIAN_EMAIL;
-    const token = process.env.ATLASSIAN_API_TOKEN;
-    const missing: string[] = [];
-    if (!url) { missing.push('issue_tracker.atlassian_url in .agents/project.yaml'); }
-    if (!email) { missing.push('ATLASSIAN_EMAIL'); }
-    if (!token) { missing.push('ATLASSIAN_API_TOKEN'); }
-    if (missing.length > 0) {
-      return { ok: false, reason: `Missing env vars: ${missing.join(', ')}` };
-    }
-    try {
-      const auth = Buffer.from(`${email}:${token}`).toString('base64');
-      const res = await fetch(`${url!.replace(/\/$/, '')}/rest/api/3/myself`, {
-        method: 'GET',
-        headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) { return { ok: true, reason: 'authenticated' }; }
-      return {
-        ok: false,
-        reason: `HTTP ${res.status} from ${url}/rest/api/3/myself — check ATLASSIAN_EMAIL + ATLASSIAN_API_TOKEN`,
-      };
-    }
-    catch (err) {
-      return { ok: false, reason: `Network error: ${(err as Error).message}` };
-    }
-  };
+/** Asks for a new Atlassian token and writes it to `.env`. Empty = the person chose "later". */
+async function askNewToken(round: number): Promise<string> {
+  const token = await ask<string>({
+    id: `token-retry-${round}`,
+    kind: 'secret',
+    kicker: tr('Secreto', 'Secret'),
+    title: tr('Pega un token de API nuevo', 'Paste a new API token'),
+    g: 'token',
+    why: tr('Crea uno en <code>id.atlassian.com/manage-profile/security/api-tokens</code> con la misma cuenta del correo. El anterior se reemplaza en <code>.env</code>.', 'Create one at <code>id.atlassian.com/manage-profile/security/api-tokens</code> with the account of the email. The old one is replaced in <code>.env</code>.'),
+    spec: { varName: 'ATLASSIAN_API_TOKEN', label: tr('Token nuevo', 'New token'), cta: tr('Reintentar', 'Retry'), secondary: [{ value: '__later__', label: tr('Saltar Jira por ahora', 'Skip Jira for now') }] },
+    default: '__later__',
+  });
+  if (token === '__later__' || !token) { return ''; }
+  process.env.ATLASSIAN_API_TOKEN = token;
+  await appendVarsToEnv({ ATLASSIAN_API_TOKEN: token });
+  reloadDotEnv();
+  return token;
+}
 
-  for (let attempt = 1; attempt <= 5; attempt++) {
-    const { ok, reason } = await probe();
-    if (ok) {
-      process.stdout.write(`${tui.statusIcon('ok')} Jira auth verified.\n`);
-      return 'authenticated';
-    }
-    process.stdout.write(`${tui.statusIcon('fail')} Jira auth failed: ${reason}\n`);
-
-    // Show actionable guidance once on first failure
-    if (attempt === 1) {
-      tui.note(
-        [
-          '1. Open .env in your editor.',
-          '2. Set the three Atlassian variables:',
-          '     (the SITE HOST is not a .env var — set it with `bun run agents:setup`)',
-          '     ATLASSIAN_EMAIL=your-email@example.com',
-          '     ATLASSIAN_API_TOKEN=...',
-          '     (Get a token at https://id.atlassian.com/manage-profile/security/api-tokens)',
-          '3. Save the file. The installer re-reads .env on the next probe — no shell reload needed.',
-        ].join('\n'),
-        'Fix Atlassian credentials',
-      );
-    }
-
-    const choice = await tui.select<'retry' | 'skip'>({
-      message: `Attempt ${attempt} / 5 — what now?`,
-      options: [
-        { value: 'retry', label: 'I fixed .env — retry' },
-        { value: 'skip', label: 'Skip Jira steps for now (re-run later with bun run jira:sync-fields)' },
-      ],
+/** Probes `/rest/api/3/myself` with the `.env` pair; the host comes from `.agents/project.yaml`. */
+async function probeJira(): Promise<{ ok: boolean, reason: string, status?: number }> {
+  let url: string | null = null;
+  try { url = resolveAtlassianInstance().baseUrl; }
+  catch { url = null; }
+  const email = process.env.ATLASSIAN_EMAIL;
+  const token = process.env.ATLASSIAN_API_TOKEN;
+  const missing: string[] = [];
+  if (!url) { missing.push('issue_tracker.atlassian_url (.agents/project.yaml)'); }
+  if (!email) { missing.push('ATLASSIAN_EMAIL'); }
+  if (!token) { missing.push('ATLASSIAN_API_TOKEN'); }
+  if (missing.length > 0) { return { ok: false, reason: `${tr('Falta', 'Missing')}: ${missing.join(', ')}` }; }
+  try {
+    const auth = Buffer.from(`${email}:${token}`).toString('base64');
+    const res = await fetch(`${url!.replace(/\/$/, '')}/rest/api/3/myself`, {
+      method: 'GET',
+      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(5000),
     });
-    if (tui.isCancel(choice) || choice === 'skip') { return 'skipped'; }
-
-    // Re-load .env before next probe so edits the user just made are visible
-    reloadDotEnv();
+    if (res.ok) { return { ok: true, reason: 'authenticated' }; }
+    return { ok: false, status: res.status, reason: `HTTP ${res.status} ${tr('de', 'from')} ${url}/rest/api/3/myself` };
   }
+  catch (err) {
+    return { ok: false, reason: `${tr('Error de red', 'Network error')}: ${(err as Error).message}` };
+  }
+}
 
-  process.stdout.write(`${tui.statusIcon('warn')} Max attempts reached — skipping Jira steps.\n`);
-  return 'skipped';
+/**
+ * The card a failed Atlassian sign-in shows: what happened, how to fix it, and
+ * what next. A rejected token (401/403) offers a new token; missing data or a
+ * network error cannot be fixed with a token, so it offers the reference
+ * catalog instead.
+ */
+async function atlassianFail(what: string, round: number, rejected = true): Promise<'retry' | 'upex' | 'skip'> {
+  const choice = await UI!.fail({
+    id: `jira-fail-${round}`,
+    step: 'jira',
+    title: rejected
+      ? tr('Atlassian rechazó las credenciales', 'Atlassian rejected the credentials')
+      : tr('No pudimos entrar a tu Jira', 'We could not sign in to your Jira'),
+    what,
+    how: rejected
+      ? [
+          tr('Abre <code>id.atlassian.com/manage-profile/security/api-tokens</code> con la cuenta de <b>ATLASSIAN_EMAIL</b>.', 'Open <code>id.atlassian.com/manage-profile/security/api-tokens</code> with the <b>ATLASSIAN_EMAIL</b> account.'),
+          tr('Crea un token nuevo y copia el valor entero.', 'Create a new token and copy the whole value.'),
+          tr('Elige reintentar y pégalo en la tarjeta siguiente.', 'Choose retry and paste it in the next card.'),
+        ]
+      : [
+          tr('El sitio va en <code>.agents/project.yaml</code> (<code>bun run agents:setup</code>); el correo y el token, en <code>.env</code>.', 'The site goes in <code>.agents/project.yaml</code> (<code>bun run agents:setup</code>); the email and the token, in <code>.env</code>.'),
+          tr('Mientras tanto, el catálogo de referencia de UPEX deja el repositorio usable; después corres <code>bun run jira:sync-fields</code> contra tu Jira.', 'Meanwhile the UPEX reference catalog keeps the repository usable; later run <code>bun run jira:sync-fields</code> against your Jira.'),
+        ],
+    actions: rejected
+      ? [{ value: 'retry', label: tr('Reintentar con un token nuevo', 'Retry with a new token') }, { value: 'skip', label: tr('Saltar Jira por ahora', 'Skip Jira for now') }]
+      : [{ value: 'upex', label: tr('Usar el catálogo de referencia', 'Use the reference catalog') }, { value: 'skip', label: tr('Saltar Jira por ahora', 'Skip Jira for now') }],
+  });
+  return choice === 'retry' ? 'retry' : choice === 'upex' ? 'upex' : 'skip';
 }
 
 /**
@@ -2403,54 +2574,101 @@ async function jiraAuthLoop(): Promise<'authenticated' | 'skipped'> {
  */
 const JIRA_SKIP_NO_ADMIN_MARKER = '[JIRA_SYNC_SKIPPED_NO_ADMIN]';
 
-/**
- * Run a Jira sync script while teeing its stderr through this process. Looks
- * for the `[JIRA_SYNC_SKIPPED_NO_ADMIN]` marker to detect the no-admin skip
- * path. Returns `'skipped-no-admin'` when the marker appears (exit code is
- * 0 in that case), `'completed'` on plain success, or `'failed'` on non-zero
- * exit without the marker.
- */
-function runJiraSyncCapturingMarker(
-  args: string[],
-): 'completed' | 'failed' | 'skipped-no-admin' {
-  const child = spawnSync('bun', args, {
-    stdio: ['inherit', 'inherit', 'pipe'],
-  });
-  const stderrText = child.stderr ? child.stderr.toString('utf8') : '';
-  if (stderrText) {
-    process.stderr.write(stderrText);
-  }
-  if (stderrText.includes(JIRA_SKIP_NO_ADMIN_MARKER)) {
-    return 'skipped-no-admin';
-  }
-  if (child.status === 0) {
-    return 'completed';
-  }
-  return 'failed';
+/** Exit code of `jira:sync-workflows --plan-json`: questions are pending and nothing was written. */
+const JIRA_PLAN_PENDING_EXIT = 10;
+
+type JiraOutcome = 'completed' | 'failed' | 'skipped-no-admin';
+
+function jiraOutcome(r: StreamResult): JiraOutcome {
+  if (r.stderr.includes(JIRA_SKIP_NO_ADMIN_MARKER)) { return 'skipped-no-admin'; }
+  return r.code === 0 ? 'completed' : 'failed';
+}
+
+async function runJiraSync(script: string, args: string[], title: string): Promise<JiraOutcome> {
+  const step = UI!.step({ phase: 'jira', title });
+  const r = await runStreamed('bun', ['run', script, '--', ...args], { step, timeoutMs: 300_000 });
+  const outcome = jiraOutcome(r);
+  step.end(outcome === 'completed' ? 'ok' : 'warn', outcome === 'skipped-no-admin'
+    ? tr('Tu usuario de Jira no es administrador: queda el catálogo que trae el repo (sirve igual).', 'Your Jira user is not an administrator: the catalog the repo ships stays (it works).')
+    : outcome === 'failed' ? tr('falló; el instalador sigue', 'failed; the installer goes on') : undefined);
+  return outcome;
+}
+
+/** One picker of `jira:sync-workflows --plan-json` (its `PlanQuestion`; `cli/` cannot import from `scripts/`). */
+interface WorkflowQuestion {
+  id: string
+  workType: string
+  kind: 'status' | 'transition'
+  slug: string
+  reason: 'missing' | 'collision' | 'mismatch'
+  description?: string
+  expects?: { from: string, to: string }
+  options: { value: string, label: string }[]
+}
+
+function workflowQuestionTitle(q: WorkflowQuestion): string {
+  return q.kind === 'status'
+    ? tr(`Qué estado de tu Jira es "${q.slug}" para ${q.workType}?`, `Which status of your Jira is "${q.slug}" for ${q.workType}?`)
+    : tr(`Qué transición de tu Jira es "${q.slug}" para ${q.workType}?`, `Which transition of your Jira is "${q.slug}" for ${q.workType}?`);
+}
+
+function workflowQuestionWhy(q: WorkflowQuestion): string {
+  const reason = q.reason === 'missing'
+    ? tr('Ningún nombre de tu Jira coincide con el que espera la metodología.', 'No name in your Jira matches the one the methodology expects.')
+    : q.reason === 'collision'
+      ? tr('Varios nombres de tu Jira coinciden; elige el correcto.', 'Several names in your Jira match; pick the right one.')
+      : tr(`La que coincide conecta estados distintos de los esperados (${q.expects?.from ?? 'any'} → ${q.expects?.to ?? 'any'}).`, `The one that matches connects different statuses than expected (${q.expects?.from ?? 'any'} → ${q.expects?.to ?? 'any'}).`);
+  return `${reason}${q.description ? ` ${q.description}` : ''}`;
 }
 
 /**
- * Print a one-line status for a Jira sync outcome. `own` adds a hint pointing
- * at the `--upex` fallback when the user's own-workspace sync was skipped for
- * lack of Administer permission.
+ * `jira:sync-workflows` own mode: the status and transition pickers become
+ * cards (owner answer Q5). Pass one plans (`--plan-json`): when every mapping
+ * resolves by itself it writes the catalog and exits 0; when some need a person
+ * it writes nothing and exits 10 with the questions. Pass two applies the
+ * answers (`--answers`).
  */
-function reportJiraOutcome(
-  label: string,
-  outcome: 'completed' | 'failed' | 'skipped-no-admin',
-  own = false,
-): void {
-  if (outcome === 'completed') {
-    process.stdout.write(`${tui.statusIcon('ok')} ${label} completed\n`);
-  }
-  else if (outcome === 'skipped-no-admin') {
-    process.stdout.write(`${tui.statusIcon('warn')} ${label} skipped — your Jira user is not an Administrator.\n`);
-    process.stdout.write('  The bundled .agents catalog stays as-is (repo still works).\n');
-    if (own) {
-      process.stdout.write('  Tip: re-run with the UPEX standard catalog, e.g. bun run jira:sync-fields --upex\n');
+async function runJiraWorkflowsOwn(): Promise<JiraOutcome> {
+  const dir = mkdtempSync(join(tmpdir(), 'upex-jira-'));
+  const planPath = join(dir, 'plan.json');
+  const answersPath = join(dir, 'answers.json');
+  try {
+    const title = tr('Flujos y estados', 'Workflows and statuses');
+    const step = UI!.step({ phase: 'jira', title });
+    const plan = await runStreamed('bun', ['run', 'jira:sync-workflows', '--', '--force', '--plan-json', planPath], { step, timeoutMs: 300_000 });
+    if (plan.code !== JIRA_PLAN_PENDING_EXIT) {
+      const outcome = jiraOutcome(plan);
+      step.end(outcome === 'completed' ? 'ok' : 'warn', outcome === 'skipped-no-admin' ? tr('sin permiso de administrador: queda el catálogo del repo', 'no administrator permission: the repo catalog stays') : outcome === 'failed' ? tr('falló; el instalador sigue', 'failed; the installer goes on') : undefined);
+      return outcome;
     }
+    const questions = (JSON.parse(readFileSync(planPath, 'utf8')) as { questions?: WorkflowQuestion[] }).questions ?? [];
+    step.end('ok', tr(`${questions.length} mapeo(s) necesitan tu elección`, `${questions.length} mapping(s) need your choice`));
+    const answers: Record<string, string> = {};
+    for (const q of questions) {
+      answers[q.id] = await ask<string>({
+        id: `wf-${q.id}`,
+        kind: 'select',
+        kicker: tr('Flujos de Jira', 'Jira workflows'),
+        title: workflowQuestionTitle(q),
+        why: workflowQuestionWhy(q),
+        spec: {
+          options: q.options.map(o => o.value === '__skip__'
+            ? { value: o.value, label: tr('Dejarlo sin mapear', 'Leave it unmapped'), desc: tr('La skill que lo use te lo va a pedir.', 'The skill that uses it will ask you for it.') }
+            : { value: o.value, label: o.label }),
+          cta: tr('Elegir', 'Choose'),
+        },
+        default: q.options[0]?.value,
+      });
+    }
+    writeFileSync(answersPath, JSON.stringify(answers), { mode: 0o600 });
+    const apply = UI!.step({ phase: 'jira', title: tr('Guardar flujos y estados', 'Save workflows and statuses') });
+    const r = await runStreamed('bun', ['run', 'jira:sync-workflows', '--', '--force', '--answers', answersPath], { step: apply, timeoutMs: 300_000 });
+    const outcome = jiraOutcome(r);
+    apply.end(outcome === 'completed' ? 'ok' : 'warn', outcome === 'failed' ? tr('falló; el instalador sigue', 'failed; the installer goes on') : undefined);
+    return outcome;
   }
-  else {
-    process.stdout.write(`${tui.statusIcon('fail')} ${label} failed. Continuing.\n`);
+  finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 
@@ -2476,424 +2694,215 @@ const JIRA_CATALOG_PLACEHOLDERS = [
  *     overwrite a file that is NOT the empty `{}` placeholder — so a later
  *     `bun run jira:sync-*` populates it cleanly without needing --force.
  */
-async function ensureJiraCatalogPlaceholders(): Promise<void> {
+async function ensureJiraCatalogPlaceholders(): Promise<string[]> {
+  const written: string[] = [];
   for (const rel of JIRA_CATALOG_PLACEHOLDERS) {
     const abs = join(REPO_ROOT, rel);
     if (!existsSync(abs)) {
       await writeFile(abs, '{}\n', 'utf8');
-      process.stdout.write(`${tui.statusIcon('ok')} Wrote empty placeholder ${rel} (run jira:sync-* to populate).\n`);
+      written.push(rel);
     }
   }
+  return written;
 }
 
-/**
- * PHASE 5 — INITIAL CONFIGURATION
- *
- * Steps:
- *   7-agents-setup        bun run agents:setup (.agents/project.yaml)
- *   12.4-acli-auth        Atlassian credentials + acli session login
- *   13-jira-sync          catalog-source prompt → fields + workflows + link
- *                         types sync (own/upex/skip) + {} placeholder safety net
- *   14-jira-check         bun run jira:check
- *
- * NON_INTERACTIVE skips this entire phase cleanly — each step is marked
- * 'skipped-non-interactive' in state.postInstall.
- */
-async function runInitialConfigurationPhase(state: InstallState): Promise<void> {
-  // ── Step 7: agents:setup (project.yaml populator) ────────────────────────
-  tui.section('Step 7: Project metadata (.agents/project.yaml)');
+/** Recovery command for a manual acli login; the syntax differs per shell. */
+const MANUAL_ACLI_LOGIN = process.platform === 'win32'
+  ? '$env:ATLASSIAN_API_TOKEN | acli jira auth login --site (bun run --silent jira:url --slug) --email $env:ATLASSIAN_EMAIL --token'
+  : 'echo "$ATLASSIAN_API_TOKEN" | acli jira auth login --site "$(bun run --silent jira:url --slug)" --email "$ATLASSIAN_EMAIL" --token';
 
-  if (state.postInstall.agentsSetup === 'completed' && !FORCE_AGENTS_SETUP) {
-    process.stdout.write(`${tui.statusIcon('ok')} Already completed in a prior run. Re-run via: bun run agents:setup\n`);
+async function acliAuthStep(state: InstallState): Promise<void> {
+  const title = tr('Sesión de la CLI de Atlassian (acli)', 'Atlassian CLI session (acli)');
+  if (state.postInstall.acliAuth === 'completed') { UI!.step({ phase: 'jira', title }).end('skipped', tr('ya iniciada en una corrida anterior', 'already started in an earlier run')); return; }
+  if (!which('acli')) {
+    state.postInstall.acliAuth = 'skipped-no-binary';
+    saveState(state);
+    UI!.step({ phase: 'jira', title }).end('skipped', tr('acli no está instalada (aviso del chequeo previo)', 'acli is not installed (preflight warning)'));
+    return;
   }
-  else if (SKIP_AGENTS_SETUP) {
-    log.dim('  INSTALL_SKIP_AGENTS_SETUP=1, skipping agents:setup.');
-    state.postInstall.agentsSetup = 'skipped-non-interactive';
+  reloadDotEnv();
+  const missing: string[] = ['ATLASSIAN_EMAIL', 'ATLASSIAN_API_TOKEN'].filter(v => !(process.env[v] ?? '').trim());
+  // `--site` wants the BARE host: the yaml value carries a scheme acli rejects.
+  let site = '';
+  try { site = toSiteSlug(resolveAtlassianInstance().baseUrl); }
+  catch { missing.unshift('issue_tracker.atlassian_url (.agents/project.yaml)'); }
+  if (missing.length > 0) {
+    state.postInstall.acliAuth = 'skipped-no-auth';
+    saveState(state);
+    UI!.step({ phase: 'jira', title }).end('skipped', `${tr('Falta', 'Missing')}: ${missing.join(', ')}`);
+    return;
   }
-  else if (AUTO_NON_INTERACTIVE) {
-    state.postInstall.agentsSetup = 'skipped-non-interactive';
-    process.stdout.write(`${tui.statusIcon('warn')} Skipped (no TTY). Re-run via: bun run agents:setup\n`);
+  const step = UI!.step({ phase: 'jira', title: tr(`Iniciar sesión en ${site}`, `Sign in to ${site}`) });
+  // Probe an existing session: a read-only search exits 0 when one exists.
+  const probe = await runStreamed('acli', ['jira', 'workitem', 'search', '--jql', 'created >= -1d', '--limit', '1', '--json'], { timeoutMs: 8000 });
+  if (probe.code === 0) {
+    state.postInstall.acliAuth = 'completed';
+    saveState(state);
+    step.end('ok', tr('sesión existente', 'existing session'));
+    return;
   }
-  else {
-    const proceed = await maybeConfirm(
-      'Run `bun run agents:setup` to populate `.agents/project.yaml` (interactive)?',
-      true,
-    );
-    if (!proceed) {
-      log.warn('Skipping agents:setup. Run it later: bun run agents:setup');
-      state.postInstall.agentsSetup = 'skipped-non-interactive';
-    }
-    else {
-      const args = ['run', 'agents:setup'];
-      if (NON_INTERACTIVE) { args.push('--', '--non-interactive'); }
-      log.info(`Running: bun ${args.join(' ')}`);
-      const res = spawnSync('bun', args, { stdio: 'inherit' });
-      state.postInstall.agentsSetup = res.status === 0 ? 'completed' : 'failed';
-      if (res.status === 0) {
-        process.stdout.write(`${tui.statusIcon('ok')} agents:setup completed\n`);
-      }
-      else {
-        process.stdout.write(`${tui.statusIcon('fail')} agents:setup exited with ${res.status}. Continuing.\n`);
-      }
-    }
-  }
-
-  // ── Step 12.4: Atlassian credentials & acli authentication ──────────────
-  tui.section('Step 12.4: Atlassian credentials & acli authentication');
-
-  // Recovery instruction printed whenever acli auth cannot complete. The command
-  // syntax differs per shell, so pick the form that matches the platform. The
-  // site is read from `.agents/project.yaml` via `jira:url --slug`: `--site`
-  // wants the BARE host, and the old hint interpolated an env var that both
-  // carried a scheme acli rejects and no longer exists.
-  const MANUAL_ACLI_LOGIN = process.platform === 'win32'
-    ? '$env:ATLASSIAN_API_TOKEN | acli jira auth login --site (bun run --silent jira:url --slug) --email $env:ATLASSIAN_EMAIL --token'
-    : 'echo "$ATLASSIAN_API_TOKEN" | acli jira auth login --site "$(bun run --silent jira:url --slug)" --email "$ATLASSIAN_EMAIL" --token';
-
-  if (state.postInstall.acliAuth === 'completed') {
-    process.stdout.write(`${tui.statusIcon('ok')} acli already authenticated in a prior run.\n`);
-  }
-  else if (SKIP_JIRA) {
-    state.postInstall.acliAuth = 'skipped-non-interactive';
-    log.dim('  INSTALL_SKIP_JIRA=1, skipping acli authentication.');
-  }
-  else if (AUTO_NON_INTERACTIVE) {
-    // Step 10b never prompted for the ATLASSIAN_* credentials (no TTY), so
-    // there is nothing to authenticate with. Skip like every other Phase-5
-    // step instead of aborting — a no-TTY run is normal in Git Bash on
-    // Windows, whose MSYS pty is a named pipe and reports isTTY false.
-    state.postInstall.acliAuth = 'skipped-non-interactive';
-    process.stdout.write(`${tui.statusIcon('warn')} Skipped (no TTY). Set the host with \`bun run agents:setup\` and ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN in .env, then re-run: bun setup\n`);
-  }
-  else {
-    // ATLASSIAN_* credentials were collected during Step 10b (day-0 creds).
-    // Here we only verify they're present and run the acli auth.
-    const ATLASSIAN_VARS = ['ATLASSIAN_EMAIL', 'ATLASSIAN_API_TOKEN'] as const;
-    const stillMissing: string[] = ATLASSIAN_VARS.filter(
-      v => !(process.env[v] && process.env[v].trim().length > 0),
-    );
-    // The host is NOT an env var — it comes from `.agents/project.yaml`.
-    // `--site` wants the BARE host: passing the yaml value verbatim would hand
-    // acli a scheme (and possibly a trailing slash) that it rejects.
-    let site = '';
-    try { site = toSiteSlug(resolveAtlassianInstance().baseUrl); }
-    catch { stillMissing.unshift('issue_tracker.atlassian_url (.agents/project.yaml)'); }
-    const email = process.env.ATLASSIAN_EMAIL ?? '';
-
-    if (stillMissing.length > 0) {
-      // Jira auth is not a prerequisite for Steps 13-14, so record the gap and
-      // let Phase 5 finish writing its catalogs rather than aborting the run.
-      state.postInstall.acliAuth = 'skipped-non-interactive';
-      process.stdout.write(`${tui.statusIcon('warn')} Cannot run acli auth — still missing: ${stillMissing.join(', ')}\n`);
-      process.stdout.write('    Set the host with `bun run agents:setup`, the credentials in .env, then re-run `bun setup` — or run manually:\n');
-      process.stdout.write(`    ${MANUAL_ACLI_LOGIN}\n`);
-      await writeInstallState(state);
-    }
-    // Probe existing session: a read-only Jira search returns exit 0 if a session exists.
-    else if (spawnSync('acli', ['jira', 'workitem', 'search', '--jql', 'created >= -1d', '--limit', '1', '--json'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 8000,
-    }).status === 0) {
+  const email = process.env.ATLASSIAN_EMAIL ?? '';
+  let token = process.env.ATLASSIAN_API_TOKEN ?? '';
+  let current = step;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    // The token goes on stdin, never on argv.
+    const login = await runStreamed('acli', ['jira', 'auth', 'login', '--site', site, '--email', email, '--token'], { step: current, input: token, timeoutMs: 15_000 });
+    if (login.code === 0) {
       state.postInstall.acliAuth = 'completed';
-      process.stdout.write(`${tui.statusIcon('ok')} acli already authenticated (existing session detected).\n`);
+      saveState(state);
+      current.end('ok', tr(`sesión iniciada como ${email}`, `signed in as ${email}`));
+      return;
     }
-    else {
-      // No session — run the login. Pipe the token via spawnSync `input` to
-      // avoid shell injection risks (no `echo $TOKEN | ...` expansion).
-      let token = process.env.ATLASSIAN_API_TOKEN ?? '';
-
-      const MAX_ATTEMPTS = 3;
-      let success = false;
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        const loginRes = spawnSync(
-          'acli',
-          ['jira', 'auth', 'login', '--site', site, '--email', email, '--token'],
-          {
-            input: token,
-            stdio: ['pipe', 'inherit', 'inherit'],
-            timeout: 15000,
-          },
-        );
-        if (loginRes.status === 0) {
-          state.postInstall.acliAuth = 'completed';
-          process.stdout.write(`${tui.statusIcon('ok')} acli session created. Subsequent acli commands won't need re-auth.\n`);
-          success = true;
-          break;
-        }
-
-        process.stdout.write(`${tui.statusIcon('fail')} acli auth login failed (attempt ${attempt}/${MAX_ATTEMPTS}, exit ${loginRes.status}).\n`);
-        if (attempt < MAX_ATTEMPTS) {
-          if (AUTO_NON_INTERACTIVE) {
-            // Can't re-prompt without a TTY — break out of the retry loop.
-            break;
-          }
-          const retryToken = await promptForVar('ATLASSIAN_API_TOKEN');
-          if (retryToken.length === 0) { break; }
-          token = retryToken;
-          process.env.ATLASSIAN_API_TOKEN = retryToken;
-          await appendVarsToEnv({ ATLASSIAN_API_TOKEN: retryToken });
-          reloadDotEnv();
-        }
-      }
-
-      if (!success) {
-        // Record the failure and carry on: Steps 13-14 write the catalog
-        // placeholders the skills reference, and the closing summary reports
-        // acliAuth: failed. Aborting here left every re-run stuck at 12.4.
-        state.postInstall.acliAuth = 'failed';
-        process.stdout.write(`${tui.statusIcon('fail')} acli auth login failed after ${MAX_ATTEMPTS} attempts.\n`);
-        process.stdout.write(`    Manual auth: ${MANUAL_ACLI_LOGIN}\n`);
-        await writeInstallState(state);
-      }
-    }
+    current.end('failed');
+    if (attempt === 3 || NON_INTERACTIVE) { break; }
+    const what = tr(`<code>acli jira auth login</code> terminó con ${login.code ?? 'error'}: el correo existe, pero el token no corresponde a esa cuenta, se copió incompleto o fue revocado.`, `<code>acli jira auth login</code> exited with ${login.code ?? 'error'}: the email exists, but the token does not belong to that account, was copied incomplete or was revoked.`);
+    if (await atlassianFail(what, attempt) === 'skip') { break; }
+    token = await askNewToken(attempt);
+    if (!token) { break; }
+    current = UI!.step({ phase: 'jira', title: tr(`Iniciar sesión en ${site} (intento ${attempt + 1})`, `Sign in to ${site} (attempt ${attempt + 1})`) });
   }
+  // Recorded, never fatal: the catalogs below still write their placeholders.
+  state.postInstall.acliAuth = 'failed';
+  saveState(state);
+  UI!.notice('warn', `${tr('acli sin sesión. A mano', 'acli has no session. By hand')}: <code>${MANUAL_ACLI_LOGIN}</code>`);
+}
 
-  // ── Step 13: Jira catalogs sync (fields + workflows + link types) ─────────
-  // One prompt picks the catalog source for the whole project:
-  //   own  → live-fetch from the user's Atlassian site (needs admin)
-  //   upex → download the UPEX-Galaxy standard catalogs from GitHub (no admin)
-  //   skip → leave empty {} placeholders, configure later
-  // Whatever the outcome, ensureJiraCatalogPlaceholders() below guarantees the
-  // SKILL.md-referenced JSON files exist so the STALE-PATH lint never breaks
-  // the pre-push hook on a freshly bootstrapped project.
-  tui.section('Step 13: Jira catalogs sync (fields + workflows + link types)');
-
-  const jiraAlreadyDone
-    = state.postInstall.jiraSyncFields === 'completed'
-      && state.postInstall.jiraSyncWorkflows === 'completed';
-
-  if (SKIP_JIRA) {
-    log.dim('  INSTALL_SKIP_JIRA=1, skipping Jira catalog sync.');
-    state.postInstall.jiraSyncFields = 'skipped-non-interactive';
-    state.postInstall.jiraSyncWorkflows = 'skipped-non-interactive';
-  }
-  else if (jiraAlreadyDone) {
-    process.stdout.write(`${tui.statusIcon('ok')} Already completed in a prior run.\n`);
-  }
-  else if (AUTO_NON_INTERACTIVE) {
-    state.postInstall.jiraSyncFields = 'skipped-non-interactive';
-    state.postInstall.jiraSyncWorkflows = 'skipped-non-interactive';
-    process.stdout.write(`${tui.statusIcon('warn')} Skipped (no TTY). Re-run via: bun run jira:sync-fields && bun run jira:sync-workflows\n`);
-  }
-  else {
-    const mode = await tui.select<'own' | 'upex' | 'skip'>({
-      message: 'Jira catalogs (custom fields, workflows, link types) — which source?',
+async function jiraCatalogsStep(state: InstallState): Promise<void> {
+  const done = state.postInstall.jiraSyncFields === 'completed' && state.postInstall.jiraSyncWorkflows === 'completed';
+  if (done) { UI!.step({ phase: 'jira', title: tr('Catálogos de Jira', 'Jira catalogs') }).end('skipped', tr('ya sincronizados', 'already synced')); return; }
+  let key = '';
+  try { key = readProjectValues().key; }
+  catch { key = ''; }
+  // Without the site or the pair there is no own catalog to read: the reference one is the useful default.
+  reloadDotEnv();
+  let siteKnown = true;
+  try { resolveAtlassianInstance(); }
+  catch { siteKnown = false; }
+  const credsReady = siteKnown && Boolean((process.env.ATLASSIAN_EMAIL ?? '').trim()) && Boolean((process.env.ATLASSIAN_API_TOKEN ?? '').trim());
+  let mode = await ask<'own' | 'upex' | 'skip'>({
+    id: 'jira-catalogs',
+    kind: 'select',
+    kicker: tr('Catálogos', 'Catalogs'),
+    title: tr('De dónde traemos los campos y flujos de Jira?', 'Where do we get the Jira fields and workflows from?'),
+    g: 'jira',
+    why: tr('Las skills mueven tickets entre estados y llenan campos. Necesitan saber cómo se llaman en tu Jira.', 'The skills move tickets between statuses and fill fields. They need to know what they are called in your Jira.'),
+    spec: {
       options: [
-        {
-          value: 'own',
-          label: 'My own Jira workspace — live-fetch from your Atlassian site (needs Administer permission)',
-        },
-        {
-          value: 'upex',
-          label: 'UPEX-Galaxy standard — download the reference catalogs from GitHub (no admin needed)',
-        },
-        {
-          value: 'skip',
-          label: 'Skip for now — write empty {} placeholders, configure later',
-        },
+        { value: 'own', label: key ? tr(`De mi proyecto ${key}`, `From my ${key} project`) : tr('De mi propio Jira', 'From my own Jira'), desc: credsReady ? tr('Lee tu Jira real. Necesita permiso de administrador del proyecto.', 'Reads your real Jira. Needs project administrator permission.') : tr('Lee tu Jira real. Faltan el sitio, el correo o el token de Atlassian.', 'Reads your real Jira. The Atlassian site, email or token is missing.'), rec: credsReady },
+        { value: 'upex', label: tr('El catálogo de referencia de UPEX', 'The UPEX reference catalog'), desc: tr('Se descarga de GitHub. Sin permiso de administrador.', 'Downloads from GitHub. No administrator permission.'), rec: !credsReady },
+        { value: 'skip', label: tr('Saltar', 'Skip'), desc: tr('Lo corres después con <code>bun run jira:sync-fields</code>.', 'Run it later with <code>bun run jira:sync-fields</code>.') },
       ],
-    });
-
-    if (tui.isCancel(mode) || mode === 'skip') {
-      state.postInstall.jiraSyncFields = 'skipped-no-auth';
-      state.postInstall.jiraSyncWorkflows = 'skipped-no-auth';
-      process.stdout.write(`${tui.statusIcon('warn')} Skipped by user. Re-run later: bun run jira:sync-fields (add --upex for the UPEX standard).\n`);
-    }
-    else if (mode === 'upex') {
-      // --upex short-circuits the Jira API entirely (downloads the cached
-      // UPEX-standard catalogs from GitHub raw), so no auth loop is needed.
-      // --force overwrites the bootstrap-pruned/stale copy unconditionally.
-      const fOut = runJiraSyncCapturingMarker(['run', 'jira:sync-fields', '--', '--upex', '--force']);
-      state.postInstall.jiraSyncFields = fOut;
-      reportJiraOutcome('jira:sync-fields --upex', fOut);
-
-      const wOut = runJiraSyncCapturingMarker(['run', 'jira:sync-workflows', '--', '--upex', '--force']);
-      state.postInstall.jiraSyncWorkflows = wOut;
-      reportJiraOutcome('jira:sync-workflows --upex', wOut);
-
-      // link-types is USER-OK (no admin) and not bootstrap-pruned, but we sync
-      // it here too so 'upex' means the full standard. It has no --force flag;
-      // --upex already overwrites with the upstream catalog.
-      const lOut = runJiraSyncCapturingMarker(['run', 'jira:sync-link-types', '--', '--upex']);
-      reportJiraOutcome('jira:sync-link-types --upex', lOut);
-    }
-    else {
-      // mode === 'own' — live-fetch from the user's Atlassian site. --force is
-      // always passed during setup so a stale bootstrap copy is refreshed; the
-      // script's own populated-file guard protects user edits in later sessions
-      // (this branch only runs while state is not yet 'completed').
-      const authResult = await jiraAuthLoop();
-      if (authResult === 'skipped') {
-        state.postInstall.jiraSyncFields = 'skipped-no-auth';
-        state.postInstall.jiraSyncWorkflows = 'skipped-no-auth';
-        process.stdout.write(`${tui.statusIcon('warn')} Skipped by user. Re-run via: bun run jira:sync-fields (or --upex for the UPEX standard).\n`);
-      }
-      else {
-        const fOut = runJiraSyncCapturingMarker(['run', 'jira:sync-fields', '--', '--force']);
-        state.postInstall.jiraSyncFields = fOut;
-        reportJiraOutcome('jira:sync-fields', fOut, true);
-
-        if (fOut === 'skipped-no-admin') {
-          // Same root cause (no Administer permission) applies to workflows.
-          state.postInstall.jiraSyncWorkflows = 'skipped-no-admin';
-          process.stdout.write(`${tui.statusIcon('warn')} jira:sync-workflows skipped — same no-admin reason.\n`);
-          process.stdout.write('  Tip: re-run with the UPEX standard: bun run jira:sync-workflows --upex\n');
-        }
-        else if (fOut !== 'completed') {
-          state.postInstall.jiraSyncWorkflows = 'skipped-no-auth';
-          process.stdout.write(`${tui.statusIcon('warn')} jira:sync-workflows skipped — jira:sync-fields did not complete (shared credentials).\n`);
-        }
-        else {
-          const wOut = runJiraSyncCapturingMarker(['run', 'jira:sync-workflows', '--', '--force']);
-          state.postInstall.jiraSyncWorkflows = wOut;
-          reportJiraOutcome('jira:sync-workflows', wOut, true);
-        }
-      }
+      cta: tr('Traer catálogos', 'Get catalogs'),
+    },
+    default: credsReady ? 'own' : 'upex',
+  });
+  if (mode === 'own') {
+    // own — live-fetch from the person's site: credentials first.
+    for (let round = 1; ; round++) {
+      const r = await probeJira();
+      if (r.ok) { break; }
+      const rejected = r.status === 401 || r.status === 403;
+      const what = rejected
+        ? tr(`El sitio respondió <code>${r.status}</code>: el correo existe, pero el token no corresponde a esa cuenta, se copió incompleto o fue revocado.`, `The site answered <code>${r.status}</code>: the email exists, but the token does not belong to that account, was copied incomplete or was revoked.`)
+        : r.reason;
+      const next = round > 5 || NON_INTERACTIVE ? 'skip' : await atlassianFail(what, 100 + round, rejected);
+      if (next === 'upex') { mode = 'upex'; break; }
+      if (next === 'skip' || !(await askNewToken(100 + round))) { mode = 'skip'; break; }
     }
   }
+  if (mode === 'skip') {
+    state.postInstall.jiraSyncFields = 'skipped-no-auth';
+    state.postInstall.jiraSyncWorkflows = 'skipped-no-auth';
+    saveState(state);
+    UI!.step({ phase: 'jira', title: tr('Catálogos de Jira', 'Jira catalogs') }).end('skipped', tr('Después: <code>bun run jira:sync-fields</code> (agrega <code>--upex</code> para el estándar de UPEX)', 'Later: <code>bun run jira:sync-fields</code> (add <code>--upex</code> for the UPEX standard)'));
+    return;
+  }
+  if (mode === 'upex') {
+    // --upex downloads the reference catalogs from GitHub raw: no auth needed.
+    // --force overwrites the bootstrap-pruned/stale copy unconditionally.
+    state.postInstall.jiraSyncFields = await runJiraSync('jira:sync-fields', ['--upex', '--force'], tr('Campos personalizados (UPEX)', 'Custom fields (UPEX)'));
+    saveState(state);
+    state.postInstall.jiraSyncWorkflows = await runJiraSync('jira:sync-workflows', ['--upex', '--force'], tr('Flujos y estados (UPEX)', 'Workflows and statuses (UPEX)'));
+    saveState(state);
+    await runJiraSync('jira:sync-link-types', ['--upex'], tr('Tipos de vínculo (UPEX)', 'Link types (UPEX)'));
+    return;
+  }
 
-  // Safety net (anti STALE-PATH): every Jira catalog referenced by SKILL.md
-  // bodies must exist on disk or the lint-skills check fails the pre-push hook.
-  // Any path still missing after the sync phase gets an empty {} placeholder.
-  await ensureJiraCatalogPlaceholders();
-
-  // ── Step 14: Jira manifest check ─────────────────────────────────────────
-  tui.section('Step 14: Jira manifest check');
-
-  if (SKIP_JIRA) {
-    state.postInstall.jiraCheck = 'skipped-non-interactive';
-    log.dim('  INSTALL_SKIP_JIRA=1, skipping jira:check.');
+  // --force: a stale bootstrap copy is refreshed; the script's own populated-file
+  // guard protects user edits in later sessions.
+  const fields = await runJiraSync('jira:sync-fields', ['--force'], tr('Campos personalizados', 'Custom fields'));
+  state.postInstall.jiraSyncFields = fields;
+  saveState(state);
+  if (fields === 'skipped-no-admin') {
+    state.postInstall.jiraSyncWorkflows = 'skipped-no-admin';
+    UI!.step({ phase: 'jira', title: tr('Flujos y estados', 'Workflows and statuses') }).end('skipped', tr('mismo motivo (sin administrador). Con el estándar: <code>bun run jira:sync-workflows --upex</code>', 'same reason (no administrator). With the standard: <code>bun run jira:sync-workflows --upex</code>'));
   }
-  else if (state.postInstall.jiraCheck === 'completed') {
-    process.stdout.write(`${tui.statusIcon('ok')} Already completed in a prior run.\n`);
-  }
-  else if (AUTO_NON_INTERACTIVE) {
-    state.postInstall.jiraCheck = 'skipped-non-interactive';
-    process.stdout.write(`${tui.statusIcon('warn')} Skipped (no TTY). Re-run via: bun run jira:check\n`);
-  }
-  else if (
-    state.postInstall.jiraSyncFields === 'skipped-no-admin'
-    || state.postInstall.jiraSyncWorkflows === 'skipped-no-admin'
-  ) {
-    state.postInstall.jiraCheck = 'skipped-prereq';
-    process.stdout.write(`${tui.statusIcon('warn')} Skipped — Jira sync was no-admin (boilerplate JSON in use). jira:check would compare against the upstream catalog, not yours.\n`);
-    process.stdout.write('  After downloading UPEX standard with `--upex`, you can run: bun run jira:check\n');
-  }
-  else if (state.postInstall.jiraSyncFields !== 'completed' || state.postInstall.jiraSyncWorkflows !== 'completed') {
-    state.postInstall.jiraCheck = 'skipped-prereq';
-    process.stdout.write(`${tui.statusIcon('warn')} Skipped — Jira sync prerequisites incomplete (need both fields + workflows). Re-run via: bun run jira:check\n`);
+  else if (fields !== 'completed') {
+    state.postInstall.jiraSyncWorkflows = 'skipped-no-auth';
+    UI!.step({ phase: 'jira', title: tr('Flujos y estados', 'Workflows and statuses') }).end('skipped', tr('los campos no terminaron (mismas credenciales)', 'the fields did not finish (same credentials)'));
   }
   else {
-    const res = spawnSync('bun', ['run', 'jira:check'], { stdio: 'inherit' });
-    state.postInstall.jiraCheck = res.status === 0 ? 'completed' : 'failed';
-    if (res.status === 0) {
-      process.stdout.write(`${tui.statusIcon('ok')} jira:check completed\n`);
+    state.postInstall.jiraSyncWorkflows = await runJiraWorkflowsOwn();
+  }
+  saveState(state);
+}
+
+async function jiraCheckStep(state: InstallState): Promise<void> {
+  const title = tr('Manifiesto de Jira', 'Jira manifest');
+  if (state.postInstall.jiraCheck === 'completed') { UI!.step({ phase: 'jira', title }).end('skipped', tr('ya validado', 'already validated')); return; }
+  if (state.postInstall.jiraSyncFields === 'skipped-no-admin' || state.postInstall.jiraSyncWorkflows === 'skipped-no-admin') {
+    state.postInstall.jiraCheck = 'skipped-prereq';
+    saveState(state);
+    UI!.step({ phase: 'jira', title }).end('skipped', tr('compararía contra el catálogo de referencia, no el tuyo', 'it would compare against the reference catalog, not yours'));
+    return;
+  }
+  if (state.postInstall.jiraSyncFields !== 'completed' || state.postInstall.jiraSyncWorkflows !== 'completed') {
+    state.postInstall.jiraCheck = 'skipped-prereq';
+    saveState(state);
+    UI!.step({ phase: 'jira', title }).end('skipped', tr('faltan campos y flujos. Después: <code>bun run jira:check</code>', 'fields and workflows are missing. Later: <code>bun run jira:check</code>'));
+    return;
+  }
+  const step = UI!.step({ phase: 'jira', title });
+  const r = await runStreamed('bun', ['run', 'jira:check'], { step, timeoutMs: 120_000 });
+  state.postInstall.jiraCheck = r.code === 0 ? 'completed' : 'failed';
+  saveState(state);
+  step.end(r.code === 0 ? 'ok' : 'warn', r.code === 0 ? undefined : tr('Revisa la salida; después: <code>bun run jira:check</code>', 'Check the output; later: <code>bun run jira:check</code>'));
+}
+
+async function jiraPhase(state: InstallState): Promise<void> {
+  if (SKIP_JIRA) {
+    state.postInstall.acliAuth = 'skipped-non-interactive';
+    state.postInstall.jiraSyncFields = 'skipped-non-interactive';
+    state.postInstall.jiraSyncWorkflows = 'skipped-non-interactive';
+    state.postInstall.jiraCheck = 'skipped-non-interactive';
+    saveState(state);
+    UI!.step({ phase: 'jira', title: 'Jira' }).end('skipped', 'INSTALL_SKIP_JIRA=1');
+    return;
+  }
+  if (NON_INTERACTIVE) {
+    // Nobody typed the credentials (no TTY): nothing to authenticate with.
+    for (const k of ['acliAuth', 'jiraSyncFields', 'jiraSyncWorkflows', 'jiraCheck'] as const) {
+      if (state.postInstall[k] !== 'completed') { (state.postInstall as Record<string, string>)[k] = 'skipped-non-interactive'; }
     }
-    else {
-      process.stdout.write(`${tui.statusIcon('fail')} jira:check exited with ${res.status}. Continuing.\n`);
-    }
+    saveState(state);
+    UI!.step({ phase: 'jira', title: 'Jira' }).end('skipped', tr('modo no interactivo. Después: <code>bun setup</code> en una terminal', 'non-interactive mode. Later: <code>bun setup</code> in a terminal'));
+    const written = await ensureJiraCatalogPlaceholders();
+    if (written.length > 0) { UI!.notice('info', `${tr('Catálogos vacíos escritos', 'Empty catalogs written')}: ${written.join(', ')}`); }
+    return;
   }
+  await acliAuthStep(state);
+  await jiraCatalogsStep(state);
+  // Safety net (anti STALE-PATH): every Jira catalog the skills reference exists.
+  const written = await ensureJiraCatalogPlaceholders();
+  if (written.length > 0) {
+    UI!.step({ phase: 'jira', title: tr('Catálogos vacíos para después', 'Empty catalogs for later') }).end('ok', `${written.join(', ')} · ${tr('<code>bun run jira:sync-*</code> los llena', '<code>bun run jira:sync-*</code> fills them')}`);
+  }
+  await jiraCheckStep(state);
 }
 
 // ============================================================================
-// Helpers — closing summary
+// Done: the report (one summary, owned by setup: analysis §8 #29)
 // ============================================================================
-
-function recommendedPackageManager(): { label: string, install: string, url: string } {
-  if (process.platform === 'win32') {
-    return {
-      label: 'Scoop',
-      install: 'irm get.scoop.sh | iex',
-      url: 'https://scoop.sh/',
-    };
-  }
-  return {
-    label: 'Homebrew',
-    install: '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
-    url: 'https://brew.sh/',
-  };
-}
-
-function statusFor(found: number, total: number): string {
-  if (total === 0) { return `${tui.statusIcon('info')} n/a`; }
-  if (found === total) { return `${tui.statusIcon('ok')} complete`; }
-  return `${tui.statusIcon('warn')} ${total - found} pending`;
-}
-
-// ============================================================================
-// Closing summary
-// ============================================================================
-
-/**
- * Print the "Next steps — finish later" block: every non-offered manifest var
- * that is still empty in `.env`, grouped by SCOPE (ADR-0005), each with its
- * `obtainHint`. These are NEVER asked at install and NEVER warned about — they
- * live here so the user knows where to get them and that `bun setup
- * --variables` sets them. The project block is titled as what it is: examples
- * to rename or delete when the framework is adapted.
- *
- * Excluded: TEST_ENV (carries a default the installer already wrote) and
- * GitHub-only vars (no `.env` slot; `setup --variables --remote` pushes them).
- */
-function printNonCriticalNextSteps(): void {
-  let envValues: Record<string, string> = {};
-  if (existsSync(ENV_PATH)) {
-    try { envValues = parseEnvFile(readFileSync(ENV_PATH, 'utf8')); }
-    catch { /* unreadable .env → treat all as empty */ }
-  }
-
-  const pending = nonCriticalVars().filter((spec) => {
-    if (spec.defaultValue !== undefined) { return false; } // e.g. TEST_ENV
-    if (!spec.destinations.includes('local')) { return false; }
-    const value = (envValues[spec.name] ?? '').trim();
-    return value.length === 0;
-  });
-
-  if (pending.length === 0) { return; }
-
-  tui.section('Next steps — finish later (optional vars, by scope)');
-  process.stdout.write(`  ${COLORS.dim}Nothing here blocks the agent. Set what your project needs with:${COLORS.reset}\n`);
-  process.stdout.write(`      ${COLORS.cyan}bun setup --variables${COLORS.reset}\n\n`);
-  const groups: Array<{ scope: 'core' | 'tooling' | 'project', title: string }> = [
-    { scope: 'core', title: 'Framework (behind a feature switch: Xray sync, Jira host)' },
-    { scope: 'tooling', title: 'Tooling (optional; may be provided elsewhere)' },
-    { scope: 'project', title: 'Project-under-test examples: rename or delete when you adapt the framework' },
-  ];
-  for (const group of groups) {
-    const inScope = pending.filter(spec => spec.scope === group.scope);
-    if (inScope.length === 0) { continue; }
-    process.stdout.write(`  ${COLORS.bold}${group.title}${COLORS.reset}\n`);
-    for (const spec of inScope) {
-      process.stdout.write(`  • ${COLORS.bold}${spec.name}${COLORS.reset}${spec.featureGate ? `${COLORS.dim} (only when ${spec.featureGate} is on)${COLORS.reset}` : ''}\n`);
-      process.stdout.write(`    ${COLORS.dim}${spec.obtainHint ?? ''}${COLORS.reset}\n`);
-    }
-    process.stdout.write('\n');
-  }
-}
-
-/**
- * Print how to connect the tools that live OUTSIDE `.env`: the MCP servers
- * that run at harness level (connected once per machine, resolved by
- * capability) and the CLIs that keep their own login. Guidance only: nothing
- * here is prompted, written or verified by the installer.
- */
-function printHarnessLevelGuidance(): void {
-  tui.section('Tools that authenticate outside .env (connect once per machine)');
-  process.stdout.write(`  ${COLORS.dim}These MCP servers are not in .mcp.json on purpose: a remote server whose only project-side content is an API key is the harness's business. Skills resolve them by capability.${COLORS.reset}\n`);
-  for (const mcp of HARNESS_LEVEL_MCPS) {
-    process.stdout.write(`  • ${COLORS.bold}${mcp.id}${COLORS.reset}${mcp.capability ? ` (${mcp.capability})` : ''}: ${mcp.purpose}\n`);
-  }
-  for (const host of ['claude', 'opencode', 'codex'] as const) {
-    process.stdout.write(`    ${COLORS.cyan}${host}${COLORS.reset}: ${HARNESS_LEVEL_HOWTO[host].how}\n`);
-    process.stdout.write(`      ${COLORS.dim}${HARNESS_LEVEL_HOWTO[host].where}${COLORS.reset}\n`);
-  }
-  process.stdout.write(`  ${COLORS.dim}CLIs keep their own session:${COLORS.reset}\n`);
-  for (const cli of CLI_LOGINS) {
-    process.stdout.write(`  • ${COLORS.bold}${cli.cli}${COLORS.reset}: ${COLORS.cyan}${cli.login}${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.dim}${cli.note}${COLORS.reset}\n`);
-  }
-  process.stdout.write(`  ${COLORS.dim}bun run setup:doctor reports which of these servers your user-level harness config already declares.${COLORS.reset}\n\n`);
-}
 
 /**
  * OFFERED manifest vars with no value yet, by NAME. Mirrors the day-0 step's
@@ -2915,234 +2924,99 @@ function missingCriticalVarNames(): string[] {
   }).map(spec => spec.name);
 }
 
-function printClosingSummary(state: InstallState): void {
-  const allSkillEntries = Object.entries(state.skills);
-  const engramAgents = allSkillEntries.filter(([k]) => k.startsWith(`${ENGRAM_COMPONENT}::`));
-  const projectCommunity = allSkillEntries.filter(([k]) => k.startsWith('community:project:'));
-  const userCommunity = allSkillEntries.filter(([k]) => k.startsWith('community:global:'));
+/** Optional manifest vars still empty in `.env`, by scope (ADR-0005): never asked, listed once. */
+function optionalVarsByScope(): string {
+  let envValues: Record<string, string> = {};
+  if (existsSync(ENV_PATH)) {
+    try { envValues = parseEnvFile(readFileSync(ENV_PATH, 'utf8')); }
+    catch { /* unreadable .env → treat all as empty */ }
+  }
+  const pending = nonCriticalVars().filter(spec => spec.defaultValue === undefined && spec.destinations.includes('local') && !(envValues[spec.name] ?? '').trim());
+  const scopes: Array<{ scope: 'core' | 'tooling' | 'project', label: string }> = [
+    { scope: 'core', label: tr('Framework', 'Framework') },
+    { scope: 'tooling', label: tr('Herramientas', 'Tooling') },
+    { scope: 'project', label: tr('Ejemplos del proyecto bajo prueba (renómbralos o bórralos al adaptar)', 'Project-under-test examples (rename or delete them when adapting)') },
+  ];
+  return scopes
+    .map(({ scope, label }) => ({ label, names: pending.filter(s => s.scope === scope).map(s => s.name) }))
+    .filter(g => g.names.length > 0)
+    .map(g => `<b>${g.label}</b>: ${g.names.join(', ')}`)
+    .join('<br>');
+}
 
-  const engramInstalled = engramAgents.filter(([, s]) => s === 'installed').length;
-  const projectInstalled = projectCommunity.filter(([, s]) => s === 'installed').length;
-  const userInstalled = userCommunity.filter(([, s]) => s === 'installed').length;
+function buildReport(state: InstallState, ui: InstallerUi): { title: string, tone: 'good' | 'warn' | 'bad', tiles: Tile[], next: NextStep[], pending: boolean } {
+  const ends = ui.journal.all().filter(e => e.t === 'step.end') as Array<{ status: string }>;
+  const ok = ends.filter(e => e.status === 'ok').length;
+  const skipped = ends.filter(e => e.status === 'skipped').length;
+  const warned = ends.filter(e => e.status === 'warn').length;
+  const failed = ends.filter(e => e.status === 'failed').length;
+  const last = ui.journal.all().at(-1);
+  const secs = Math.round((last?.ts ?? 0) / 1000);
+  const elapsed = secs >= 60 ? `${Math.floor(secs / 60)} min ${secs % 60} s` : `${secs} s`;
 
-  const mcpConfigured = Object.values(state.mcps).filter(
-    s => s === 'configured-with-key' || s === 'configured-no-key',
-  ).length;
-  const mcpPlaceholder = Object.values(state.mcps).filter(s => s === 'placeholder').length;
-  const mcpTotal = CANONICAL_MCPS.length;
-
-  const cliFound = Object.values(state.externalClis).filter(s => s === 'found').length;
-  const cliTotal = Object.keys(state.externalClis).length;
-  const cliMissing = Object.entries(state.externalClis)
-    .filter(([, s]) => s === 'missing')
-    .map(([name]) => name);
-
-  // Read project name from package.json for headline box
   let projectName = REPO_NAME;
   try {
-    const pkgRaw = readFileSync(join(REPO_ROOT, 'package.json'), 'utf8');
-    const pkg = JSON.parse(pkgRaw) as { name?: string };
+    const pkg = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8')) as { name?: string };
     if (pkg.name) { projectName = pkg.name; }
   }
   catch { /* fallback to default */ }
 
-  // Headline success box
-  process.stdout.write('\n');
-  process.stdout.write(`${tui.successBox([
-    `${tui.statusIcon('ok')}  Installer complete.  Project: ${projectName}`,
-  ])}\n`);
-
-  // Stats table
-  process.stdout.write(tui.table(
-    ['Category', 'Installed', 'Total', 'Status'],
-    [
-      ['Engram (per agent)', `${engramInstalled}`, `${engramAgents.length}`, statusFor(engramInstalled, engramAgents.length)],
-      ['Project skills', `${projectInstalled}`, `${projectCommunity.length}`, statusFor(projectInstalled, projectCommunity.length)],
-      ['User skills', `${userInstalled}`, `${userCommunity.length}`, statusFor(userInstalled, userCommunity.length)],
-      ['MCPs configured', `${mcpConfigured}`, `${mcpTotal}`, `${statusFor(mcpConfigured, mcpTotal)}${mcpPlaceholder > 0 ? ` (${mcpPlaceholder} placeholder)` : ''}`],
-      ['External CLIs', `${cliFound}`, `${cliTotal}`, statusFor(cliFound, cliTotal)],
-    ],
-  ));
-  process.stdout.write('\n');
-
-  if (state.pendingEnvVars.length > 0) {
-    process.stdout.write(`${COLORS.dim}  Pending env vars: ${state.pendingEnvVars.join(', ')}${COLORS.reset}\n\n`);
-  }
-
-  // REQUIRED section
-  tui.section('REQUIRED — do these now, in this order');
-  const circled = ['⓪', '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
-  let stepNum = 0;
-
-  // Non-interactive (an AI agent drove the install): nobody typed a credential,
-  // so the CRITICAL set is still empty too. Say exactly which keys the agent has
-  // to ask its human for, names only, instead of leaving it to infer them.
+  const next: NextStep[] = [];
   const askHuman = NON_INTERACTIVE ? [...new Set([...missingCriticalVarNames(), ...state.pendingEnvVars])] : [];
-
-  if (state.pendingEnvVars.length > 0 || askHuman.length > 0) {
-    process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Fill missing env vars${COLORS.reset}  ${COLORS.yellow}(BLOCKS the agent from working with MCPs)${COLORS.reset}\n`);
-    if (askHuman.length > 0) {
-      process.stdout.write(`    ${COLORS.cyan}Ask the human for these ${askHuman.length} keys: ${askHuman.join(', ')}${COLORS.reset}\n`);
-      process.stdout.write(`    ${COLORS.dim}Then write them to .env (never paste a value into a chat or a commit).${COLORS.reset}\n`);
-    }
-    else {
-      process.stdout.write(`    ${COLORS.cyan}Edit .env → set: ${state.pendingEnvVars.join(', ')}${COLORS.reset}\n`);
-    }
-    process.stdout.write(`    ${COLORS.dim}Without these, MCP servers will 401/403 silently.${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.cyan}Then restart the agent session${COLORS.reset}  ${COLORS.dim}(MCP servers read credentials at startup, not later)${COLORS.reset}\n\n`);
-    stepNum++;
+  if (askHuman.length > 0) {
+    // An AI agent drove the install: say exactly which keys to ask its human for, names only.
+    next.push({ title: tr(`Pide a tu humano estas ${askHuman.length} claves`, `Ask your human for these ${askHuman.length} keys`), text: tr(`${askHuman.join(', ')}. Se escriben en <code>.env</code>, nunca en un chat ni en un commit. Después, reinicia la sesión del agente.`, `${askHuman.join(', ')}. They go in <code>.env</code>, never into a chat or a commit. Then restart the agent session.`), cmd: 'bun setup --variables' });
   }
-
   if (state.postInstall.agentsSetup !== 'completed') {
-    process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Configure project metadata${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.cyan}bun run agents:setup${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.dim}Writes .agents/project.yaml. Agents read this for every command.${COLORS.reset}\n\n`);
-    stepNum++;
+    next.push({ title: tr('Completa los datos del proyecto', 'Fill in the project data'), text: tr('Escribe <code>.agents/project.yaml</code>; los agentes lo leen en cada comando.', 'Writes <code>.agents/project.yaml</code>; the agents read it on every command.'), cmd: 'bun run agents:setup' });
   }
-
-  if (state.postInstall.acliAuth !== 'completed') {
-    process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Authenticate acli (Atlassian CLI)${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.cyan}echo "$ATLASSIAN_API_TOKEN" | acli jira auth login --site "$(bun run --silent jira:url --slug)" --email "$ATLASSIAN_EMAIL" --token${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.dim}Writes a persistent session to ~/.config/acli/. The /acli skill needs this.${COLORS.reset}\n\n`);
-    stepNum++;
+  if (!SKIP_JIRA && state.postInstall.acliAuth !== 'completed') {
+    next.push({ title: tr('Inicia sesión en acli', 'Sign in to acli'), text: tr('La skill /acli la necesita. La sesión queda en <code>~/.config/acli/</code>.', 'The /acli skill needs it. The session lives in <code>~/.config/acli/</code>.'), cmd: MANUAL_ACLI_LOGIN });
   }
-
-  if (state.postInstall.jiraSyncFields !== 'completed') {
-    process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Sync Jira custom fields${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.cyan}bun run jira:sync-fields${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.dim}Caches your Jira workspace's custom field IDs. Required for /acli skill.${COLORS.reset}\n\n`);
-    stepNum++;
+  if (!SKIP_JIRA && (state.postInstall.jiraSyncFields !== 'completed' || state.postInstall.jiraSyncWorkflows !== 'completed')) {
+    next.push({ title: tr('Sincroniza los catálogos de Jira', 'Sync the Jira catalogs'), text: tr('Agrega <code>--upex</code> a cada uno para el estándar de UPEX si no eres administrador.', 'Add <code>--upex</code> to each for the UPEX standard if you are not an administrator.'), cmd: 'bun run jira:sync-fields && bun run jira:sync-workflows' });
   }
-
-  if (state.postInstall.jiraSyncWorkflows !== 'completed') {
-    process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Sync Jira workflows + statuses${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.cyan}bun run jira:sync-workflows${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.dim}Caches your Jira workspace's statuses + transitions. Required for /acli + skill prompts.${COLORS.reset}\n\n`);
-    stepNum++;
+  else if (!SKIP_JIRA && state.postInstall.jiraCheck !== 'completed') {
+    next.push({ title: tr('Valida el manifiesto de Jira', 'Validate the Jira manifest'), cmd: 'bun run jira:check' });
   }
-
-  if (state.postInstall.jiraCheck !== 'completed') {
-    process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Validate Jira manifest${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.cyan}bun run jira:check${COLORS.reset}\n`);
-    process.stdout.write(`    ${COLORS.dim}Confirms .agents/jira-required.yaml matches your workspace.${COLORS.reset}\n\n`);
-    stepNum++;
+  const opener = state.agents.includes('claude-code') ? 'claude' : state.agents.includes('codex') ? 'codex' : 'opencode';
+  next.push({ title: tr('Abre tu agente en esta carpeta', 'Open your agent in this folder'), text: tr('Ábrelo directo, sin envolverlo en otro comando: cada servidor MCP lee <code>.env</code> por su cuenta, así ningún valor llega al shell del agente.', 'Open it directly, without wrapping it in another command: every MCP server reads <code>.env</code> itself, so no value reaches the agent\'s shell.'), cmd: opener });
+  next.push({ title: tr('Recorre el stack', 'Tour the stack'), text: tr('Explica el flujo de QA: sprint testing, documentación, automatización, regresión.', 'Explains the QA flow: sprint testing, documentation, automation, regression.'), cmd: '/agentic-qa-onboard' });
+  next.push({ title: tr('Mapea tu proyecto', 'Map your project'), text: tr('Lee la app bajo prueba y genera el PRD, el SRS y el glosario.', 'Reads the app under test and generates the PRD, the SRS and the glossary.'), cmd: '/project-discovery' });
+  if (state.engram.status !== 'installed' && !SKIP_ENGRAM) {
+    next.push({ title: tr('Cuando quieras, instala Engram', 'When you like, install Engram'), text: tr('Y vuelve a correr el instalador: solo hace lo que falta.', 'And run the installer again: it only does what is missing.'), cmd: 'brew install gentleman-programming/tap/engram && bun setup' });
   }
-
-  process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Open the agent${COLORS.reset}\n`);
-  process.stdout.write(`    ${COLORS.cyan}claude${COLORS.reset}           ${COLORS.dim}(or Claude Desktop)${COLORS.reset}\n`);
-  process.stdout.write(`    ${COLORS.cyan}opencode${COLORS.reset}         ${COLORS.dim}(or the OpenCode desktop app)${COLORS.reset}\n`);
-  process.stdout.write(`    ${COLORS.cyan}codex${COLORS.reset}            ${COLORS.dim}(CLI; Codex Desktop opens this same repository)${COLORS.reset}\n`);
-  process.stdout.write(`    ${COLORS.dim}No wrapper: every MCP server loads .env itself, so no value reaches the agent's shell. Codex Desktop needs repository trust before hooks run.${COLORS.reset}\n\n`);
-  stepNum++;
-
-  process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Tour the stack${COLORS.reset}\n`);
-  process.stdout.write(`    ${COLORS.cyan}/agentic-qa-onboard${COLORS.reset}\n`);
-  process.stdout.write(`    ${COLORS.dim}Explains the QA workflow pipeline (sprint-testing → automation → regression).${COLORS.reset}\n\n`);
-  stepNum++;
-
-  process.stdout.write(`${circled[stepNum]}  ${COLORS.bold}Map your project${COLORS.reset}\n`);
-  process.stdout.write(`    ${COLORS.cyan}/project-discovery${COLORS.reset}\n`);
-  process.stdout.write(`    ${COLORS.dim}Reverse-engineers your target app → generates PRD, SRS, domain glossary.${COLORS.reset}\n\n`);
-  stepNum++;
-
-  // GitHub repository block
-  process.stdout.write('\n');
-  tui.section('GitHub repository');
-  if (state.github) {
-    process.stdout.write(`  URL        : ${state.github.url}\n`);
-    process.stdout.write(`  Visibility : ${state.github.visibility}\n`);
-    process.stdout.write('  Remote     : origin (pushed)\n\n');
-    process.stdout.write(`${COLORS.bold}GitHub follow-ups (manual):${COLORS.reset}\n`);
-    process.stdout.write('  • Push Actions secrets automatically:\n');
-    process.stdout.write(`      ${COLORS.cyan}bun setup --variables --variables-remote${COLORS.reset}  (gated; values via stdin, never printed)\n`);
-    process.stdout.write('    Or add manually at:\n');
-    process.stdout.write(`      ${state.github.url}/settings/secrets/actions\n`);
-    process.stdout.write('    GitHub-bound secrets (derived from the variable manifest):\n');
-    // Names sourced from varsFor('github') so this can't drift from the manifest.
-    for (const spec of varsFor('github')) {
-      process.stdout.write(`      - ${spec.name}\n`);
-    }
-    process.stdout.write(`  • Move repo to org later:  gh repo transfer ${state.github.account}/${state.github.repo} <org>\n\n`);
+  if (state.github?.pushed) {
+    next.push({ title: tr('Sube los secretos de GitHub Actions', 'Push the GitHub Actions secrets'), text: tr(`Los valores van por stdin, nunca se imprimen. O a mano en ${state.github.url}/settings/secrets/actions (${varsFor('github').map(s => s.name).join(', ')}).`, `Values go through stdin, never printed. Or by hand at ${state.github.url}/settings/secrets/actions (${varsFor('github').map(s => s.name).join(', ')}).`), cmd: 'bun setup --variables --variables-remote' });
   }
-  else {
-    process.stdout.write('  Not created during install. To wire later:\n');
-    process.stdout.write('      gh auth login   # if not authenticated\n');
-    process.stdout.write('      gh repo create --source=. --remote=origin --push\n\n');
+  else if (!state.github) {
+    next.push({ title: tr('Cuando quieras, crea el repositorio', 'When you like, create the repository'), cmd: 'gh repo create --source=. --remote=origin --push' });
   }
-
-  // Project metadata follow-ups (QA-specific)
-  tui.section('Project metadata follow-ups');
-  process.stdout.write('  • Jira project key — edit `.agents/project.yaml` → `project.project_key`\n');
-  process.stdout.write('    Then run:  bun run jira:sync-fields && bun run jira:check\n\n');
-  process.stdout.write('  • Bootstrap KATA manifest once:  bun run kata:manifest\n');
-  process.stdout.write('    Validate:                       bun run kata:manifest:check\n\n');
-  process.stdout.write('  • Adapt KATA to your stack:      /test-framework-adaptation\n');
-  process.stdout.write('    (removes example tests + business maps; wires fixtures to your stack)\n\n');
-
-  // Next steps — optional vars still empty in .env, by scope (manifest-driven).
-  printNonCriticalNextSteps();
-  printHarnessLevelGuidance();
-
-  // QA workflow quick reference
-  tui.section('QA workflow quick reference');
-  process.stdout.write(`  ${COLORS.bold}/shift-left-testing${COLORS.reset}      Pre-sprint AC refinement on a backlog batch — Stage 0\n`);
-  process.stdout.write(`  ${COLORS.bold}/sprint-testing${COLORS.reset}          Manual QA per ticket — Stage 1-3 (Planning → Execution → Reporting)\n`);
-  process.stdout.write(`  ${COLORS.bold}/test-documentation${COLORS.reset}      TMS docs + ROI scoring — Stage 4\n`);
-  process.stdout.write(`  ${COLORS.bold}/test-automation${COLORS.reset}         Write KATA+Playwright automated tests — Stage 5\n`);
-  process.stdout.write(`  ${COLORS.bold}/regression-testing${COLORS.reset}      Regression / GO-NO-GO — Stage 6\n`);
-  process.stdout.write(`  ${COLORS.bold}bun xray${COLORS.reset}                 Xray Cloud CLI (bun run xray --help for all commands)\n\n`);
-
-  // Git strategy reminder — the project inherited the boilerplate's git_strategy block.
-  tui.section('Git strategy');
-  process.stdout.write(`  This project inherited the boilerplate's git strategy. Run ${COLORS.bold}"set up our git strategy"${COLORS.reset} in Claude\n`);
-  process.stdout.write(`  ${COLORS.dim}(git-flow-master Strategy Setup) to define your own flow.${COLORS.reset}\n\n`);
-
-  // Missing CLIs
-  if (cliMissing.length > 0) {
-    tui.section('Missing CLIs — install when ready');
-    for (const name of cliMissing) {
-      const cliDef = EXTERNAL_CLIS.find(c => c.name === name);
-      const docsUrl = cliDef?.docs ?? '(see upstream docs)';
-      process.stdout.write(`  • ${name.padEnd(16)} ${COLORS.cyan}${docsUrl}${COLORS.reset}\n`);
-    }
-    process.stdout.write('\n');
-
-    const pm = recommendedPackageManager();
-    process.stdout.write(`${COLORS.bold}Recommended system package manager:${COLORS.reset} ${pm.label} — ${pm.url}\n`);
-    process.stdout.write(`  ${COLORS.dim}Install with:${COLORS.reset} ${pm.install}\n\n`);
+  const missingClis = Object.entries(state.externalClis).filter(([, s]) => s === 'missing').map(([n]) => n);
+  if (missingClis.length > 0) {
+    next.push({ title: tr('Herramientas que faltan', 'Missing tools'), text: missingClis.map(n => `<code>${n}</code>: ${EXTERNAL_CLIS.find(c => c.name === n)?.docs ?? ''}`).join('<br>') });
   }
-
-  // Optional UX upgrades
-  tui.section('OPTIONAL — install when you have time');
-
-  process.stdout.write('→  ccstatusline — Claude Code statusline TUI configurator (cosmetic)\n');
-  process.stdout.write(`   ${COLORS.dim}Customize the bottom statusline (model, tokens, git branch, usage, etc.).${COLORS.reset}\n`);
-  process.stdout.write(`   ${COLORS.yellow}Run in a SEPARATE terminal with NO agent active${COLORS.reset} ${COLORS.dim}— concurrent TUIs fight over stdin.${COLORS.reset}\n`);
-  process.stdout.write('   bunx -y ccstatusline@latest\n');
-  process.stdout.write(`   ${COLORS.dim}Docs: https://github.com/sirmalloc/ccstatusline${COLORS.reset}\n\n`);
-
-  process.stdout.write('→  Warp terminal users — install Claude Code plugin:\n');
-  process.stdout.write(`   ${COLORS.cyan}/plugin install warp@claude-code-warp${COLORS.reset}\n`);
-  process.stdout.write(`   ${COLORS.dim}Docs: https://docs.warp.dev/agent-platform/cli-agents/claude-code/${COLORS.reset}\n\n`);
-
-  process.stdout.write('→  OpenCode Warp plugin: personal, so add it to your global ~/.config/opencode/opencode.json (OpenCode 1; Warp installs it itself).\n');
-  process.stdout.write(`   ${COLORS.dim}Docs: https://docs.warp.dev/agent-platform/cli-agents/opencode/${COLORS.reset}\n\n`);
-
-  // AI personality
-  process.stdout.write(`→  Curious who you're talking to? Run ${COLORS.cyan}bun run docs -- --page core/personalidad.html${COLORS.reset}\n\n`);
-
-  // Reference
-  tui.section('REFERENCE');
-  process.stdout.write(`docs   ${COLORS.cyan}README.md${COLORS.reset}   ·   ${COLORS.cyan}INSTALLER.md${COLORS.reset}   ·   ${COLORS.cyan}.agents/README.md${COLORS.reset}\n`);
-  if (state.github) {
-    process.stdout.write(`GitHub repo: ${COLORS.cyan}${state.github.url}${COLORS.reset} (${state.github.visibility})\n`);
+  const optional = optionalVarsByScope();
+  if (optional) {
+    next.push({ title: tr('Variables opcionales, cuando las necesites', 'Optional variables, when you need them'), text: optional, cmd: 'bun setup --variables' });
   }
-  process.stdout.write('\n');
+  next.push({ title: tr('Servidores MCP y CLIs que se conectan fuera de .env', 'MCP servers and CLIs that connect outside .env'), text: tr(`Una vez por máquina: ${HARNESS_LEVEL_MCPS.map(m => m.id).join(', ')} (en tu agente) y ${CLI_LOGINS.map(c => c.cli).join(', ')} (su propia sesión). <code>bun run setup:doctor</code> dice cuáles ya declaraste.`, `Once per machine: ${HARNESS_LEVEL_MCPS.map(m => m.id).join(', ')} (in your agent) and ${CLI_LOGINS.map(c => c.cli).join(', ')} (their own session). <code>bun run setup:doctor</code> says which you already declared.`) });
+  next.push({ title: tr('Tu flujo de git', 'Your git flow'), text: tr('El proyecto heredó la estrategia de git del boilerplate. Dile a tu agente "set up our git strategy" para definir la tuya.', 'The project inherited the boilerplate\'s git strategy. Tell your agent "set up our git strategy" to define your own.') });
 
-  // Final tip box
-  process.stdout.write(`${tui.successBox([
-    'Re-run anytime: bun setup  (idempotent — completed steps are skipped)',
-  ])}\n`);
+  const pending = askHuman.length > 0 || state.postInstall.agentsSetup !== 'completed' || (!SKIP_JIRA && state.postInstall.acliAuth !== 'completed');
+  const tone: 'good' | 'warn' | 'bad' = failed > 0 ? 'bad' : (pending || warned > 0) ? 'warn' : 'good';
+  const title = failed > 0
+    ? tr(`${projectName}: la instalación terminó con ${failed} paso(s) fallido(s).`, `${projectName}: the install finished with ${failed} failed step(s).`)
+    : pending
+      ? tr(`${projectName} está instalado. Quedan cosas por completar.`, `${projectName} is installed. Some things are left to complete.`)
+      : tr(`${projectName} está listo para que la IA pruebe tu primera historia.`, `${projectName} is ready for the AI to test your first story.`);
+  const tiles: Tile[] = [
+    { n: String(ok), label: tr('pasos completos', 'steps done'), tone: 'good' },
+    { n: String(skipped + warned), label: tr('saltados o con aviso', 'skipped or warned'), tone: skipped + warned > 0 ? 'warn' : '' },
+    { n: String(failed), label: tr('errores', 'errors'), tone: failed > 0 ? 'bad' : '' },
+    { n: elapsed, label: tr('en total', 'in total'), tone: '' },
+  ];
+  return { title, tone, tiles, next, pending };
 }
 
 // ============================================================================
@@ -3179,7 +3053,8 @@ async function probeSkillsRegistry(pkg: string, skill?: string): Promise<{ statu
 }
 
 async function validateSkills(): Promise<number> {
-  log.banner('Skill URL validation (smoke test)');
+  const log = consoleOut;
+  tui.section('Skill URL validation (smoke test)');
   log.dim('  Probes skills.sh registry for every entry. No install, no side effects.');
   process.stdout.write('\n');
 
@@ -3213,7 +3088,7 @@ async function validateSkills(): Promise<number> {
   }
 
   process.stdout.write('\n');
-  log.banner('Validation summary');
+  tui.section('Validation summary');
   process.stdout.write(`  ${COLORS.green}OK${COLORS.reset}      : ${okCount}\n`);
   process.stdout.write(`  ${COLORS.yellow}SKIPPED${COLORS.reset} : ${skipCount}  ${COLORS.dim}(non-github sources)${COLORS.reset}\n`);
   process.stdout.write(`  ${COLORS.red}FAILED${COLORS.reset}  : ${failCount}\n`);
@@ -3230,11 +3105,77 @@ async function validateSkills(): Promise<number> {
 // Main
 // ============================================================================
 
+const HELP = `bun setup — install and configure this project (see INSTALLER.md)
+
+  bun setup                      page when there is a screen, terminal otherwise
+  bun setup --headless           terminal only; questions in the terminal
+  bun setup --ui                 page even where the rules say terminal
+  bun setup --non-interactive    every question takes its default (agents, CI)
+  bun setup --force              re-run every step
+  bun setup --force-step <key>   re-run one step (keys in .template/installer.state.json)
+  bun setup --sync-skills        re-install the community skills only
+  bun setup --validate-skills    probe the community skill sources, install nothing
+  bun setup --variables [--variables-mode local|remote|both] [--dry-run] [--yes]
+`;
+
+/** Every secret value this machine already holds in `.env`: masked in the journal from the first event. */
+function seedRedactor(ui: InstallerUi): void {
+  if (!existsSync(ENV_PATH)) { return; }
+  try {
+    const values = parseEnvFile(readFileSync(ENV_PATH, 'utf8'));
+    for (const [name, value] of Object.entries(values)) {
+      if (value && isSecretName(name)) { ui.journal.redactor.add(value); }
+    }
+  }
+  catch { /* unreadable .env: nothing to seed */ }
+}
+
+async function startRun(argv: string[]): Promise<InstallerUi> {
+  let ui: InstallerUi | null = null;
+  const terminal = createInstallerTerminal({
+    lang: LANG,
+    onCancel: () => { void abortRun(130); },
+  });
+  ui = await startInstallerUi({
+    argv,
+    repoRoot: REPO_ROOT,
+    repoName: basename(REPO_ROOT),
+    version: '1',
+    interactive: !NON_INTERACTIVE,
+    say: line => tui.log.info(line),
+    terminal: {
+      print: terminal.print,
+      // A `--ui` run with no terminal on stdin: only the page can answer.
+      ask: async (q, signal) => (process.stdin.isTTY ? terminal.ask(q, signal) : new Promise(() => {})),
+    },
+  });
+  seedRedactor(ui);
+  return ui;
+}
+
+let aborting = false;
+async function abortRun(code: number): Promise<never> {
+  if (!aborting && UI) {
+    aborting = true;
+    if (RUN_STATE) { saveState(RUN_STATE); }
+    UI.notice('warn', tr('Cancelado. Vuelve a correr <code>bun setup</code>: lo ya hecho no se repite.', 'Cancelled. Run <code>bun setup</code> again: what is done is not repeated.'));
+    try { await UI.finish('aborted', code); }
+    catch { /* already ending */ }
+  }
+  process.exit(code);
+}
+
 async function main(): Promise<void> {
+  if (ARGV.includes('--help') || ARGV.includes('-h')) { process.stdout.write(HELP); process.exit(0); }
+  const unknown = unknownFlags(ARGV);
+  if (unknown.length > 0) {
+    process.stderr.write(`bun setup: unknown option${unknown.length > 1 ? 's' : ''} ${unknown.join(', ')}\n\n${HELP}`);
+    process.exit(2);
+  }
+
   // --validate-skills: smoke-test mode. Probes skills.sh for every entry and exits.
-  if (process.argv.includes('--validate-skills')) {
-    const code = await validateSkills();
-    process.exit(code);
+  if (ARGV.includes('--validate-skills')) {
+    process.exit(await validateSkills());
   }
 
   // --variables: run ONLY the env-var setup flow (idempotent local upsert +
@@ -3243,8 +3184,8 @@ async function main(): Promise<void> {
   if (VARIABLES_MODE) {
     let mode: 'local' | 'remote' | 'both' = 'both';
     let explicitMode = true;
-    if (process.argv.includes('--variables-local')) { mode = 'local'; }
-    else if (process.argv.includes('--variables-remote')) { mode = 'remote'; }
+    if (ARGV.includes('--variables-local')) { mode = 'local'; }
+    else if (ARGV.includes('--variables-remote')) { mode = 'remote'; }
     else if (VARIABLES_MODE_ARG === 'local' || VARIABLES_MODE_ARG === 'remote' || VARIABLES_MODE_ARG === 'both') {
       mode = VARIABLES_MODE_ARG;
     }
@@ -3253,283 +3194,254 @@ async function main(): Promise<void> {
       // the interactive menu instead (unless --yes/--force forces a scripted run).
       explicitMode = false;
     }
-    // Show the menu only for a bare, unflagged, interactive invocation. Any of
-    // --variables-local/-remote, an explicit --variables-mode, --yes, or --force
-    // means the caller wants the non-interactive scripted path.
     const interactiveMenu = !explicitMode && !YES && !FORCE_ALL && !NON_INTERACTIVE;
-    await runVariablesFlow({
-      mode,
-      force: FORCE_ALL,
-      dryRun: DRY_RUN,
-      yes: YES,
-      nonInteractive: NON_INTERACTIVE,
-      interactiveMenu,
-    });
+    await runVariablesFlow({ mode, force: FORCE_ALL, dryRun: DRY_RUN, yes: YES, nonInteractive: NON_INTERACTIVE, interactiveMenu });
     process.exit(0);
   }
 
-  // --sync-skills: standalone repair mode. Re-installs community skills (project +
-  // user level) targeting the selected agent(s) and exits — no full install. Fixes
-  // projects scaffolded before community installs passed `--agent`, where skills
-  // landed only in `.agents/skills/` and Claude Code never discovered them. The
-  // SYNC_SKILLS flag forces a community re-run regardless of prior install state.
-  if (SYNC_SKILLS) {
-    process.stdout.write(`${tui.logo()}\n\n`);
-    process.stdout.write(`${tui.headline('agentic-qa-boilerplate — sync community skills')}\n\n`);
-    await verifyRepoRoot();
-    const detected = await detectAgents();
-    log.info(describeAgentDetection(detected));
-    const agents = await promptAgentSelection(detected);
-    if (agents.length === 0) {
-      log.warn('No agents selected — nothing to sync.');
-      process.exit(0);
-    }
-    await recordHarnessSelection(agents);
-    const state = buildInitialState(await loadPriorState());
-    state.agents = agents;
-    const syncForceKeys = new Set<string>();
-    await installCommunitySkills(agents, state, 'project', syncForceKeys);
-    await installCommunitySkills(agents, state, 'global', syncForceKeys);
-    const compatibility = repairRepositoryCompatibility();
-    log.success(`Repository compatibility ready (Claude alias ${compatibility.alias?.status ?? 'not used'}${compatibility.shadowingCommandsMoved.length > 0 ? `; moved ${compatibility.shadowingCommandsMoved.join(', ')} to ${SHADOWING_COMMANDS_BACKUP_DIR}/ because each shadowed a skill` : ''}).`);
-    await writeInstallState(state);
-    log.success(`Community skills synced to: ${agents.join(', ')}.`);
-    process.exit(0);
-  }
+  process.stdout.write(`${tui.logo()}\n\n`);
+  process.stdout.write(`${tui.headline(`${REPO_NAME} — ${SYNC_SKILLS ? 'bun setup --sync-skills' : 'bun setup'}`)}\n\n`);
 
-  // Build forced-step set for this run
+  // --sync-skills: standalone repair, always in the terminal. Re-installs the
+  // community skills for the selected agents and the compatibility alias.
+  const ui = await startRun(SYNC_SKILLS ? [...ARGV, '--headless'] : ARGV);
+  UI = ui;
+  process.on('SIGINT', () => { void abortRun(130); });
+  ui.start();
+
   const forceKeys = new Set<string>();
   if (FORCE_STEP_KEY) { forceKeys.add(FORCE_STEP_KEY); }
-
-  // Logo + headline
-  process.stdout.write(`${tui.logo()}\n\n`);
-  process.stdout.write(`${tui.headline('agentic-qa-boilerplate — installer')}\n\n`);
-  log.dim('See INSTALLER.md for the contract this implements.');
-  if (AUTO_NON_INTERACTIVE) {
-    log.warn('No TTY detected — running in --non-interactive mode (prompts will use defaults).');
-    log.dim('  AI agents: parse pending vars from the closing summary, or run `bun run setup:doctor --json`.');
-  }
-  if (FORCE_ALL) {
-    log.warn('--force flag active: all step timestamps cleared — re-running every step.');
-  }
-  if (FORCE_STEP_KEY) {
-    log.warn(`--force-step "${FORCE_STEP_KEY}" active: that step will re-run even if it already completed.`);
-  }
-
-  // ── PHASE 1 — DETECTION ──────────────────────────────────────────────────
-  tui.phaseHeader(1, 'DETECTION');
-
-  tui.section('Step 1: Verifying repo root');
-  await verifyRepoRoot();
-
-  tui.section('Step 2: Detecting engram');
-  const engram = detectEngram();
-  if (engram.found && engram.version) {
-    if (engram.compatible) {
-      log.success(`engram ${engram.version} detected (>= ${MIN_ENGRAM_VERSION.join('.')}).`);
-    }
-    else {
-      log.warn(`engram ${engram.version} is older than required ${MIN_ENGRAM_VERSION.join('.')}. Upgrade with: brew upgrade engram (or re-run the go install command in INSTALLER.md).`);
-    }
-  }
-  else if (engram.status === 'skipped') {
-    log.info('engram detection skipped via INSTALL_SKIP_ENGRAM=1.');
-  }
-  else if (engram.found) {
-    log.warn('engram found but `engram version` reported no release version (a local or `go install` build?).');
-  }
-  else {
-    log.info('engram not found.');
-  }
-
-  const prior = await loadPriorState();
-  const state = buildInitialState(prior);
-  // Apply --force: clear all step timestamps
+  const state = buildInitialState(await loadPriorState());
+  RUN_STATE = state;
   if (FORCE_ALL) { state.steps = {}; }
   state.installedAt = new Date().toISOString();
-  state.engram = {
-    status: engram.status,
-    version: engram.version,
-    checkedAt: new Date().toISOString(),
-  };
+  const lane = tr('descargas', 'downloads');
 
-  tui.section('Step 3: engram install / skip decision');
-  let runSkillInstall = false;
-  if (engram.status === 'installed') {
-    runSkillInstall = true;
-  }
-  else if (engram.status === 'incompatible') {
-    const contRaw = await tui.confirm({
-      message: 'engram is installed but its version could not be confirmed as compatible. Try anyway?',
-      initialValue: false,
-    });
-    if (tui.isCancel(contRaw)) { throw Object.assign(new Error('Aborted by user.'), { name: 'ExitPromptError' }); }
-    runSkillInstall = contRaw;
-  }
-  else if (engram.status === 'skipped') {
-    log.dim('  Skipped.');
-  }
-  else {
-    if (NON_INTERACTIVE) {
-      log.warn('engram missing in non-interactive mode; treating as skipped.');
-      state.engram.status = 'skipped';
-    }
-    else {
-      const decision = await handleMissingEngram();
-      if (decision === 'show-and-exit') {
-        await writeInstallState(state);
-        process.exit(0);
-      }
-      state.engram.status = 'skipped';
-    }
-    runSkillInstall = false;
-  }
-
-  tui.section('Step 4: Detecting agents');
-  const detected = await detectAgents();
-  log.info(describeAgentDetection(detected));
-  const agents = await promptAgentSelection(detected);
-  state.agents = agents;
-  if (agents.length === 0) {
-    log.warn('No agents selected, exiting.');
-    log.dim('  When you are ready to configure an agent, re-run: bun setup');
-    await writeInstallState(state);
+  if (SYNC_SKILLS) {
+    ui.phase('team');
+    const agents = await askAgents(await detectAgents(), state.agents);
+    state.agents = agents;
+    saveState(state);
+    await recordHarnessSelection(agents, REPO_ROOT, stepOut(ui.step({ phase: 'team', title: tr('Registrar los agentes', 'Record the agents') })));
+    const picked = await askUserLevelSkills(state, forceKeys, agents);
+    ui.phase('install');
+    await runCommunityStep(agents, state, 'project', forceKeys, null, lane);
+    await runCommunityStep(agents, state, 'global', forceKeys, picked, lane);
+    compatibilityStep(lane);
+    saveState(state);
+    await ui.finish('done', 0);
     process.exit(0);
   }
-  await recordHarnessSelection(agents);
 
-  // ── PHASE 2 — INSTALLATION ───────────────────────────────────────────────
-  tui.phaseHeader(2, 'INSTALLATION');
-
-  tui.section('Step 5: Installing dependencies (bun install)');
-  await runDepsInstall(state, forceKeys);
-
-  tui.section('Step 6: Installing Playwright browsers');
-  await runPlaywrightInstall(state, forceKeys);
-
-  tui.section('Step 8: Wiring Engram memory (engram setup)');
-  if (runSkillInstall) {
-    await installEngramPerAgent(agents, state, forceKeys);
+  // ── pre ────────────────────────────────────────────────────────────────
+  if (FORCE_ALL) { ui.notice('warn', tr('--force: todos los pasos se vuelven a correr.', '--force: every step runs again.'), 'pre'); }
+  if (FORCE_STEP_KEY) { ui.notice('warn', `--force-step "${FORCE_STEP_KEY}"`, 'pre'); }
+  const pre = await runSetupPreflight({ cwd: REPO_ROOT, lang: LANG });
+  if (await ui.preflight(pre, async () => runSetupPreflight({ cwd: REPO_ROOT, lang: LANG })) === 'abort') {
+    ui.phaseEnd('pre', 'failed');
+    await ui.finish('aborted', 1);
+    process.exit(1);
   }
-  else {
-    log.dim('  No compatible engram binary — skipping Engram wiring.');
-    for (const agent of agents) {
-      const k = `${ENGRAM_COMPONENT}::${agent}`;
-      if (!state.skills[k]) { state.skills[k] = 'skipped'; }
+  if (!NON_INTERACTIVE && !(await ui.confirmStart(pre))) {
+    ui.phaseEnd('pre', 'skipped');
+    ui.notice('info', tr('No empezamos. Cuando quieras: <code>bun setup</code>.', 'Not started. Whenever you like: <code>bun setup</code>.'));
+    await ui.finish('aborted', 0);
+    process.exit(0);
+  }
+  const reseed = reseedCopiedTemplate();
+  if (reseed !== 'kept') {
+    const step = ui.step({ phase: 'pre', title: tr('Plantilla limpia de <code>.agents/project.yaml</code>', 'Clean <code>.agents/project.yaml</code> template') });
+    step.end(reseed === 'reseeded' ? 'ok' : 'failed', reseed === 'reseeded'
+      ? tr(`desde ${SCHEMA_FILE}: cada campo vacío, la estrategia de git heredada`, `from ${SCHEMA_FILE}: every field empty, the git strategy inherited`)
+      : tr(`${SCHEMA_FILE} falta o está dañado; restáuralo desde upstream`, `${SCHEMA_FILE} is missing or damaged; restore it from upstream`));
+  }
+  ui.phaseEnd('pre', pre.verdict === 'warn' ? 'warn' : 'done', pre.verdict === 'warn' ? tr(`${pre.checks.filter(c => c.state === 'warn').length} aviso(s)`, `${pre.checks.filter(c => c.state === 'warn').length} warning(s)`) : undefined);
+
+  // ── team ───────────────────────────────────────────────────────────────
+  ui.phase('team', tr('El boilerplate trae instrucciones y skills para tres agentes de IA. Configuramos solo los que uses.', 'The boilerplate ships instructions and skills for three AI agents. We configure only the ones you use.'));
+  const engram = detectEngram();
+  state.engram = { status: engram.status, version: engram.version, checkedAt: new Date().toISOString() };
+  const detected = await detectAgents();
+  const agents = await askAgents(detected, state.agents);
+  state.agents = agents;
+  saveState(state);
+  {
+    const step = ui.step({ phase: 'team', title: tr('Registrar los agentes en <code>.agents/project.yaml</code>', 'Record the agents in <code>.agents/project.yaml</code>') });
+    try {
+      await recordHarnessSelection(agents, REPO_ROOT, stepOut(step));
+      step.end('ok', `${HARNESSES_KEY}: [${agents.map(harnessOfAgent).join(', ')}]`);
+    }
+    catch (err) {
+      step.end('failed', (err as Error).message);
     }
   }
-
-  tui.section('Step 9: Installing community skills via bunx skills CLI');
-  if (SKIP_COMMUNITY) {
-    log.dim('  INSTALL_SKIP_COMMUNITY=1, skipping community skills.');
-    for (const item of [...PROJECT_LEVEL_SKILLS, ...USER_LEVEL_SKILLS]) {
-      const slug = describeSkill(item);
-      const level = PROJECT_LEVEL_SKILLS.includes(item) ? 'project' : 'global';
-      const k = `community:${level}:${slug}`;
-      if (!state.skills[k]) { state.skills[k] = 'skipped'; }
-    }
+  let engramRun = engram.status === 'installed';
+  if (engram.status === 'incompatible') {
+    engramRun = await ask<boolean>({
+      id: 'engram-incompatible',
+      kind: 'confirm',
+      kicker: 'Engram',
+      title: tr('Engram está instalado pero no pudimos confirmar su versión. Lo intentamos igual?', 'Engram is installed but its version could not be confirmed. Try anyway?'),
+      spec: { yes: tr('Intentarlo', 'Try it'), no: tr('Saltar Engram', 'Skip Engram') },
+      default: false,
+    });
   }
-  else {
-    await installCommunitySkills(agents, state, 'project', forceKeys);
-    await installCommunitySkills(agents, state, 'global', forceKeys);
+  else if (engram.status === 'missing') {
+    state.engram.status = 'skipped';
   }
+  let plugin: boolean | null = null;
+  if (engramRun && agents.includes('claude-code') && !NON_INTERACTIVE && which('claude') !== null && (shouldRunStep(state, '8-skills-gentle-ai', forceKeys) || FORCE_ENGRAM)) {
+    plugin = await ask<boolean>({
+      id: 'engram-plugin',
+      kind: 'confirm',
+      kicker: 'Engram',
+      title: tr('Instalamos el plugin de Engram para Claude Code?', 'Install the Engram plugin for Claude Code?'),
+      g: 'engram',
+      why: tr('Trae los hooks de sesión que <code>engram setup</code> no escribe. Se instala una vez por máquina, en tu configuración de usuario de Claude Code.', 'It brings the session hooks <code>engram setup</code> does not write. It installs once per machine, in your Claude Code user config.'),
+      spec: { yes: tr('Sí, instalarlo', 'Yes, install it'), no: tr('No por ahora', 'Not now') },
+      default: true,
+    });
+  }
+  const pickedUserSkills = await askUserLevelSkills(state, forceKeys, agents);
+  ui.phaseEnd('team');
 
-  const compatibility = repairRepositoryCompatibility();
-  log.success(`Repository compatibility ready (Claude alias ${compatibility.alias?.status ?? 'not used'}${compatibility.shadowingCommandsMoved.length > 0 ? `; moved ${compatibility.shadowingCommandsMoved.join(', ')} to ${SHADOWING_COMMANDS_BACKUP_DIR}/ because each shadowed a skill` : ''}).`);
+  // ── install (background lane, owner answer Q2) ─────────────────────────
+  ui.phase('install', tr('Descargas y herramientas. Corren en segundo plano mientras respondes lo que sigue.', 'Downloads and tools. They run in the background while you answer what comes next.'));
+  const installLane = (async () => {
+    await runDepsStep(state, forceKeys, lane);
+    await runPlaywrightStep(state, forceKeys, lane);
+    await runEngramStep(agents, state, forceKeys, { run: engramRun, plugin }, lane);
+    await runCommunityStep(agents, state, 'project', forceKeys, null, lane);
+    await runCommunityStep(agents, state, 'global', forceKeys, pickedUserSkills, lane);
+    compatibilityStep(lane);
+    ui.phaseEnd('install');
+  })().catch((err) => {
+    ui.notice('error', `${tr('La tanda de descargas se cortó', 'The download lane stopped')}: ${(err as Error).message}`, 'install');
+    ui.phaseEnd('install', 'failed');
+  });
 
-  // ── PHASE 3 — CONFIGURATION ──────────────────────────────────────────────
-  tui.phaseHeader(3, 'CONFIGURATION');
+  // ── project ────────────────────────────────────────────────────────────
+  ui.phase('project', tr('Los datos que las skills usan para no preguntarte cada vez: cómo se llama el proyecto, dónde corre y contra qué entorno se prueba. Quedan en <code>.agents/project.yaml</code> y los cambias cuando quieras.', 'The data the skills use so they do not ask you every time: what the project is called, where it runs and which environment it is tested against. It lives in <code>.agents/project.yaml</code> and you can change it whenever you like.'));
+  await projectPhase(state);
+  ui.phaseEnd('project');
 
-  tui.section('Step 10: Wiring .env for MCP servers');
-  await cleanRetiredEnvKeys();
-  await offerSecretManager();
+  // ── creds ──────────────────────────────────────────────────────────────
+  ui.phase('creds', tr('Las skills necesitan entrar a Jira en tu nombre. Te pedimos solo lo que se usa hoy; el resto lo cargas cuando lo necesites.', 'The skills need to sign in to Jira on your behalf. We ask only for what is used today; the rest you add when you need it.'));
+  {
+    const step = ui.step({ phase: 'creds', title: tr('Variables retiradas en <code>.env</code>', 'Retired keys in <code>.env</code>') });
+    await cleanRetiredEnvKeys(stepOut(step));
+    step.end('ok');
+  }
+  await secretsProviderStep(state, forceKeys);
   await configureMcps(agents, state);
-
-  tui.section('Step 10b: Day-0 credentials (Atlassian, Resend, test users)');
   await configureDayZeroCredentials(state);
-
-  tui.section('Step 12: Optional API auth bootstrap');
   await optionalApiBootstrap(state, forceKeys);
+  ui.phaseEnd('creds');
 
-  tui.section('Step 7b: GitHub repository (optional)');
+  // ── jira ───────────────────────────────────────────────────────────────
+  ui.phase('jira', tr('Iniciamos sesión con la herramienta de Atlassian y traemos los campos y flujos de tu proyecto, para que las skills hablen el mismo idioma que tu Jira. [[jira|Para qué?]]', 'We sign in with the Atlassian tool and bring your project\'s fields and workflows, so the skills speak the same language as your Jira. [[jira|What for?]]'));
+  await jiraPhase(state);
+  ui.phaseEnd('jira', SKIP_JIRA || NON_INTERACTIVE ? 'skipped' : state.postInstall.jiraSyncFields === 'completed' ? 'done' : 'warn');
+
+  // ── github (needs the whole tree: the pre-push hooks lint what the lane wrote) ──
+  ui.phase('github', tr('Opcional. Crea el repositorio remoto y sube este primer commit, para que el equipo y CI lo vean.', 'Optional. Creates the remote repository and pushes this first commit, so the team and CI see it.'));
+  {
+    const waiting = ui.journal.all().some(e => e.t === 'phase.end' && e.id === 'install') ? null : ui.step({ phase: 'github', title: tr('Esperar a que terminen las descargas', 'Wait for the downloads to finish') });
+    await installLane;
+    waiting?.end('ok');
+  }
   await setupGithubRemote(state, forceKeys);
+  ui.phaseEnd('github');
 
-  // ── PHASE 4 — VERIFICATION ───────────────────────────────────────────────
-  tui.phaseHeader(4, 'VERIFICATION');
-
-  tui.section('Step 11: Verifying external CLIs');
+  // ── verify ─────────────────────────────────────────────────────────────
+  ui.phase('verify', tr('Comprobamos que todo lo instalado responde y dejamos guardado el progreso, para que una próxima corrida no repita nada.', 'We check that everything installed answers and save the progress, so a next run repeats nothing.'));
   verifyExternalClis(state);
-
-  tui.section('Step 14: Persisting state');
-  await writeInstallState(state);
-
-  // ── PHASE 5 — INITIAL CONFIGURATION ─────────────────────────────────────
-  tui.phaseHeader(5, 'INITIAL CONFIGURATION');
-  await runInitialConfigurationPhase(state);
-  await writeInstallState(state);
-
-  // Retire the plaintext MCP credential copies an older install generated
-  // (`.claude/settings.local.json` env block, `.auth/opencode/`). LAST, because
-  // it compares them with the `.env` every step above may have written to. MCP
-  // servers read `.env` themselves now, through the `.env` loader in the three
-  // MCP configs (ADR-0011), so a fresh clone has nothing to retire.
-  //
-  // DYNAMIC import on purpose: `cli/lib/harness-env.ts` imports from THIS file,
-  // and a static import here would close that cycle.
+  {
+    const step = ui.step({ phase: 'verify', why: 'mcp', title: tr('Servidores MCP del proyecto', 'Project MCP servers') });
+    const configured = CANONICAL_MCPS.filter(id => state.mcps[id] === 'configured-with-key' || state.mcps[id] === 'configured-no-key');
+    const placeholder = CANONICAL_MCPS.filter(id => state.mcps[id] === 'placeholder');
+    step.end(configured.length === CANONICAL_MCPS.length ? 'ok' : 'warn', tr(
+      `${configured.length} de ${CANONICAL_MCPS.length} listos${placeholder.length ? ` · esperan sus variables: ${placeholder.join(', ')}` : ''}`,
+      `${configured.length} of ${CANONICAL_MCPS.length} ready${placeholder.length ? ` · waiting for their variables: ${placeholder.join(', ')}` : ''}`,
+    ));
+  }
+  {
+    const step = ui.step({ phase: 'verify', title: tr('Contrato de los agentes (instrucciones, skills, MCP)', 'Agent contract (instructions, skills, MCP)') });
+    const check = checkAgentCompatibility(REPO_ROOT, process.platform);
+    if (check.ok) { step.end('ok'); }
+    else {
+      for (const e of check.errors.slice(0, 8)) { step.log(e, 'err'); }
+      step.end('warn', tr('Corre <code>bun run agents:compat</code>.', 'Run <code>bun run agents:compat</code>.'));
+    }
+  }
   await retireHarnessCopies();
+  writeTemplateMarker();
+  {
+    const step = ui.step({ phase: 'verify', title: tr('Guardar el progreso', 'Save the progress') });
+    await writeInstallState(state);
+    step.end('ok', '<code>.template/installer.state.json</code>');
+  }
+  ui.phaseEnd('verify');
 
-  // Closing summary
-  tui.section('Installation summary');
-  printClosingSummary(state);
+  // ── done ───────────────────────────────────────────────────────────────
+  ui.phase('done');
+  const report = buildReport(state, ui);
+  ui.report(report);
+  ui.phaseEnd('done', report.tone === 'bad' ? 'warn' : 'done');
+  await ui.finish(report.pending ? 'done-with-pending' : 'done', 0);
 }
 
 /**
- * Retire the stale plaintext MCP credential copies. Never fatal: a failure
- * leaves the repo exactly as it was and the installer still finishes, because
- * `bun run setup:doctor` reports the same copies and `bun run harness:env`
- * retires them. Prints variable NAMES only, never a value.
+ * Retire the stale plaintext MCP credential copies an older install generated
+ * (`.claude/settings.local.json` env block, `.auth/opencode/`). Never fatal: a
+ * failure leaves the repo exactly as it was, because `bun run setup:doctor`
+ * reports the same copies and `bun run harness:env` retires them. Variable
+ * NAMES only, never a value.
+ *
+ * DYNAMIC import on purpose: `cli/lib/harness-env.ts` imports from THIS file,
+ * and a static import here would close that cycle.
  */
 async function retireHarnessCopies(): Promise<void> {
-  tui.section('Step 15: Plaintext MCP credential copies');
+  const step = UI!.step({ phase: 'verify', title: tr('Copias de credenciales MCP en texto plano', 'Plaintext MCP credential copies') });
   try {
     const { retire } = await import('./lib/harness-env.ts');
     const result = retire();
     if (result.errors.length > 0) {
-      log.warn(`Copies NOT retired, an MCP config could not be parsed: ${result.errors.join('; ')}`);
+      step.end('warn', `${tr('No se retiraron: un archivo MCP no se pudo leer', 'Not retired: an MCP config could not be parsed')}: ${result.errors.join('; ')}`);
       return;
     }
     if (!result.changed) {
-      log.success('None on disk: every MCP server reads .env itself through the .env loader.');
+      step.end('ok', tr('ninguna: cada servidor MCP lee .env por su cuenta', 'none: every MCP server reads .env itself'));
       return;
     }
     const surfaces = [...result.claude, ...(result.opencode === null ? [] : [result.opencode])];
-    log.success(`Retired: ${surfaces.flatMap(s => [...s.removed, ...s.backedUp]).join(', ')}`);
-    if (result.backupDirs.length > 0) {
-      log.warn(`.env did not reproduce some of them; they wait in ${result.backupDirs.join(', ')}. Put the right value in .env yourself, then delete that directory.`);
-    }
+    step.log(`${tr('Retiradas', 'Retired')}: ${surfaces.flatMap(s => [...s.removed, ...s.backedUp]).join(', ')}`);
+    step.end(result.backupDirs.length > 0 ? 'warn' : 'ok', result.backupDirs.length > 0
+      ? tr(`.env no reproducía algunas; esperan en ${result.backupDirs.join(', ')}. Pon el valor correcto en .env y borra esa carpeta.`, `.env did not reproduce some of them; they wait in ${result.backupDirs.join(', ')}. Put the right value in .env yourself, then delete that directory.`)
+      : undefined);
   }
   catch (err) {
-    log.warn(`Could not check for plaintext MCP credential copies: ${(err as Error).message}`);
-    process.stdout.write('  `bun run setup:doctor` reports them; `bun run harness:env` retires them.\n');
+    step.end('warn', `${(err as Error).message} · ${tr('<code>bun run setup:doctor</code> las reporta; <code>bun run harness:env</code> las retira', '<code>bun run setup:doctor</code> reports them; <code>bun run harness:env</code> retires them')}`);
   }
 }
 
 if (import.meta.main) {
-  void main().catch((err) => {
-  // Handle both @inquirer ExitPromptError and our own clack cancel wrappers
+  void main().catch(async (err) => {
     const name = err && typeof err === 'object' && 'name' in err ? (err as { name: string }).name : '';
-    if (name === 'ExitPromptError' || (err instanceof Error && err.message === 'Aborted by user.')) {
-      tui.log.warn('Aborted by user.');
-      process.stdout.write('  To resume, re-run: bun setup\n');
-      process.stdout.write('  (Installer is idempotent — completed steps will skip on re-run.)\n');
-      process.exit(130);
+    if (err instanceof PromptCancelled || name === 'ExitPromptError') {
+      await abortRun(130);
     }
-    tui.log.error(`Fatal: ${(err as Error).message ?? String(err)}`);
-    if (err instanceof Error && err.stack) {
-      process.stdout.write(`  ${err.stack}\n`);
+    if (UI) {
+      if (RUN_STATE) { saveState(RUN_STATE); }
+      UI.notice('error', `${tr('Error inesperado', 'Unexpected error')}: ${(err as Error).message ?? String(err)}`);
+      UI.notice('info', tr('Vuelve a correr <code>bun setup</code>: lo ya hecho no se repite.', 'Run <code>bun setup</code> again: what is done is not repeated.'));
+      try { await UI.finish('failed', 1); }
+      catch { /* already ending */ }
     }
-    tui.log.warn('Installation interrupted. To resume, re-run: bun setup');
-    process.stdout.write('  (Installer is idempotent — completed steps will skip on re-run.)\n');
+    else {
+      tui.log.error(`Fatal: ${(err as Error).message ?? String(err)}`);
+    }
+    if (err instanceof Error && err.stack && process.env.DEBUG) { process.stderr.write(`${err.stack}\n`); }
     process.exit(1);
   });
 }

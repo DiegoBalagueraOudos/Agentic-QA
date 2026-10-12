@@ -1,11 +1,15 @@
+import type { CmdResult } from './lib/probes.ts';
+
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
-import { exitCodeOf, plainMsg, preflightJson, runUpPreflight, verdictOf } from './preflight.ts';
+import { BRAND } from './lib/ui/brand.ts';
+
+import { exitCodeOf, plainMsg, preflightJson, readYamlScalars, runSetupGate, runSetupPreflight, runUpPreflight, verdictOf } from './preflight.ts';
 
 function repo(): string {
   const root = mkdtempSync(join(tmpdir(), 'preflight-'));
@@ -79,5 +83,130 @@ describe('--json', () => {
     const r = spawnSync(process.execPath, [join(import.meta.dir, 'preflight.ts'), '--for', 'up', '--json'], { cwd: repo(), encoding: 'utf8', env: { ...process.env, UPEX_TEMPLATE_REPO: LOCAL } });
     const parsed = JSON.parse(r.stdout) as { verdict: string };
     expect(r.status).toBe(exitCodeOf(parsed.verdict as 'clear'));
+  });
+});
+
+// ----------------------------------------------------------------------------
+// bun setup (delivery 3): injected command and network probes, no real machine state
+// ----------------------------------------------------------------------------
+
+const OK = (stdout = ''): CmdResult => ({ ok: true, missing: false, stdout, stderr: '', timedOut: false });
+const MISSING: CmdResult = { ok: false, missing: true, stdout: '', stderr: '', timedOut: false };
+const FAIL: CmdResult = { ok: false, missing: false, stdout: '', stderr: 'no', timedOut: false };
+
+/** A machine with every tool, minus the ones named in `without`. */
+function machine(without: string[] = [], overrides: Record<string, CmdResult> = {}): (cmd: string, args: string[]) => CmdResult {
+  const table: Record<string, CmdResult> = {
+    'node --version': OK('v22.11.0'),
+    'git --version': OK('git version 2.46.0'),
+    'git config user.email': OK('qa@acme.dev'),
+    'git config user.name': OK('QA'),
+    'acli --version': OK('acli version 1.3.4'),
+    'engram version': OK('engram 3.1.0'),
+    'gh auth status': OK(),
+    'gh --version': OK('gh version 2.63.0'),
+    'git remote get-url origin': FAIL,
+    ...overrides,
+  };
+  return (cmd, args) => {
+    if (cmd === 'which' || cmd === 'where') { return without.includes(args[0]) ? FAIL : OK(`/usr/local/bin/${args[0]}`); }
+    if (without.includes(cmd)) { return MISSING; }
+    return table[`${cmd} ${args.join(' ')}`] ?? FAIL;
+  };
+}
+
+const reachAll = async (): Promise<{ ok: boolean, ms: number }> => ({ ok: true, ms: 12 });
+const reachNone = async (): Promise<{ ok: boolean, ms: number }> => ({ ok: false, ms: 3000 });
+const BIG = { block: 1, warn: 2 };
+const CHROMIUM = BRAND.setupDownloads.includes('chromium');
+
+function project(opts: { yaml?: string, steps?: Record<string, string>, env?: string } = {}): string {
+  const root = repo();
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'acme-qa' }));
+  mkdirSync(join(root, 'cli'), { recursive: true });
+  writeFileSync(join(root, 'cli', 'install.ts'), '');
+  mkdirSync(join(root, '.agents'), { recursive: true });
+  writeFileSync(join(root, '.agents', 'project.yaml'), opts.yaml ?? 'project:\n  project_name: null\n');
+  if (opts.steps) {
+    mkdirSync(join(root, '.template'), { recursive: true });
+    writeFileSync(join(root, '.template', 'installer.state.json'), JSON.stringify({ steps: opts.steps }));
+  }
+  if (opts.env !== undefined) { writeFileSync(join(root, '.env'), opts.env, { mode: 0o644 }); chmodSync(join(root, '.env'), 0o644); }
+  return root;
+}
+
+describe('checks for bun setup', () => {
+  test('a ready machine is clear, every group present, the downloads reachable', async () => {
+    const r = await runSetupPreflight({ cwd: project(), lang: 'en', run: machine(), reach: reachAll, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1' }, disk: BIG });
+    // Chromium is a row only for a product that downloads it (BRAND.setupDownloads).
+    expect(r.checks.map(c => c.id)).toEqual(['bun', 'node', 'git', 'acli', 'engram', 'gh', 'agent-claude', 'agent-codex', 'agent-opencode', 'repo', 'disk', 'net-npm', 'net-github', ...(CHROMIUM ? ['net-playwright'] : [])]);
+    expect(r.verdict).toBe('clear');
+    expect(new Set(r.checks.map(c => c.group))).toEqual(new Set(['Tools', 'AI agents', 'This machine', 'Network']));
+  });
+
+  test('no AI agent and no Node block; nothing starts', async () => {
+    const r = await runSetupPreflight({ cwd: project(), lang: 'es', run: machine(['claude', 'codex', 'opencode', 'node']), reach: reachAll, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1' }, disk: BIG });
+    expect(r.verdict).toBe('block');
+    expect(r.checks.find(c => c.id === 'harness')).toMatchObject({ state: 'block' });
+    expect(r.checks.find(c => c.id === 'node')).toMatchObject({ state: 'block' });
+    expect(exitCodeOf(r.verdict)).toBe(2);
+  });
+
+  test('analysis §8 #1 and #5: a missing acli or Engram warns at once instead of stopping the run later', async () => {
+    const r = await runSetupPreflight({ cwd: project(), lang: 'en', run: machine(['acli', 'engram']), reach: reachAll, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1' }, disk: BIG });
+    expect(r.verdict).toBe('warn');
+    expect(r.checks.find(c => c.id === 'acli')).toMatchObject({ state: 'warn', neededBy: 'jira', fix: 'brew tap atlassian/homebrew-acli && brew install acli' });
+    expect(r.checks.find(c => c.id === 'engram')).toMatchObject({ state: 'warn', neededBy: 'install' });
+    const skip = await runSetupPreflight({ cwd: project(), lang: 'en', run: machine(['acli']), reach: reachAll, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1', INSTALL_SKIP_JIRA: '1' }, disk: BIG });
+    expect(skip.checks.find(c => c.id === 'acli')).toMatchObject({ state: 'info' });
+  });
+
+  test('Q2: offline with the downloads still to do blocks; with them done it only warns', async () => {
+    const pending = await runSetupPreflight({ cwd: project(), lang: 'en', run: machine(), reach: reachNone, env: { HOME: '/nowhere', PLAYWRIGHT_BROWSERS_PATH: '/definitely/not/here' }, disk: BIG });
+    expect(pending.checks.filter(c => c.state === 'block').map(c => c.id).sort()).toEqual(['net-github', 'net-npm', ...(CHROMIUM ? ['net-playwright'] : [])]);
+    const done = await runSetupPreflight({ cwd: project({ steps: { '9-skills-community-project': 'x' } }), lang: 'en', run: machine(), reach: reachNone, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1' }, disk: BIG });
+    expect(done.checks.filter(c => c.state === 'block')).toEqual([]);
+    expect(done.checks.find(c => c.id === 'net-github')).toMatchObject({ state: 'warn', neededBy: 'github' });
+  });
+
+  test('disk: block under the floor, warn under the comfortable size', async () => {
+    const low = await runSetupPreflight({ cwd: project(), lang: 'es', run: machine(), reach: reachAll, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1' }, disk: { block: Number.MAX_SAFE_INTEGER, warn: Number.MAX_SAFE_INTEGER } });
+    expect(low.checks.find(c => c.id === 'disk')).toMatchObject({ state: 'block' });
+    const tight = await runSetupPreflight({ cwd: project(), lang: 'es', run: machine(), reach: reachAll, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1' }, disk: { block: 1, warn: Number.MAX_SAFE_INTEGER } });
+    expect(tight.checks.find(c => c.id === 'disk')).toMatchObject({ state: 'warn' });
+  });
+
+  test('analysis §8 #6: the maintainers\' yaml in someone else\'s repo is flagged before anything is asked', async () => {
+    const r = await runSetupPreflight({ cwd: project({ yaml: '# MAINTAINER COPY: x\nproject:\n  project_name: Bunkai\n' }), lang: 'en', run: machine(), reach: reachAll, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1' }, disk: BIG });
+    expect(r.checks.find(c => c.id === 'template-copy')).toMatchObject({ state: 'info', neededBy: 'team' });
+  });
+
+  test('a world-readable .env is fixed to 600 and reported; its values are never read into the checklist', async () => {
+    const root = project({ env: 'ATLASSIAN_API_TOKEN=do-not-print-me\n' });
+    const r = await runSetupPreflight({ cwd: root, lang: 'en', run: machine(), reach: reachAll, env: { HOME: '/nowhere', INSTALL_SKIP_PLAYWRIGHT: '1' }, disk: BIG });
+    expect(statSync(join(root, '.env')).mode & 0o077).toBe(0);
+    expect(r.checks.find(c => c.id === 'env-perms')).toMatchObject({ state: 'info' });
+    expect(JSON.stringify(r)).not.toContain('do-not-print-me');
+  });
+
+  test('the yaml scalars the checklist needs are read without a yaml parser', () => {
+    expect(readYamlScalars('issue_tracker:\n  atlassian_url: https://acme.atlassian.net # site\nsecrets:\n  provider: 1password\n')).toEqual({ atlassianUrl: 'https://acme.atlassian.net', secretsProvider: '1password' });
+    expect(readYamlScalars('issue_tracker:\n  atlassian_url: null # TODO\n')).toEqual({ atlassianUrl: null, secretsProvider: null });
+  });
+});
+
+describe('the setup gate (analysis §8 #3 and #4)', () => {
+  test('dependencies present: nothing to install, exit 0', async () => {
+    let installs = 0;
+    expect(await runSetupGate({ cwd: join(import.meta.dir, '..'), lang: 'en', write: () => {}, install: () => { installs += 1; return 0; } })).toBe(0);
+    expect(installs).toBe(0);
+  });
+
+  test('dependencies missing: the gate runs bun install itself; a failed install stops with a next step', async () => {
+    const root = repo();
+    let out = '';
+    expect(await runSetupGate({ cwd: root, lang: 'en', write: (s) => { out += s; }, install: () => 1 })).toBe(2);
+    expect(out).toContain('running bun install');
+    expect(out).toContain('run again: bun setup');
   });
 });
