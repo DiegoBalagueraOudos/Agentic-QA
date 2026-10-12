@@ -2,7 +2,7 @@
 
 Official scaffolder for the [Agentic QA](https://github.com/upex-galaxy/agentic-qa-boilerplate)
 ecosystem. Downloads the boilerplate template, scrubs git history, initializes a
-fresh repository, installs dependencies, and runs the interactive installer.
+fresh repository, installs dependencies, and runs the boilerplate's installer.
 
 ## Usage
 
@@ -18,10 +18,11 @@ That single command:
    (and `project.project_key` when `--project-key` is passed).
 4. Initializes a fresh repository on `main` and creates the initial commit.
 5. Runs `bun install`.
-6. Hands off to the boilerplate's interactive installer (`bun setup`),
-   which runs `cli/doctor.ts --preflight` first, then wires Engram memory,
-   agent skills, MCPs, `.env`, and — at the end — optionally creates a GitHub
-   repository for you via `gh`.
+6. Hands off to the boilerplate's installer (`bun setup`), which runs its
+   preflight (`cli/preflight.ts`) first, then opens a local page in your
+   browser (the terminal flow where there is no screen, or with `--headless`)
+   and wires Engram memory, agent skills, MCPs, `.env`, and — at the end —
+   optionally creates a GitHub repository for you via `gh`.
 
 ## Interactive menu
 
@@ -195,16 +196,17 @@ and Windows 11 ship bsdtar at `C:\Windows\System32\tar.exe`.
 path Bun cannot create its bin shims, and `bun install` fails with
 `could not open bin metadata file`.
 
-### For `bun setup` (the boilerplate's interactive installer this CLI hands off to)
+### For `bun setup` (the boilerplate's installer this CLI hands off to)
 
-Hand-off happens unless you pass `--no-setup`. The boilerplate installer
-enforces these additional preconditions:
+Hand-off happens unless you pass `--no-setup`. The boilerplate installer's
+preflight (`cli/preflight.ts`) checks these additional preconditions before
+it writes anything:
 
 | Tool                                                            | Min version | Why                                                                                                                                                                                                                                                                                                                                                                                               | Behavior on miss                                                                                                                                                                                             |
 | --------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Agent** — Claude Code, OpenCode **or** Codex                  | latest      | Step `4-agent-detect` finds the config directory, the binary on PATH, or `.codex/config.toml`; exits 1 only when none is found. | **Hard exit 1** with every harness's docs URL. Install [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenCode](https://opencode.ai/docs) or [Codex](https://developers.openai.com/codex/) before re-running. |
-| **engram**                                                      | `MIN_ENGRAM_VERSION` in the template's `cli/install.ts` | The Engram persistent-memory binary; the installer wires it into each selected agent with `engram setup`. Optional: skipping it only turns cross-session memory off. | Warns + offers the install commands and the [docs URL](https://github.com/Gentleman-Programming/engram/blob/main/docs/INSTALLATION.md); you can continue without it or exit and install. |
-| Per-skill CLIs                                                  | latest      | Each one is **required by a specific skill**; the list, with the owning skill and an install hint, is `EXTERNAL_CLIS` in the template's `cli/install.ts`. Missing ones are reported, never blocking. | Non-blocking — step `11-verify-clis` prints a status table with `quick:` install commands (where cross-platform) and a `docs:` URL per missing CLI. Install on-demand when the owning skill surfaces a missing-binary error. |
+| **Agent** — Claude Code, OpenCode **or** Codex                  | latest      | The preflight finds the config directory, the binary on PATH, or `.codex/config.toml`; it blocks only when none is found. | **Blocks the run** before anything is written, naming how to install one. Install [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenCode](https://opencode.ai/docs) or [Codex](https://developers.openai.com/codex/) before re-running. |
+| **engram**                                                      | `MIN_ENGRAM_VERSION` in the template's `cli/install.ts` | The Engram persistent-memory binary; the installer wires it into each selected agent with `engram setup`. Optional: skipping it only turns cross-session memory off. | A preflight warning with the install command (see the [docs URL](https://github.com/Gentleman-Programming/engram/blob/main/docs/INSTALLATION.md)); the run goes on without memory, and a later `bun setup` wires it. |
+| Per-skill CLIs                                                  | latest      | Each one is **required by a specific skill**; the list, with the owning skill and an install hint, is `EXTERNAL_CLIS` in the template's `cli/install.ts`. Missing ones are reported, never blocking. | Non-blocking — the verification step shows a status table with `quick:` install commands (where cross-platform) and a `docs:` URL per missing CLI. Install on-demand when the owning skill surfaces a missing-binary error. |
 | MCP credentials                                                 | —           | The `.env` keys the MCP configs reference. The installer discovers them from the `.env` loader's `--filter` list in each selected harness's config and prompts for the missing ones. | Non-blocking — `bun run setup:doctor` lists pending vars with `where` URLs (token-generation pages) until you fill them. |
 
 The scaffolder prints actionable install hints up front for its own

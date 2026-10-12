@@ -44,7 +44,7 @@ bunx create-agentic-qa@latest <your-repo-name>
 
 <div align="center">
 
-<sub><b>One command.</b> Downloads · scrubs git history · renames the project · runs <code>bun install</code> · launches the interactive installer.</sub>
+<sub><b>One command.</b> Downloads · scrubs git history · renames the project · runs <code>bun install</code> · launches the installer, which opens a local page in your browser.</sub>
 
 </div>
 
@@ -53,21 +53,21 @@ bunx create-agentic-qa@latest <your-repo-name>
 
 ## Prerequisites
 
-Before running `bunx create-agentic-qa@latest` or `bun install && bun setup`, install the **hard blockers**. The installer detects everything else and prints exact install URLs when something is missing — but front-loading these saves a fail-and-retry loop.
+Before running `bunx create-agentic-qa@latest` or `bun install && bun setup`, install the **hard blockers**. The installer's preflight checks everything else in seconds, before anything is written, and shows the exact install command or URL for whatever is missing — but front-loading these saves a fail-and-retry loop.
 
-### Hard blockers (installer exits 1 if missing)
+### Hard blockers (the preflight stops the run until they are fixed)
 
 | Tool                                                                                                                   | Min version | Why                                                                                                         | Install                                                                                |
 | ---------------------------------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **Bun**                                                                                                                | the floor `bun run setup:doctor --preflight` enforces | Runtime for every script (`bun install`, `bun setup`, `bun run test`, `bun xray`, `bun run setup:doctor`) | macOS/Linux/WSL: `curl -fsSL https://bun.sh/install \| bash` · Windows: `powershell -c "irm bun.sh/install.ps1 \| iex"` · [docs](https://bun.sh/docs/installation) |
-| **Node**                                                                                                               | the floor `bun run setup:doctor --preflight` enforces (`MIN_NODE_MAJOR` in `cli/doctor.ts`) | Hooks run `node .agents/hooks/personality-reinject.mjs`; checked by the scaffolder doctor and the `bun setup` preflight | [nodejs.org](https://nodejs.org)                                                       |
-| **An agent** — [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenCode](https://opencode.ai/docs) **or** [Codex](https://developers.openai.com/codex/) | latest      | `bun setup` step `4-agent-detect` detects all three (`~/.claude/` or `claude` on PATH · `~/.config/opencode/` or `opencode` on PATH · `codex` on PATH or `.codex/config.toml` in the repo) and lets you pick which to configure; exits 1 only if none is found | See each project's official docs                           |
+| **Bun**                                                                                                                | the floor `cli/preflight.ts` enforces | Runtime for every script (`bun install`, `bun setup`, `bun run test`, `bun xray`, `bun run setup:doctor`) | macOS/Linux/WSL: `curl -fsSL https://bun.sh/install \| bash` · Windows: `powershell -c "irm bun.sh/install.ps1 \| iex"` · [docs](https://bun.sh/docs/installation) |
+| **Node**                                                                                                               | the floor `cli/preflight.ts` enforces | Hooks run `node .agents/hooks/personality-reinject.mjs`; checked by the scaffolder doctor and the `bun setup` preflight | [nodejs.org](https://nodejs.org)                                                       |
+| **An agent** — [Claude Code](https://docs.claude.com/en/docs/claude-code), [OpenCode](https://opencode.ai/docs) **or** [Codex](https://developers.openai.com/codex/) | latest      | the `bun setup` preflight detects all three (`~/.claude/` or `claude` on PATH · `~/.config/opencode/` or `opencode` on PATH · `codex` on PATH or `.codex/config.toml` in the repo) and blocks only if none is found; the Team phase then lets you pick which to configure | See each project's official docs                           |
 | `git`                                                                                                                  | any         | Scaffolder runs `git init`; pre-commit hooks (Husky) require git                                            | [git-scm.com/downloads](https://git-scm.com/downloads)                                 |
 | `tar`                                                                                                                  | any         | Scaffolder extracts the template tarball. Either flavour works — GNU tar (Linux, WSL, Git Bash) or bsdtar   | Ships with macOS, Linux, and Windows 10 1803+ / Windows 11 (`C:\Windows\System32\tar.exe`) |
 
 > **Windows**: PowerShell and cmd are supported — no WSL or Git Bash required. Install Bun with the PowerShell one-liner above rather than `npm i -g bun`, which writes only a `bun.cmd` shim.
 
-### Quasi-required (installer warns + offers install)
+### Quasi-required (the preflight warns, the run goes on)
 
 | Tool          | Min version | Why                                                                                                                                                                                                       | Install                                                                                                                                                                            |
 | ------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -77,7 +77,7 @@ Before running `bunx create-agentic-qa@latest` or `bun install && bun setup`, in
 
 These are **not optional** for the workflow — each one is required by a specific skill. They are non-blocking at setup time because the installer cannot guess which skills you will actually use. Install them up front if you plan to use the whole stack, or lazily when the skill that uses them surfaces a missing-binary error.
 
-The list is `EXTERNAL_CLIS` in `cli/install.ts`: each entry names the skill that needs it, a cross-platform install hint when one exists, and the official docs URL. `bun setup` prints that table with a found / missing status per tool, and `bun run setup:doctor` re-checks it any time. Repo search (`rg`) is not on it: Claude Code bundles its own, OpenCode and Codex use the system binary (`brew install ripgrep` · `apt install ripgrep` · `winget install BurntSushi.ripgrep.MSVC`).
+The list is `EXTERNAL_CLIS` in `cli/install.ts`: each entry names the skill that needs it, a cross-platform install hint when one exists, and the official docs URL. `bun setup` shows that table with a found / missing status per tool, and `bun run setup:doctor` re-checks it any time. Repo search (`rg`) is not on it: Claude Code bundles its own, OpenCode and Codex use the system binary (`brew install ripgrep` · `apt install ripgrep` · `winget install BurntSushi.ripgrep.MSVC`).
 
 ### Variables and MCP credentials (`.env` keys)
 
@@ -97,11 +97,10 @@ Nothing blocks install, update or `setup:doctor`: a value is validated by the co
 
 | Stage                    | Check depth                                                                                                                     | Behavior                                                                                                                                                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Preflight                | Version compare — reads `Bun.version`, parses semver, requires the floor `cli/doctor.ts` sets. Also checks `node_modules/@inquirer/prompts` exists. | Hard exit 1 with explicit `Fix:` command before any other step.                                                                                                                                           |
-| `2-gentle-ai-detect`     | Version compare — runs `engram version`, parses semver, requires the minimum `cli/install.ts` enforces (`MIN_ENGRAM_VERSION`). The step key keeps its older name for state compatibility.                                                | Missing: prints brew + go install commands + docs URL, asks exit-or-continue. Too old: warns with a `brew upgrade engram` hint and asks whether to try anyway.                                                                  |
-| `4-agent-detect`         | Detects Claude Code, OpenCode and Codex (config directory, binary on PATH, or `.codex/config.toml`), then prompts which to configure. | None of the three found: prints all three docs URLs, hard exit 1.                                                                                                                                     |
-| `11-verify-clis`         | PATH probe — runs `which <name>` (POSIX) or `where <name>` (Windows). Presence only, no version check.                          | Prints `found`/`missing` table; for missing entries adds `quick:` install command (when cross-platform) + `docs:` URL. Non-blocking.                                                                      |
-| `bun run setup:doctor`   | Re-runs everything above + every MCP `.env` var the manifest declares + Playwright browser cache + plaintext MCP credential copies an older version left (`bun run harness:env` retires them), and, per harness in use (`harnesses:`), the MCP and hook surfaces. | Human-readable or `--json` report. Every `pending_action` carries a `where` hint or URL — re-run any time after partial setup.                                                                            |
+| Gate (`bun cli/preflight.ts --for setup --gate`, the first half of `package.json` `setup`) | Bun recent enough; the dependencies present. | Bun too old: stops with the upgrade command. `node_modules` missing: runs `bun install` itself.                                                                                    |
+| Preflight (`runSetupPreflight` in `cli/preflight.ts`) | Tools (Bun, Node, git, acli, engram, gh), at least one AI agent, the project folder, the download hosts, free disk, the `.env` permissions. Each row: ok, info, warning or block. | A block stops the run before anything is written, with the fix per row; the page offers "check again". acli or engram missing only warn. `bun cli/preflight.ts --for setup --json` prints the same checklist for CI and agents. |
+| Verification (`verifyExternalClis`) | PATH probe — runs `which <name>` (POSIX) or `where <name>` (Windows). Presence only, no version check.                          | A `found`/`missing` table; for missing entries a `quick:` install command (when cross-platform) + `docs:` URL. Non-blocking.                                                                      |
+| `bun run setup:doctor`   | Re-checks every MCP `.env` var the manifest declares + Playwright browser cache + plaintext MCP credential copies an older version left (`bun run harness:env` retires them), and, per harness in use (`harnesses:`), the MCP and hook surfaces. | Human-readable or `--json` report. Every `pending_action` carries a `where` hint or URL — re-run any time after partial setup.                                                                            |
 
 > **TL;DR**: install **Bun** plus at least one of **Claude Code, OpenCode, or Codex** before you run setup. Everything else, the installer points you at when you hit it.
 
@@ -121,7 +120,7 @@ Nothing blocks install, update or `setup:doctor`: a value is validated by the co
 | **See what `bun setup` configures**               | [`INSTALLER.md`](INSTALLER.md) — run `bun run setup:doctor` after setup                                                                                                                               |
 | **You're an AI agent**                                | [`AGENTS.md`](AGENTS.md) (auto-loaded each session on every supported harness; it routes to `.agents/instructions/`)                                                                                    |
 
-> First-timers, use the scaffolder. It handles tarball download, git scrub, rename, `bun install`, and the interactive installer in one shot. The manual clone is for people hacking on the boilerplate itself.
+> First-timers, use the scaffolder. It handles tarball download, git scrub, rename, `bun install`, and the installer in one shot. The manual clone is for people hacking on the boilerplate itself.
 
 <br />
 
@@ -146,7 +145,7 @@ What it does:
 2. Rewrites `package.json` name + `.agents/project.yaml` `project.project_name` (and `project.project_key` when `--project-key` is passed).
 3. Initializes a fresh `git init -b main` with an initial commit.
 4. Runs `bun install`.
-5. Hands off to `bun setup` — Engram memory, the committed skills under `.agents/skills/`, community skills, the MCP servers `.mcp.json` declares, where secrets live (`.env` by default, or a secret manager), `.env`, optional `gh repo create`. It records the agents you pick in `harnesses:` (`.agents/project.yaml`) and offers to delete the files of the harnesses you left out, and its last step retires plaintext MCP credential copies an older version left.
+5. Hands off to `bun setup`, which opens a local page in your browser (or stays in the terminal where there is no screen, see [`INSTALLER.md`](INSTALLER.md#where-the-run-is-shown)) — Engram memory, the committed skills under `.agents/skills/`, community skills, the MCP servers `.mcp.json` declares, where secrets live (`.env` by default, or a secret manager), `.env`, optional `gh repo create`. It records the agents you pick in `harnesses:` (`.agents/project.yaml`) and offers to delete the files of the harnesses you left out, and its last step retires plaintext MCP credential copies an older version left.
 
 Useful flags (full list in [`packages/create-agentic-qa/README.md`](packages/create-agentic-qa/README.md)):
 
@@ -156,7 +155,7 @@ Useful flags (full list in [`packages/create-agentic-qa/README.md`](packages/cre
 | `--template <ref>`             | Pin to a branch / tag / SHA instead of `main`.                  |
 | `--template-repo <owner/repo>` | Use a fork instead of `upex-galaxy/agentic-qa-boilerplate`.     |
 | `--project-key UPEX`           | Pre-fill the Jira project key (otherwise prompted).             |
-| `--no-install` / `--no-setup`  | Skip `bun install` or the interactive installer.                |
+| `--no-install` / `--no-setup`  | Skip `bun install` or the installer (`bun setup`).              |
 | `--non-interactive`            | Auto-pick defaults (also auto-detected when no TTY is present). |
 
 Then continue with the per-project workflow:
@@ -232,7 +231,7 @@ Prefer to start your project **on GitHub from day one** (your own repo, your own
 
 5. (Optional) Rename the project inside the codebase: edit `package.json` → `name`, and `.agents/project.yaml` → `project.project_name`.
 
-> **The magic command does this better.** `bunx create-agentic-qa@latest <your-repo-name>` does everything the template flow does **plus**: scrubs the upstream git history (so your repo doesn't carry boilerplate commits), auto-rewrites `package.json` name and `.agents/project.yaml` `project.project_name`, runs `bun install`, runs the interactive installer, and optionally creates the GitHub repo for you via `gh` — all in one command. The template route is a good fit only if you want the GitHub repo created via the web UI before any local work.
+> **The magic command does this better.** `bunx create-agentic-qa@latest <your-repo-name>` does everything the template flow does **plus**: scrubs the upstream git history (so your repo doesn't carry boilerplate commits), auto-rewrites `package.json` name and `.agents/project.yaml` `project.project_name`, runs `bun install`, runs the installer, and optionally creates the GitHub repo for you via `gh` — all in one command. The template route is a good fit only if you want the GitHub repo created via the web UI before any local work.
 
 ### Manual clone (contributors)
 
@@ -546,17 +545,20 @@ The updater, Xray CLI, OpenAPI sync, KATA manifest, `.agents/` setup and linting
 6. Regenerates the derived surfaces from their sources (`bun run agents:compat`, `skills:registry`, `kata:manifest` logic) and runs the project's own gates
 7. Closes with one "Estado por superficie" table and ONE parity prompt for your AI (details below)
 
+Before step 1 a preflight checks, in seconds, what would make the update fail halfway (Bun, git, the `gh` session, `github.com`, a primary checkout, the lock file, disk) and stops before anything is written when something blocks. On a terminal with a screen the run is shown in a local page: every question (areas, files with their diff, files changed on both sides, deletions, new `package.json` keys) is answered there BEFORE the first file is written, and the closing report shows the same table; the terminal keeps the whole log. `--headless` keeps the run in the terminal, `--ui` forces the page, and CI, a pipe, an agent shell or SSH without a display never open it ([`INSTALLER.md`](INSTALLER.md#how-a-bun-sync-run-goes)). A synced file you edited that upstream also changed now asks (decide later, keep mine, take the new one) instead of being overwritten.
+
 **Requirements**: git 2.25 or newer (partial clone with `--filter=blob:none`), Bun, GitHub CLI authenticated (or `UPEX_TEMPLATE_REPO` pointing at a local clone).
 
 | Flag | Effect |
 | ---- | ------ |
-| (none) | Interactive flow: pick components, resolve divergences, confirm deletions |
-| `--auto` | Non-interactive: copies new files and overwrites divergences with upstream. Never deletes files upstream removed |
+| (none) | Interactive flow, in the page or the terminal: pick areas, review files, resolve divergences, confirm deletions |
+| `--auto` | Non-interactive: copies new files and overwrites divergences with upstream (backup in `.backups/`). Never deletes files upstream removed. Typed on a real terminal, it shows a read-only page |
 | `--force` | Like `--auto`, and also deletes files upstream removed (backup + `--rollback` still apply) |
 | `--interactive`, `-i` | Keeps the prompts even when stdin is not a terminal |
 | `--dry-run` | Preview without writing. Prints the parity table; the prompt is not saved. With a newer updater upstream, the preview runs the NEW updater from the upstream clone, so it shows what the real run will do |
 | `--strict` | Exit 1 when the run ends with a BLOCKING parity finding (compat contract broken: alias, a command shadowing a skill, hooks, MCP). Default: warn, exit 0. Drift on protected files never blocks |
 | `--no-gates` | Skip the post-sync gates |
+| `--headless` / `--ui` | Keep the run in the terminal / open the page even where the rules say terminal |
 | `--rollback` | Restore the most recent backup |
 | `--skill a,b` / `--list` | Sync only the named skills / list the skills the template offers |
 
