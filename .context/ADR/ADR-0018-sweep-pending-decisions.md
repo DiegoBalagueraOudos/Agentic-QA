@@ -87,7 +87,7 @@ Proposed content, in order:
 | One sentence in every conductor briefing template: "list your pendings in the report; never ask the human" (Rule Reachability: a rule that must bind an executor lives in the reference, the compact rules AND component 7 of the briefing) | `orca-orchestration/templates/COMMON.md` and `references/brief-template.md` | 2 lines |
 | Triggers `\bSPD\b`, `\bsweep\b`, `\bpendientes\b` on the section that owns "ASKING THE HUMAN" so the hook routes it | the instruction file's `triggers:` frontmatter, NOT a new ROUTER row (rows are locked by `instructions:check`) | 1 line |
 
-Every edit to `AGENTS.md` or an instruction section goes through `/framework-development` mode `instructions` (AGENTS.md header; ADR-0013). Whether the `AGENTS.md` paragraph fits that file's size budget is not verified here: `instructions:check` decides.
+Every edit to `AGENTS.md` or an instruction section goes through `/framework-development` mode `instructions` (AGENTS.md header; ADR-0013). `measured` (`instructions:check`, 2026-10-22): `AGENTS.md` is 21913 B against a 16384 B target and a 24576 B ceiling, so the roughly 700 B paragraph fits under the ceiling but widens an existing warning. If the owner wants the target respected, move the rest of the §2 asking paragraph into the doctrine and leave only the one-line binding sentence in `AGENTS.md`.
 
 A webapp-style numbered Critical Rule is NOT proposed. The Critical Rules are the break-glass list (credentials, history, attribution); the sweep is conduct, and §2 is where the existing asking paragraph lives.
 
