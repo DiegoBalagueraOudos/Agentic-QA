@@ -12,17 +12,17 @@ let the instrument cost more than the decision is worth.
 
 | The ask | Instrument | Why |
 |---|---|---|
-| One question, within the harness prompt's option cap, needed to continue THIS turn | the harness's own question prompt | fastest path, no context switch, answer arrives in-turn |
-| Two or three simple questions | the same, one round | still cheaper than a browser |
-| **More than three decision points** | **`mkd` decision deck** | a terminal prompt has a question/option cap and cannot hold written tradeoffs |
-| **One decision whose tradeoff cannot be stated honestly in two sentences** | **`mkd`** | the count is not the only trigger. Density is. A single decision carrying a real cost deserves the space to state it |
+| One small decision needed to continue THIS turn | the harness's own question tool | fastest path, no context switch, answer arrives in-turn |
+| **Any number of small decisions** (A or B, a default to confirm, a deferral: each fits in two sentences) | **the sweep (§7)**: the harness's question tool, called in rounds until every item is asked | the count never moves a small decision to a deck; the tool's per-call cap only sets the round size |
+| **A decision with real tradeoffs or weight** (architecture, an implementation approach, a larger change, anything whose cost cannot be stated honestly in two sentences) | **`mkd` decision deck** | a terminal prompt cannot hold written tradeoffs and context. Weight is the trigger, never the count |
 | A long report or plan the human should react to point by point | **`mkd`** report items | anchors each reaction to the exact section instead of a prose reply the AI has to guess-map back |
 | Row-by-row verdicts over tabular data | **`mkd`** table item | one answer per row, not a paragraph about rows |
 | The approach itself is unsettled and needs exploring before anything is built | plan mode | this is not a decision yet |
 | No human is at the wheel (CI, an unattended routine) | none of the above | state the assumption, proceed, and record it in the report. Never block a routine on a question nobody will see |
 
-**The threshold to remember**: more than three decisions, OR one dense one. Below that, a deck is
-ceremony, and ceremony is how a good instrument gets abandoned.
+**The threshold to remember**: weight, not count. Nine small decisions are one sweep; one heavy decision
+is a deck. A deck for a small decision is ceremony, and ceremony is how a good instrument gets abandoned.
+A mixed batch splits: sweep the small ones first, deck only the heavy ones.
 
 ---
 
@@ -121,3 +121,69 @@ approved plan, and escalate only its four kinds (§5 there).
   assumed (`./decision-protocol.md` §5).
 - **Write the answers down** where `./decision-protocol.md` §6 says, as soon as they arrive, so the
   next session finds them in its search instead of asking again.
+
+---
+
+## 7 · The sweep (SPD, Sweep Pending Decisions)
+
+The sweep closes a turn that still holds small open items. It is the sibling of the deck (`mkd`): **the
+sweep takes small decisions, the deck takes heavy ones** (§1, weight not count). A turn holding both: a blocking item is
+asked at once, by whichever instrument fits; at the close, heavy items go to the deck first, then the sweep
+takes every remaining small item.
+
+**Who sweeps.** The conductor, or any session the human types into directly (no conductor launched it). A worker or subagent whose
+brief names a conductor never sweeps and never decides: it lists its pendings in its report
+(`ask`/`escalation` in a fleet) and the conductor sweeps them. No human at the wheel (CI, an unattended
+routine): no sweep; park the item and report it (`./decision-protocol.md` §5).
+
+**What counts as pending.** Only what `./decision-protocol.md` §5 lets reach a person (the four kinds).
+A technical call inside the approved plan is decided and reported as DECIDED, never swept. A settled
+question is followed, never re-asked (§6 there). The sweep decides HOW pendings are asked; it never
+widens WHAT is asked.
+
+**When.** Before any message that would leave something waiting on the human: a decision, an unconfirmed
+assumption, an item left for later. In plan mode, sweep before `ExitPlanMode`, which stays reserved for
+approving the plan itself.
+
+**Rounds.** Use the harness's own question tool at its own per-call limit, and call it again, each round
+waiting for its answers, until every pending item has been asked; an item an earlier answer made moot is dropped. Nine items on a tool that takes four per call are rounds of four, four and
+one. No number is written in this repo: the tool's schema sets it, and a harness that changes its limit
+changes nothing here. Blocking items go in the first round. A later round never repeats an item already
+answered or deferred.
+
+**Shape of each question.** One pending item, a short header, the options within the tool's option limit,
+the recommended one first and marked, each option stating its value and its cost in a line. Always
+offer a free-text way out: the tool adds one ("Other") on every harness below; where it does not, add an
+option "Other (write your own)". Add a "Later" option unless the item blocks the work.
+
+**"Later" is an answer.** Record it as deferred in the session's `progress.md`
+(`./session-management.md` §7), do not ask it again in the same session unless it starts to block, and
+let a new session re-raise it once, only if the handoff lists it.
+
+**The answer is the execution contract**, read as §5 reads a deck result: "Other" text is executed as
+written; an answer saying the question was not understood means do NOT execute: explain it plainly and
+ask again.
+
+**Which tool.** The harness's own structured-question tool; look it up in the session's tool list.
+
+| Harness | Tool | Where it is absent |
+|---|---|---|
+| Claude Code | `AskUserQuestion` | headless runs; Agent-tool subagents (unreliable) |
+| Codex | `request_user_input` | exec mode; outside Plan mode unless the feature flag `default_mode_request_user_input` is on |
+| OpenCode | `question` | `opencode run`; disabled by its permission key `question` |
+| Gemini CLI | `ask_user` | non-interactive runs |
+| any other | its own question tool, if its tool list shows one | otherwise the fallback below |
+
+Tool names and limits move with harness versions (read 2026-10-22, harness docs and binaries): the tool
+list of the running session is the authority, this table only says what to look for.
+
+**Fallback** (no tool, a refused call, or the tool is off in this mode): a numbered list in the message,
+same content as the structured call, in rounds only if it grows unwieldy:
+
+```text
+Pending (N). Reply with the numbers, e.g. "1a 2b 3 later":
+1. <the question, one sentence>
+   a) <option> (recommended: <why>)   b) <option>   c) later   d) other: write your own
+```
+
+A turn that ends with an unnumbered paragraph of open questions is the defect the sweep exists to remove.

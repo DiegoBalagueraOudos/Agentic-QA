@@ -98,7 +98,7 @@ keep going.
 
 - the harness's own agent-to-agent messaging tool — from a worktree the conductor is not in your
   agent list, and a whole fleet once reported to the wrong sessions this way (G35);
-- the harness's user-question prompt — nobody is watching it (one such question waited for hours, G36);
+- the harness's user-question prompt — nobody is watching it (one such question waited for hours, G36); a pending that needs the human goes to the conductor, who sweeps it;
 - **periodic heartbeats.** Your injected preamble asks for them; this repo forbids them, because
   each one wakes the conductor to read the word "alive". You send three things and nothing else:
   `worker_done`, `ask`, `escalation`.

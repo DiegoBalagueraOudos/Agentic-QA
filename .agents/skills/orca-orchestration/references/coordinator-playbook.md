@@ -408,6 +408,15 @@ dependencies. Before `worktree rm`:
 5. Only then remove, and `git worktree prune`. From the CLI that is `orca worktree rm --run-hooks`:
    without the flag Orca skips the committed `orca.yaml` archive hook (which runs the same rescue).
 
+Removing is part of closing, not a later chore: `worker-release` closes the agent terminal only, so
+without this step the worktree, its `Setup` terminal and its local branch pile up on disk. Removable
+when ALL hold: its HEAD is an ancestor of the integration branch, `git status --porcelain` shows
+nothing that is not disposable, `bun run worktree:audit` exits 0, nobody will resume the session (else
+write why in `roster.md`, item 4 above), and no terminal other than `Setup` is left in it. A worktree
+some other session created, one not in your roster, is not yours to remove: report it to the owner
+with the audit. End-of-run check before the final report: `git worktree list` shows only the primary
+checkout plus the worktrees `roster.md` explains; anything else is a leak, close it or name it.
+
 Mechanics and the untracked-files gotcha: `git-flow-master/references/worktrees.md`.
 
 ---
