@@ -138,7 +138,7 @@ routine): no sweep; park the item and report it (`./decision-protocol.md` §5).
 
 **What counts as pending.** Only what `./decision-protocol.md` §5 lets reach a person (the four kinds).
 A technical call inside the approved plan is decided and reported as DECIDED, never swept. A settled
-question is followed, never re-asked (§6 there). The sweep decides HOW pendings are asked; it never
+question is followed, never re-asked (§3 there). The sweep decides HOW pendings are asked; it never
 widens WHAT is asked.
 
 **When.** Before any message that would leave something waiting on the human: a decision, an unconfirmed
