@@ -491,6 +491,38 @@ where `N` = number of E2E flows that reuse the TC. A moderate-ROI atomic like `a
 2. **Cap the bonus at `N = 3`** (max multiplier `x1.6`). An estimate you cannot verify must not be able to triple a score.
 3. **Record the estimate in the ROI comment** alongside the five factors, e.g. `Reuse: N~3 (estimated from ATP: login, checkout, profile-edit). Bonus x1.6.` An unrecorded bonus is an unauditable one.
 
+### The ROI comment and its signature
+
+Every Candidate and Manual TC carries one ROI comment, written when its verdict transition fires. The last line is the person's signature, copied from their answer; the agent never writes it on its own behalf.
+
+```
+ROI: F4 x I5 x S4 / (E2 x D2) / 10 = 2.0 (+ prior bug PROJ-7044) -> Candidate
+Reuse: N~2 (estimated from ATP: checkout, refund). Bonus x1.4.
+Verdict signed: <person>, <where>, <YYYY-MM-DD>
+```
+
+`<where>` names something a reader can check, never a bare channel name:
+
+| The person answered through | `<where>` is |
+|---|---|
+| a Jira comment of their own | that comment's id or URL |
+| the `mkd` decision deck | the path of the saved Result JSON or of the decision record (`.session/decisions/<topic>-<date>.json`, `agentic-qa-core/references/decision-protocol.md`) |
+| the question tool | the path of the decision record the answer was saved to |
+
+How the signature is collected follows `AGENTS.md` §2: a batch of verdicts to react to point by point goes in the `mkd` decision deck, a single verdict through the question tool. **Only an attended session writes the line**: a subagent, a fleet worker or a routine never does; it lists the verdicts as pending in its report and the session talking to the person collects them.
+
+`/test-automation`'s TC source gate reads this line from Jira and counts it only when the comment's `created` and `updated` timestamps both predate the automation run, so a signature cannot be written and used inside the same run.
+
+#### The sign-only pass
+
+For a Candidate (or Manual) TC whose verdict is recorded but unsigned, typically one created before this rule. It runs in mode `document`, in an attended session, and re-scores nothing:
+
+1. Show the person each TC with its recorded ROI comment (factors, score, verdict), as a batch in the `mkd` deck or one by one through the question tool.
+2. For each verdict the person confirms, add a NEW comment on the TC: the recorded `ROI:` line copied unchanged, then `Verdict signed:` with a checkable `<where>`. Never edit the old comment (an edit moves its `updated` timestamp and hides what was recorded).
+3. A verdict the person changes is not a sign-only case: run Prioritize for that TC.
+4. Read each comment back through `[ISSUE_TRACKER_TOOL]` (Critical Rule #16).
+
+The gate reads the latest comment that carries `Verdict signed:`.
 
 ### Phase 0 filter (applied BEFORE ROI)
 

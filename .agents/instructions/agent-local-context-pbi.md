@@ -98,7 +98,7 @@ Verify any change with `git check-ignore -v` on both a `test-specs/` file (must 
 
 **ENTRY POINT**: invoke `/sprint-testing`: syncs the ticket (`jira:sync-issues get`), explains story, loads the synced PBI, explores code.
 
-**RESUME SESSION**: invoke `/test-automation`. Skill reads `PROGRESS.md` + `ROADMAP.md` automatically, picks up where left off.
+**RESUME SESSION**: invoke `/test-automation`. Skill reads `PROGRESS.md` + `ROADMAP.md` automatically, re-runs its TC source gate first, then picks up where left off.
 
 **Project-wide context** (Level 1, generated; the maps are read with `bun run context:map <slug>`, never raw). The Master Test Plan is NOT here: `project-context` mode `test-plan` writes it to the `QA Master Test Plan` Epic description, and the sync caches it at `.context/PBI/qa-artifacts/master-test-plan.md`.
 

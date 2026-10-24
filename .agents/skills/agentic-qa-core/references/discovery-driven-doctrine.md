@@ -45,6 +45,10 @@ automate       a discovery-driven work package (`test-automation`)
 regression     the RTP grows; recompute the inventory and compare it with the first one
 ```
 
+`automate` takes only TCs that already exist in the TMS with a signed `Candidate` verdict: a gap with no
+signed Test goes back to `document`, never to a Test created by automation (the TC source gate of
+`test-automation`, a hard gate in `./stage-gates.md`).
+
 The `explore` and `confirm` steps are owned by `exploratory-testing`, the ticket-free entry into the
 Execution stage (`./stage-gates.md` §"The stages, by name"); `document` and `automate` run through
 `test-documentation` and `test-automation` in their `discovery-driven` scope (§2). The `inventory` step
@@ -230,7 +234,7 @@ The ladder replaces two failure modes: false coverage (a case marked PASSED on i
 ## 6. `automated` means the code is on the production branch
 
 A TC moves `pull_request` -> `automated` (transition `merged`) only when its test code is on
-`git_strategy.branches.production` in `.agents/project.yaml`. A merge into `branches.integration`, or into
+`git_strategy.branches.production` in `.agents/project.yaml`, with CI green there. A merge into `branches.integration`, or into
 a suite trunk matching `branches.ephemeral_pattern`, is not `automated`: the TC stays at `pull_request` and
 its labels stay as they are.
 

@@ -359,7 +359,7 @@ A User Story is fully documented when:
 0. ATS exists, is linked to the Story (`is tested by` — the coverage panel shows Covered), and holds ALL the Story's TCs.
 1. ATP exists, is linked, and is marked Complete.
 2. ATR exists, is linked, and is marked Complete.
-3. Every TC has a Test Status (`PASSED`, `FAILED`, or `NOT RUN`).
+3. Every TC has a Test Status (`PASSED`, `FAILED`, or `NOT RUN` with its reason line). `PASSED` / `FAILED` only when the TC was observed in the environment its precondition names; a code read, a green CI run, a local stack or another environment leaves it `NOT RUN` (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §5).
 4. Every AC has either at least one **documented** TC OR an explicit Deferred note in the prioritization report. The documented TC set is intentionally sparse — only the regression-worthy scenarios (Candidate + Manual) are persisted; the wide 1:N derivation happened upstream (in `/sprint-testing` planning + exploration) and most of it is correctly Deferred (no TMS TC). Do NOT inflate documentation to "N TCs per AC" — that is a design/execution concern, not a documentation one.
 5. Where a regression-worthy scenario IS persisted, its TC is technique-shaped: a documented boundary TC uses BVA values, a documented state TC covers the transition, etc. (`agentic-qa-core/references/test-design-doctrine.md`). Technique governs the SHAPE of what you document, not how MUCH you document.
 6. ATP and ATR are bidirectionally linked, and both are linked to the US via `is tested by` (administrative — coverage comes from the ATS link).
@@ -716,8 +716,8 @@ For N <= 10 TCs, classify inline — the dispatch overhead is not justified. The
 
 [TMS_TOOL] Update TC:
   id: {from TC ID}
-  status: PASSED
-  workflow-status: Candidate
+  status: PASSED            # only when observed in the environment its precondition names (doctrine §5); else NOT RUN + reason
+  workflow-status: Candidate  # only after the person signed the verdict (tms-conventions.md §9 "The ROI comment")
   precondition: {from test environment details}
   spec: {from step-by-step specification}
 ```

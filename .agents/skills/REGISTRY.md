@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-24T19:58:27.857Z`
+> Generated: `2026-10-24T21:07:24.866Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -289,7 +289,7 @@ Skills indexed: 28
 - DO: stop at PR creation — merging is the user's next step, never automatic. If the `gh` transport is missing or unauthenticated, surface the blocker instead of implying a PR was opened.
 - WHEN reconciling declared policy against the host: run the policy-verify tool once at the first push / PR / merge intent, never hand-query protection endpoints. A `404` on the classic protection endpoint does not mean unprotected, and a push that succeeded may have been a documented bypass, not permission. Report drift; never auto-correct it.
 - WHEN a planned change exceeds ~400 changed lines: run the chained-PR decision (single-pr / stacked-to-main / feature-branch-chain / size-exception) before coding, and re-run it if the real diff outgrows the estimate rather than silently up-budgeting. Return it with its trace, never as a bare label: `Chain strategy: <leaf>`, each tree question answered with the reason drawn from THIS change (`Q1=No (…) · Q2=… · Q3=…`, `n/a` past the leaf), `Decided by: /git-flow-master`. Answers that do not lead to the stated leaf, or a trace that only restates the conclusion, count as no decision; a re-run replaces the trace.
-- WHEN a promotion PR into the production branch merges: hand off the post-promotion `merged` pass to `/test-documentation` ("Promotion landed on `<production>`: run the post-promotion `merged` pass"). Never touch the TMS from this skill. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §6.
+- WHEN a promotion PR into the production branch merges: hand off the post-promotion `merged` pass as `/test-documentation post-promotion` ("Promotion landed on `<production>`: run `/test-documentation post-promotion`"). Never touch the TMS from this skill. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §6.
 - WHEN a conflict fires: diagnose and classify it first, present options ranked by safety, and prefer a safe abort over a guess. Never pick a destructive option silently.
 
 **Read full SKILL.md when**: running Strategy Setup, resolving a specific conflict type, picking a base branch or branch prefix for an unfamiliar strategy, or setting up an isolated worktree.
@@ -637,7 +637,7 @@ Skills indexed: 28
 - Apply techniques by trigger: EP always; BVA on ranges/limits; State-Transition for stateful flows; Decision Table when 2+ conditions interact; Pairwise when 3+ combinable factors (log the reduction).
 - Parametrize for artifact economy: same-behavior data variants → ONE parameterized `@atc` (fixture / data-factory rows iterated by the test) per partition, NOT N ATCs; split only when action / outcome / state differs. (Canon: doctrine §"Part 2.5".)
 - An AC is the business assertion; an ATC is its concrete exploration (Precondition + Action + Assertions). Run the Test-Design Checklist before finalizing the plan.
-- Plan → Code → Review, always in order. Only automate `Candidate` verdicts from `/test-documentation`.
+- Plan → Code → Review, always in order, behind the TC source gate (also first on every resume): in scope = the Tests at `candidate` whose `Verdict signed:` ROI comment has Jira `created` AND `updated` older than this run's start; Manual and recorded-Deferred Tests are listed out of scope. STOP and route to `/test-documentation` only on a named TC that is not a signed Candidate, a Test with no verdict, or zero signed Candidates; never sign or wait inside the run. This skill never creates a Test, scores ROI or fires a verdict transition. Signed ROI is a hard gate, never collapsed.
 - A TC reaches `automated` (labels `+automated -automation-candidate`) only when its code is on the production branch (`git_strategy.branches.production`); a merge into an integration branch or a suite trunk is not `automated`. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §6.
 - Fixture selection: API-only → `{ api }` (no browser); UI-only → `{ ui }`; hybrid → `{ test }`.
 - ATC = atomic mini-flow; NEVER calls another ATC. Reusable chains → a Steps module.
@@ -654,7 +654,7 @@ Skills indexed: 28
 
 ## Skill: test-documentation
 
-**Purpose**: Analyze, prioritize, and document test cases in TMS (Jira/Xray), or repair an existing Story-ATS-ATP-ATR-TC cascade through a sealed expl...
+**Purpose**: Analyze, prioritize, and document test cases in TMS (Jira/Xray), repair an existing Story-ATS-ATP-ATR-TC cascade through a sealed explici...
 
 **Compact Rules**:
 - Documenting an AC→TC map is the FLOOR (≥1 TC per AC is a minimum, never a target). Coverage = AC-conformance + risk-beyond-AC; the TC set must include boundary / negative / state / anomaly cases the AC is silent on. (Canon: `agentic-qa-core/references/test-design-doctrine.md`.)
@@ -666,8 +666,11 @@ Skills indexed: 28
 - TC identity = Precondition + Action + verifiable outcome. Naming (TC): `{US_ID}: TC#: should <expected outcome> [<connector> <condition>] [given <precondition>]`; `Validate <feature>` is reserved for the GROUPING layer (Test Set summary / `describe()`). Reject `"Login test"`, `"Login - error"`, `"TC1: Test form"`.
 - ROI formula → one of three verdicts per TC: Candidate (feeds test-automation), Manual, Deferred. Prioritize by risk.
 - No ROI verdict (Candidate or Manual) while a scenario is `oracle: observed`: a characterized behaviour needs a person's answer to "is this intended?" first (decision-protocol kind 1), and waits unscored until then. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §4.
+- A Candidate or Manual verdict is fired only after a person signs it (a batch through the `mkd` deck, one verdict through the question tool), and the TC's ROI comment then carries `Verdict signed: <who>, <where>, <when>`, `<where>` a checkable record (the person's own comment id, or the saved mkd result / decision record path), the line `/test-automation`'s TC source gate reads. Only an attended session writes it; a subagent, worker or routine lists the verdicts as pending. Format + the sign-only pass: `references/tms-conventions.md` §9.
+- Discovery intake (`references/discovery-intake.md`): a COVERED candidate is dropped with a line, a WEAK one becomes a strengthen proposal for the existing test (never a new Test), a NEW one runs the full pipeline anchored to its coverage Tech Story; the >50% alarm is computed per chunk.
+- `PASSED` / `FAILED` only from a run observed in the environment the TC's precondition names, else `NOT RUN` with its reason (doctrine §5); `automated` (`merged`) only once the spec is on the production branch, through mode `post-promotion` (doctrine §6).
 - Cardinality: US→TC is 1:N; AC→TC is N:1 or N:M. Resolve TMS modality (Xray vs Jira-native) in Phase 0 before documenting.
-- Mode from `$ARGUMENTS`: a first token matching a mode in Mode routing (`repair-traceability`, `document`) IS the mode and the rest is forwarded; otherwise `document` for plain documentation work, ASK when it could be either.
+- Mode from `$ARGUMENTS`: a first token matching a mode in Mode routing (`repair-traceability`, `post-promotion`, `document`) IS the mode and the rest is forwarded; otherwise `document` for plain documentation work, ASK when it could be either.
 - Bug-driven (GOLDEN RULE): not every bug is a regression TC, but a regression-worthy bug MUST end with a Test — REUSE the existing failed Test if it came from one, else CREATE one (both modalities). A non-qualifying bug is treated like a failed test → Deferred, no new Test.
 - ATS is MANDATORY per Story (`ATS: {US_ID}: {story title}`, even with a single TC): a `Test Set` holding ALL the Story's TCs, parented to the QA Test Artifacts epic, `components` INHERITED from the Story (mandatory — the components exemption applies ONLY to the optional feature-level `TS:` grouping sets).
 - Set-first creation order: find-or-create the ATS, ATP and ATR BEFORE the first TC (module-driven pre-creates the containers because parallel TC sharding needs the targets to exist); add each TC to the ATS, THEN derive the ATP's and the Execution's test lists FROM the ATS membership — never three independent id lists.

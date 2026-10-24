@@ -35,6 +35,18 @@
       "prompt": "What are the naming conventions for commits?",
       "expected_behavior": "Does NOT activate test-documentation. No skill needed; the answer is in AGENTS.md.",
       "category": "negative"
+    },
+    {
+      "name": "should-trigger-post-promotion-merged-pass",
+      "prompt": "Promotion landed on main: run the post-promotion merged pass.",
+      "expected_behavior": "Activates test-documentation in mode post-promotion and loads only references/post-promotion-pass.md. Lists the TCs at pull_request, checks each ATC in kata-manifest.json and its spec path on origin/main by path (git cat-file -e), confirms CI green on main, fires merged with labels +automated -automation-candidate, and reads each status back. Runs no Analyze or ROI and creates no Test.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-exploratory-handoff-intake",
+      "prompt": "Document the candidate scenarios from yesterday's exploratory round on the invoices module.",
+      "expected_behavior": "Activates test-documentation as discovery-driven and loads references/discovery-intake.md. Reads the anchor coverage Tech Story back from Jira, drops each COVERED candidate with a line, turns each WEAK one into a strengthen proposal for the existing test (no new Test), scores only NEW scenarios whose oracle: confirmed is on Jira, leaves oracle: observed ones unscored, and runs the >50% alarm per chunk.",
+      "category": "positive"
     }
   ]
 }

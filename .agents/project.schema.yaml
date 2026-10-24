@@ -129,7 +129,8 @@ qa:
     # named on the official methodology site (ATP item, feature Test Set promotion, ROI
     # verifier, FLAKY history), one sprint at a time, written in the STP, with a debt item per
     # collapse. The never-collapsed gates (ATR Test Environment, human OK before filing a bug,
-    # plan approval before automation code, human merge approval) hold in both.
+    # plan approval before automation code, human merge approval, the person-signed ROI verdict
+    # before automation) hold in both.
     gate_mode: strict
     # Execution profile the agentic contract assumes: `agentic` (an agent executes the skills
     # under the guardrails and the human decides at the declared points) or `manual` (a person

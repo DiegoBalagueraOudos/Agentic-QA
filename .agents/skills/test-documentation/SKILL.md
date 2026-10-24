@@ -1,6 +1,6 @@
 ---
 name: test-documentation
-description: "Analyze, prioritize, and document test cases in TMS (Jira/Xray), or repair an existing Story-ATS-ATP-ATR-TC cascade through a sealed explicit mode. Use for Test/ATP/ATR artifacts, ROI and automation verdicts, maintaining traceability, fix-traceability, or broken TMS links. The repair-traceability mode audits, plans, waits for explicit approval, applies, and verifies without launching the general documentation workflow. Do NOT use for writing test code (test-automation) or running suites (regression-testing)."
+description: "Analyze, prioritize, and document test cases in TMS (Jira/Xray), repair an existing Story-ATS-ATP-ATR-TC cascade through a sealed explicit mode, or run the sealed post-promotion `merged` pass once automated tests land on the production branch. Use for Test/ATP/ATR artifacts, ROI and automation verdicts, maintaining traceability, fix-traceability, or broken TMS links. The repair-traceability mode audits, plans, waits for explicit approval, applies, and verifies without launching the general documentation workflow. Do NOT use for writing test code (test-automation) or running suites (regression-testing)."
 license: MIT
 compatibility: [claude-code, copilot, cursor, codex, opencode]
 complementary_categories: [tms, issue-tracker]
@@ -19,8 +19,11 @@ compact_rules: |
   - TC identity = Precondition + Action + verifiable outcome. Naming (TC): `{US_ID}: TC#: should <expected outcome> [<connector> <condition>] [given <precondition>]`; `Validate <feature>` is reserved for the GROUPING layer (Test Set summary / `describe()`). Reject `"Login test"`, `"Login - error"`, `"TC1: Test form"`.
   - ROI formula → one of three verdicts per TC: Candidate (feeds test-automation), Manual, Deferred. Prioritize by risk.
   - No ROI verdict (Candidate or Manual) while a scenario is `oracle: observed`: a characterized behaviour needs a person's answer to "is this intended?" first (decision-protocol kind 1), and waits unscored until then. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §4.
+  - A Candidate or Manual verdict is fired only after a person signs it (a batch through the `mkd` deck, one verdict through the question tool), and the TC's ROI comment then carries `Verdict signed: <who>, <where>, <when>`, `<where>` a checkable record (the person's own comment id, or the saved mkd result / decision record path), the line `/test-automation`'s TC source gate reads. Only an attended session writes it; a subagent, worker or routine lists the verdicts as pending. Format + the sign-only pass: `references/tms-conventions.md` §9.
+  - Discovery intake (`references/discovery-intake.md`): a COVERED candidate is dropped with a line, a WEAK one becomes a strengthen proposal for the existing test (never a new Test), a NEW one runs the full pipeline anchored to its coverage Tech Story; the >50% alarm is computed per chunk.
+  - `PASSED` / `FAILED` only from a run observed in the environment the TC's precondition names, else `NOT RUN` with its reason (doctrine §5); `automated` (`merged`) only once the spec is on the production branch, through mode `post-promotion` (doctrine §6).
   - Cardinality: US→TC is 1:N; AC→TC is N:1 or N:M. Resolve TMS modality (Xray vs Jira-native) in Phase 0 before documenting.
-  - Mode from `$ARGUMENTS`: a first token matching a mode in Mode routing (`repair-traceability`, `document`) IS the mode and the rest is forwarded; otherwise `document` for plain documentation work, ASK when it could be either.
+  - Mode from `$ARGUMENTS`: a first token matching a mode in Mode routing (`repair-traceability`, `post-promotion`, `document`) IS the mode and the rest is forwarded; otherwise `document` for plain documentation work, ASK when it could be either.
   - Bug-driven (GOLDEN RULE): not every bug is a regression TC, but a regression-worthy bug MUST end with a Test — REUSE the existing failed Test if it came from one, else CREATE one (both modalities). A non-qualifying bug is treated like a failed test → Deferred, no new Test.
   - ATS is MANDATORY per Story (`ATS: {US_ID}: {story title}`, even with a single TC): a `Test Set` holding ALL the Story's TCs, parented to the QA Test Artifacts epic, `components` INHERITED from the Story (mandatory — the components exemption applies ONLY to the optional feature-level `TS:` grouping sets).
   - Set-first creation order: find-or-create the ATS, ATP and ATR BEFORE the first TC (module-driven pre-creates the containers because parallel TC sharding needs the targets to exist); add each TC to the ATS, THEN derive the ATP's and the Execution's test lists FROM the ATS membership — never three independent id lists.
@@ -77,8 +80,11 @@ Requires `agentic-qa-core`. Loads on demand:
 - TC identity = Precondition + Action + verifiable outcome. Naming (TC): `{US_ID}: TC#: should <expected outcome> [<connector> <condition>] [given <precondition>]`; `Validate <feature>` is reserved for the GROUPING layer (Test Set summary / `describe()`). Reject `"Login test"`, `"Login - error"`, `"TC1: Test form"`.
 - ROI formula → one of three verdicts per TC: Candidate (feeds test-automation), Manual, Deferred. Prioritize by risk.
 - No ROI verdict (Candidate or Manual) while a scenario is `oracle: observed`: a characterized behaviour needs a person's answer to "is this intended?" first (decision-protocol kind 1), and waits unscored until then. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §4.
+- A Candidate or Manual verdict is fired only after a person signs it (a batch through the `mkd` deck, one verdict through the question tool), and the TC's ROI comment then carries `Verdict signed: <who>, <where>, <when>`, `<where>` a checkable record (the person's own comment id, or the saved mkd result / decision record path), the line `/test-automation`'s TC source gate reads. Only an attended session writes it; a subagent, worker or routine lists the verdicts as pending. Format + the sign-only pass: `references/tms-conventions.md` §9.
+- Discovery intake (`references/discovery-intake.md`): a COVERED candidate is dropped with a line, a WEAK one becomes a strengthen proposal for the existing test (never a new Test), a NEW one runs the full pipeline anchored to its coverage Tech Story; the >50% alarm is computed per chunk.
+- `PASSED` / `FAILED` only from a run observed in the environment the TC's precondition names, else `NOT RUN` with its reason (doctrine §5); `automated` (`merged`) only once the spec is on the production branch, through mode `post-promotion` (doctrine §6).
 - Cardinality: US→TC is 1:N; AC→TC is N:1 or N:M. Resolve TMS modality (Xray vs Jira-native) in Phase 0 before documenting.
-- Mode from `$ARGUMENTS`: a first token matching a mode in Mode routing (`repair-traceability`, `document`) IS the mode and the rest is forwarded; otherwise `document` for plain documentation work, ASK when it could be either.
+- Mode from `$ARGUMENTS`: a first token matching a mode in Mode routing (`repair-traceability`, `post-promotion`, `document`) IS the mode and the rest is forwarded; otherwise `document` for plain documentation work, ASK when it could be either.
 - Bug-driven (GOLDEN RULE): not every bug is a regression TC, but a regression-worthy bug MUST end with a Test — REUSE the existing failed Test if it came from one, else CREATE one (both modalities). A non-qualifying bug is treated like a failed test → Deferred, no new Test.
 
 **Read full SKILL.md when**: resolving TMS modality, computing ROI, writing Gherkin, or wiring US-ATP-ATR-TC traceability links.
@@ -90,6 +96,7 @@ Requires `agentic-qa-core`. Loads on demand:
 Resolve mode before the readiness preflight and Phase -1 session workflow. When the first token of `$ARGUMENTS` matches a mode below, that token IS the mode and the rest is forwarded to it unchanged (`/test-documentation repair-traceability UPEX-123`). Otherwise the rules below apply: the default mode for plain documentation work, ASK when the request is ambiguous.
 
 - `repair-traceability`: selected only by a first token `repair-traceability`, the `fix-traceability` trigger phrase, or an explicit request to repair a ticket's existing traceability. Forward the remaining `$ARGUMENTS` unchanged and load only `references/repair-traceability.md`. Preserve its sealed sequence: audit -> present plan -> explicit user approval -> apply -> verify. Do not start Analyze -> Prioritize -> Document, create unrelated test cases, or broaden the ticket scope.
+- `post-promotion`: selected by a first token `post-promotion`, by the hand-off `/git-flow-master` sends when a promotion lands ("run the post-promotion `merged` pass"), or by an explicit request for that pass. Load only `references/post-promotion-pass.md` and follow it; it fires `merged` on TCs whose spec is on the production branch and touches nothing else (no Analyze, no ROI, no new Test).
 - `document` (default): normal TMS documentation, ROI, and Candidate/Manual/Deferred work. Continue with the workflow below.
 
 If the user has not supplied the ticket key required by `repair-traceability`, ask for it before any TMS call. Missing credentials remain a hard stop under `AGENTS.md` Critical Rule #10.
@@ -217,7 +224,7 @@ Pick the scope based on the input, not the output. All scopes share the same Ana
 | **Ticket-driven** | A QA Approved user story from a sprint | 3-8 scenarios | `regression`, plus the test type | Output of a `sprint-testing` session. ATP/ATR created per US. |
 | **Bug-driven** | A closed bug with a verified fix | 0-2 scenarios | `regression`, `automation-candidate` (usually) | Run the Bug-driven decision (below). Not every bug qualifies; if it does, **reuse the existing failed Test or create one** — an important bug must end with a Test. ROI biased up: "it failed once, it can fail again." |
 | **Ad-hoc / Exploratory** | New scenarios found in exploratory testing | 1-10 scenarios | `regression` | Apply the 3 Phase-0 questions harshly; ad-hoc scenarios are often one-time validations. Gate 0 holds for every scenario that carries an oracle line. A set with no coverable creates no Test: an `/exploratory-testing` round whose anchor is NONE proposes the coverage Tech Story first (`agentic-qa-core/references/discovery-driven-doctrine.md` §2.1, §3), and intake runs as `discovery-driven` once it exists. |
-| **Discovery-driven** | A coverage gap with no Story, anchored to a coverage Tech Story, with its characterized scenarios; only those a person confirmed (`oracle: confirmed`) are scored | 1-10 per gap, 20-100+ per module | `regression`, plus the test type | Gate 0 below: an `oracle: observed` scenario gets no ROI verdict, Candidate or Manual (`agentic-qa-core/references/discovery-driven-doctrine.md` §4). TCs use the Tech Story key as `{US_ID}` (§3 of the same file). |
+| **Discovery-driven** | A coverage gap with no Story, anchored to a coverage Tech Story, with its characterized scenarios; only those a person confirmed (`oracle: confirmed`) are scored | 1-10 per gap, 20-100+ per module | `regression`, plus the test type | Gate 0 below: an `oracle: observed` scenario gets no ROI verdict, Candidate or Manual (`agentic-qa-core/references/discovery-driven-doctrine.md` §4). TCs use the Tech Story key as `{US_ID}` (§3 of the same file). Scored one anchor at a time (`references/discovery-intake.md` §6). |
 
 If the user gives you a story ID, use ticket-driven. If they give you a bug ID, use bug-driven. If they give you a coverage Tech Story, use discovery-driven. If they give you a module name or a session output, use module- or ad-hoc accordingly.
 
@@ -254,7 +261,8 @@ After scope confirmation, **write `.session/test-documentation/<scope>/plan.md`*
 |--------|--------------|-----|
 | User Story / Epic | Description, ACs, comments, linked issues | Scenario identification, risk signals |
 | Closed bugs linked to the story | Summary, root cause, fix area | Prior-bug prioritization rule |
-| Exploratory session notes | Validated scenarios, observations; from `/exploratory-testing`, its `candidate-scenarios.md`: only `NEW` and `WEAK` candidates (a `WEAK` one names the weak test, so strengthen it or add a new one), only `oracle: confirmed` ones scored | Reuse nomenclature already used; never re-document a `COVERED` candidate |
+| Exploratory session notes | Validated scenarios, observations; from `/exploratory-testing`, its `candidate-scenarios.md`: `COVERED` dropped with a line, `WEAK` turned into a strengthen proposal for the weak test (never a new Test), `NEW` through the full pipeline, only `oracle: confirmed` ones scored (`references/discovery-intake.md`) | Reuse nomenclature already used; never re-document a `COVERED` candidate |
+| Coverage gap list | `.session/project-context/coverage/gap-list.json` (`project-context` mode `coverage`): behaviours by bucket, each with its coverage Tech Story; same marks and fail-closed reads (`references/discovery-intake.md`) | Discovery-driven work list in risk order; never a Test without its anchor |
 | Existing ATP (if present) — **modality-aware** (see §Phase 0) | **jira-native**: Story field `{{jira.acceptance_test_plan}}` → synced `.context/PBI/epics/EPIC-<KEY>-<slug>/stories/STORY-<KEY>-<slug>/acceptance-test-plan.md` (read-only Jira cache — sync via `bun run jira:sync-issues get <STORY> --include-comments`). **jira-xray**: Test Plan issue `description` → `bun run jira:sync-issues get <ATP_KEY>` → `test-plans/ATP-<KEY>-<slug>.md` (acronym prefix = conforming ladder title; a non-conforming title keeps the legacy `TESTPLAN-` / `TESTEXEC-` / `RETESTEXEC-` prefix); per-TC run state via `[TMS_TOOL]` (xray-cli) | Scenarios may already exist — do not reinvent |
 | Existing ATR (if present) — **modality-aware** (see §Phase 0) | **jira-native**: Story field `{{jira.acceptance_test_results}}` → synced `acceptance-test-results.md` (same `jira:sync-issues get <STORY> --include-comments`). **jira-xray**: Test Execution issue `description` → `bun run jira:sync-issues get <ATR_KEY>` → `test-executions/ATR-<KEY>-<slug>.md` (sync supports these types); per-TC run results via `[TMS_TOOL]` (xray-cli) | Prior run results — do not re-execute what is already recorded |
 | Implementation plan / source code | Actual files, APIs, test IDs | Validate design matches implementation before documenting |
@@ -396,7 +404,7 @@ Every scenario ends in exactly one of these buckets. There is no fourth.
 
 > **Band authority**: the three outcomes above are the *TMS-action* collapse of the 5-band table in `references/tms-conventions.md` §9 ("ROI decision thresholds (strict)"). That table is the authority on band boundaries and it resolves the middle bands explicitly — `1.5-3.0` is "Case by case: prior bug? critical flow? **If no, defer**", `0.5-1.5` is "Probably defer: include only if prior bug". Read it whenever a score falls between `0.5` and `3.0`.
 
-**Rule of thumb**: if more than 50% of candidates end up Candidate or Manual, re-apply Phase 0 more strictly. Most scenarios should be Deferred.
+**Rule of thumb**: if more than 50% of candidates end up Candidate or Manual, re-apply Phase 0 more strictly. Most scenarios should be Deferred. A discovery batch runs this per chunk (`references/discovery-intake.md` §6).
 
 > **Modality changes the verb in Phase 3, not the verdict here.** The ROI verdicts (Candidate / Manual / Deferred) are identical in both modalities. What differs is the action: **jira-native** — Phase 3 *creates* `Test` work items for Candidate + Manual only (Deferred is report-only). **jira-xray** — the `Test` work items already exist from `/sprint-testing` Stage 1 (Xray's `Test` is the execution unit); Phase 3 *selects + promotes* the Candidate/Manual ones into the RTP (re-derived canonical title, then label `regression-candidate`) and **enriches** them (rich Gherkin, parameterization, edge elaboration — the "specify much more" pass). Deferred sprint Tests are left as-is, unpromoted. See `sprint-testing/SKILL.md` §"TC creation timing (modality-aware)".
 
@@ -566,6 +574,8 @@ Draft --start_design--> In Design --ready_to_run--> Ready --+-- for_manual      
                                                                                                   +-- approve_to_automate --> Candidate (feeds test-automation)
 ```
 
+The automation tail (`start_automation` → In Automation, `create_pr` → Pull Request, `merged` → AUTOMATED) belongs to `/test-automation` and is fired through this skill; `merged` only through mode `post-promotion` (`references/post-promotion-pass.md`).
+
 Never jump states. If a TC needs rework, use a `back_from_<state>` transition (e.g. `back_from_ready` -> in_design).
 
 **The ROI verdict decides which branch a TC takes — all three are a status, none is "leave it wherever":**
@@ -575,6 +585,8 @@ Never jump states. If a TC needs rework, use a `back_from_<state>` transition (e
 | **Candidate** | `{{jira.transition.test_case.automation_review_from_ready}}` then `{{jira.transition.test_case.approve_to_automate}}` | `{{jira.status.test_case.candidate}}` (this is what `/test-automation` picks up) |
 | **Manual** | `{{jira.transition.test_case.for_manual}}` — **fired from `ready`, NOT routed through `in_review`** | `{{jira.status.test_case.manual}}` |
 | **Deferred** | none | stays `{{jira.status.test_case.ready}}` (jira-xray: the unpromoted sprint Test; jira-native: no TC was created at all) |
+
+**Sign before firing.** Candidate and Manual are fired only after a person signs the verdict; the TC's ROI comment then carries `Verdict signed: <who>, <where>, <when>` (format, who may write it, and the sign-only pass for a legacy unsigned Candidate: `references/tms-conventions.md` §9). A Candidate without that line does not pass `/test-automation`'s TC source gate.
 
 The Manual branch is a catalog fact, not a style choice: **there is no `in_review` → `manual` edge**. A TC already sitting at `candidate` demotes via `{{jira.transition.test_case.manual_execution_from_candidate}}` instead. Canon: `agentic-qa-core/references/artifact-lifecycle.md` §1.1.
 
@@ -948,7 +960,7 @@ for each {TEST_KEY} in run:
   [ISSUE_TRACKER_TOOL] Update Issue:
     issue: {TEST_KEY}
     fields:
-      Test Status: {PASSED|FAILED|NOT RUN}  # the native field has no BLOCKED: a KNOWN-BLOCKED test is NOT RUN
+      Test Status: {PASSED|FAILED|NOT RUN}  # PASSED/FAILED only from a run in the environment the precondition names (doctrine §5); a KNOWN-BLOCKED test is NOT RUN
   [ISSUE_TRACKER_TOOL] Add Comment:
     issue: {TEST_KEY}
     body: "Run {date}: {result}. Env: {env}. CI: {url}"  # KNOWN-BLOCKED: append "blocked by {BUG-KEY}"
