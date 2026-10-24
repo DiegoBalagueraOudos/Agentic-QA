@@ -5,7 +5,9 @@
  *
  * The fixture is a local clone of this repo (`scripts/ui-up-fixture.ts`), so no
  * gh session and no network are needed. Skipped on a history too short for it
- * (a shallow CI clone).
+ * (a shallow clone); `unit-tests.yml` checks out the full history so it runs in CI.
+ * The fixture clones the COMMITTED HEAD: a working-tree change to the updater
+ * only shows here after a commit.
  */
 
 import type { JournalEntry } from '../cli/lib/ui/events.ts';
@@ -150,6 +152,15 @@ describe.if(deep)('bun sync on a fixture project', () => {
     expect(JSON.stringify(run.events)).not.toContain(SECRET);
     expect(run.out).not.toContain(SECRET);
   }, 240_000);
+
+  test('two runs at once on one machine both finish: each clones into its own directory', async () => {
+    const twins = [buildUpFixture(join(root, 'twin-a')), buildUpFixture(join(root, 'twin-b'))];
+    const runs = await Promise.all(twins.map(async f => runUp(f, ['--auto', '--dry-run', '--no-gates', '--headless'])));
+    for (const run of runs) {
+      expect(run.out).not.toContain('CLONE_FAILED');
+      expect(run.exit).toBe(0);
+    }
+  }, 180_000);
 
   test('an explicit --auto in the page is read-only: no question, the run applies and reports', async () => {
     const f = buildUpFixture(join(root, 'auto'));

@@ -86,7 +86,14 @@ const CLI_VERSION = '8.5';
 // clone (absolute path / file:// URL, cloned with plain git, no gh session) to
 // exercise an unpublished boilerplate branch against a consumer repo.
 const TEMPLATE_REPO = process.env.UPEX_TEMPLATE_REPO || 'upex-galaxy/agentic-qa-boilerplate';
-const TEMP_DIR = path.join(os.tmpdir(), 'kata-boilerplate-update');
+// One clone directory per process. A fixed name was shared by every `bun sync`
+// on the machine, and each clone wipes its destination first, so two concurrent
+// runs (two worktrees, two test processes) deleted each other's clone and one
+// died with CLONE_FAILED. The pid is unique among live processes; a dir left by
+// a crashed run is wiped by the clone before reuse. The self-update children
+// never rely on sharing it: the --dry-run preview gets the parent's clone
+// through UPDATER_UPSTREAM_DIR_ENV, the real re-exec clones its own.
+export const TEMP_DIR = path.join(os.tmpdir(), `kata-boilerplate-update-${process.pid}`);
 // Where the upstream clone sits while the afterApply hooks read it: our own
 // temp dir, or the clone a parent process handed down for the --dry-run
 // preview of a pending self-update (see UPDATER_UPSTREAM_DIR_ENV).
