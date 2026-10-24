@@ -41,7 +41,8 @@ export interface TmsTest {
   labels: string[]
   components: string[]
   coverables: string[]
-  in_regression: boolean
+  /** null = the RTP membership could not be read and no regression label says yes. */
+  in_regression: boolean | null
   updated: string | null
 }
 
@@ -109,7 +110,16 @@ export async function readTmsInventory(options: TmsReadOptions): Promise<TmsInve
     setCoverables.set(set.key, linkedOfType(set, coverableTypes, testLink).map(c => c.key));
   }
 
-  const regression = modality === 'jira-xray' ? await rtpMembers(transport, projectKey, planTypes) : new Set<string>();
+  // Xray is a second service with its own credentials: when it fails, membership stays unknown
+  // (null), never "outside regression", and the Jira half of the inventory is kept.
+  let regression: Set<string> | null = new Set<string>();
+  if (modality === 'jira-xray') {
+    try { regression = await rtpMembers(transport, projectKey, planTypes); }
+    catch (err) {
+      regression = null;
+      warnings.push(`RTP membership not read (Xray: ${(err as Error).message}): a Test without a regression label reads as unknown, not outside regression`);
+    }
+  }
 
   const tests = issues.map((issue: JiraIssue): TmsTest => {
     const f = issue.fields;
@@ -129,7 +139,7 @@ export async function readTmsInventory(options: TmsReadOptions): Promise<TmsInve
       labels: [...labels].sort(),
       components: (f.components ?? []).map(c => c.name ?? '').filter(Boolean).sort(),
       coverables: [...coverables].sort(),
-      in_regression: regression.has(issue.key) || labels.some(l => REGRESSION_LABELS.has(l)),
+      in_regression: labels.some(l => REGRESSION_LABELS.has(l)) || (regression === null ? null : regression.has(issue.key)),
       updated: f.updated ?? null,
     };
   });

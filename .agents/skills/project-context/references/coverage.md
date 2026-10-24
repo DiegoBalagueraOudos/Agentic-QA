@@ -148,6 +148,7 @@ yes/no on one proposal goes through the question tool.
 | every map a placeholder or missing | `collect` and `classify` exit 2 with the note naming `project-context e2e`; no gap list |
 | some maps missing | proceeds; each missing map is a Discovery Gap |
 | no TMS (`--tms none`, no project key, credentials, host, or an unreachable instance) | manifest only; `TMS not read: <reason>`; `manual-only` is `unknown`; Step 0.2 decides whether to go on |
+| Jira read, Xray not (jira-xray) | the inventory is kept; RTP membership is unknown, so no Test without a regression label is flagged `outside_regression`; warning names the Xray error |
 | no manifest | `automated` is `unknown` |
 | no MTP cache | every gap `unranked`, stated |
 | manifest not on the production branch | read from the working tree, with a warning naming the branch |

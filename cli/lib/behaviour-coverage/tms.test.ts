@@ -35,6 +35,15 @@ describe('TMS inventory (jira-xray)', () => {
     expect(transport.calls.some(c => c.startsWith('xray') || c.includes('Test Plan'))).toBe(false);
   });
 
+  test('an Xray failure keeps the Jira inventory and leaves membership unknown, never outside regression', async () => {
+    const transport = replayTransport();
+    transport.xray = async () => { throw new Error('Authentication failed: 403'); };
+    const inv = await readTmsInventory({ transport, projectKey: 'DEMO', modality: 'jira-xray', workflows, testLink: 'Test' });
+    expect(inv.tests.map(t => [t.key, t.in_regression])).toEqual([['DEMO-11', true], ['DEMO-12', null], ['DEMO-13', null], ['DEMO-14', true], ['DEMO-16', null]]);
+    expect(inv.warnings).toEqual(['RTP membership not read (Xray: Authentication failed: 403): a Test without a regression label reads as unknown, not outside regression']);
+    expect(inv.anchors).toHaveLength(1);
+  });
+
   test('a status the catalog does not hold is a warning, never a guessed slug', async () => {
     const inv = await readTmsInventory({ transport: replayTransport(), projectKey: 'DEMO', modality: 'jira-native', workflows: { ...workflows, test_case: { jira_issue_type: { name: 'Test' }, statuses: {} } }, testLink: 'Test' });
     expect(inv.tests.every(t => t.status === null)).toBe(true);
