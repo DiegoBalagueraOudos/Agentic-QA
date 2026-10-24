@@ -114,7 +114,7 @@ describe('validatePack', () => {
   it('a retest closes only on an observed case', () => {
     const bug = structuredClone(demoBugPack()) as any;
     bug.bug.status = 'RETEST PASSED';
-    expect(errorsOf(bug)).toContain('bug.status: RETEST PASSED needs a current case observed PASSED');
+    expect(errorsOf(bug)).toContain('bug.status: RETEST PASSED contradicts the current cases (they allow FAILED: cases[0] is FAILED)');
     bug.bug.status = 'RETEST FAILED';
     bug.cases = [{ title: 'r', status: 'DEFERRED', reason: 'x', followUp: 'DEMO-5' }];
     expect(errorsOf(bug)).toContain('bug.status: RETEST FAILED needs a current case observed FAILED');
@@ -147,5 +147,41 @@ describe('checkGeometry', () => {
 
   it('accepts the demo geometry', () => {
     expect(checkGeometry(demoStoryPack(), { form: { width: 960, height: 600 }, error: { width: 960, height: 600 } })).toEqual([]);
+  });
+});
+
+describe('fix round: the reviewer probes (VERIFY M5, S1)', () => {
+  const observed = [{ type: 'note', text: 'observed' }];
+  function retest(statuses: string[]): any {
+    const bug = structuredClone(demoBugPack()) as any;
+    bug.bug.status = 'RETEST PASSED';
+    bug.cases = statuses.map((status, i) => ({
+      title: `case ${i}`,
+      status,
+      ...(status === 'PASSED' || status === 'FAILED' ? { evidence: observed } : {}),
+      ...(status === 'BLOCKED' || status === 'DEFERRED' ? { reason: 'r' } : {}),
+      ...(status === 'DEFERRED' ? { followUp: 'DEMO-7' } : {}),
+    }));
+    return bug;
+  }
+
+  it('M5: RETEST PASSED is refused over a FAILED or BLOCKED current case', () => {
+    expect(errorsOf(retest(['PASSED', 'FAILED']))).toEqual(['bug.status: RETEST PASSED contradicts the current cases (they allow FAILED: cases[1] is FAILED)']);
+    expect(errorsOf(retest(['PASSED', 'BLOCKED']))).toEqual(['bug.status: RETEST PASSED contradicts the current cases (they allow PENDING: cases[1] is BLOCKED)']);
+  });
+
+  it('M5: RETEST PASSED never closes on a deferral, and stands on an all-PASSED round', () => {
+    expect(errorsOf(retest(['PASSED', 'DEFERRED']))).toEqual(['bug.status: RETEST PASSED cannot close on a deferral (cases[1] is DEFERRED)']);
+    expect(errorsOf(retest(['PASSED', 'PASSED']))).toEqual([]);
+  });
+
+  it('S1: a link rendered as href must be an absolute http(s) URL', () => {
+    const pack = story();
+    (pack.ticket as any).link = 'javascript:alert(document.cookie)';
+    (pack.bugs as any)[0].link = 'data:text/html,hi';
+    expect(errorsOf(pack)).toEqual(['ticket.link: must be an absolute http(s) URL', 'bugs[0].link: must be an absolute http(s) URL']);
+    (pack.ticket as any).link = 'https://tracker.example.test/browse/DEMO-101';
+    (pack.bugs as any)[0].link = 'http://tracker.example.test/browse/DEMO-120';
+    expect(errorsOf(pack)).toEqual([]);
   });
 });

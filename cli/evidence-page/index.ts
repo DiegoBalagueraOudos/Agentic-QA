@@ -87,7 +87,7 @@ function runBuild(values: Record<string, string | boolean | undefined>, keyPatte
     usage('--max-mb must be a number');
   }
 
-  const result = buildEvidencePage({ packPath, outDir: values.out as string | undefined, thumb: values.thumb === true, maxMb, ticketKeyPattern: keyPattern });
+  const result = buildEvidencePage({ packPath, outDir: values.out as string | undefined, thumb: values.thumb === true, maxMb, ticketKeyPattern: keyPattern, host: host as EvidenceHost });
   if (!result.ok) {
     if (json) {
       console.log(JSON.stringify({ ok: false, errors: result.errors, warnings: result.warnings }));
@@ -164,7 +164,8 @@ function runDemo(values: Record<string, string | boolean | undefined>): number {
   let failed = 0;
   for (const [label, packPath] of Object.entries(packs)) {
     // Synthetic DEMO- keys: validated with the generic shape, never the project's own pattern
-    const result = buildEvidencePage({ packPath, thumb: label === 'bug', ticketKeyPattern: GENERIC_TICKET_KEY });
+    // Opened from disk: a standalone document
+    const result = buildEvidencePage({ packPath, thumb: label === 'bug', ticketKeyPattern: GENERIC_TICKET_KEY, host: 'local' });
     if (result.ok) {
       console.log(`✓ ${label}: ${display(result.pagePath)}${result.thumbPath ? ` + ${display(result.thumbPath)}` : ''}`);
     }

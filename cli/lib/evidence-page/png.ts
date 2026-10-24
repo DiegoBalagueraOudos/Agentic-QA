@@ -339,3 +339,70 @@ export function encodePng(image: RgbaImage): Uint8Array {
     chunk('IEND', new Uint8Array(0)),
   ]);
 }
+
+// ============================================================================
+// METADATA STRIPPING (an image inlined as it is still drops text and EXIF)
+// ============================================================================
+
+/** Chunks a PNG needs to render as captured; text, EXIF and time chunks are dropped. */
+const PNG_KEPT_CHUNKS = new Set(['IHDR', 'PLTE', 'tRNS', 'IDAT', 'IEND', 'gAMA', 'cHRM', 'sRGB', 'iCCP', 'sBIT', 'pHYs']);
+
+/** The same PNG without its ancillary metadata chunks (`tEXt`, `zTXt`, `iTXt`, `eXIf`, `tIME`...). */
+export function stripPngMetadata(bytes: Uint8Array): Uint8Array {
+  if (sniffImageType(bytes) !== 'png') {
+    throw new ImageFormatError('not a PNG file');
+  }
+  const dv = view(bytes);
+  const kept: Uint8Array[] = [PNG_SIGNATURE];
+  let offset = 8;
+  while (offset + 12 <= bytes.length) {
+    const length = dv.getUint32(offset);
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+    if (PNG_KEPT_CHUNKS.has(type)) {
+      kept.push(bytes.subarray(offset, offset + 12 + length));
+    }
+    offset += 12 + length;
+    if (type === 'IEND') {
+      break;
+    }
+  }
+  return Buffer.concat(kept);
+}
+
+/**
+ * The same JPEG without APP1-APP15 (EXIF with GPS, XMP...) and comment
+ * segments. APP0 (JFIF) and APP2 when it holds an ICC profile are kept so the
+ * colours stay as captured; the scan data after SOS is copied unchanged.
+ */
+export function stripJpegMetadata(bytes: Uint8Array): Uint8Array {
+  if (sniffImageType(bytes) !== 'jpeg') {
+    throw new ImageFormatError('not a JPEG file');
+  }
+  const dv = view(bytes);
+  const kept: Uint8Array[] = [bytes.subarray(0, 2)];
+  let offset = 2;
+  while (offset + 4 <= bytes.length) {
+    if (bytes[offset] !== 0xFF) {
+      throw new ImageFormatError('JPEG segment structure is broken');
+    }
+    const marker = bytes[offset + 1];
+    if (marker === 0xD9) {
+      kept.push(bytes.subarray(offset, offset + 2));
+      return Buffer.concat(kept);
+    }
+    const length = dv.getUint16(offset + 2);
+    const segment = bytes.subarray(offset, offset + 2 + length);
+    if (marker === 0xDA) {
+      // Start of scan: the rest is image data
+      kept.push(bytes.subarray(offset));
+      return Buffer.concat(kept);
+    }
+    const isIcc = marker === 0xE2 && String.fromCharCode(...segment.subarray(4, 15)) === 'ICC_PROFILE';
+    const drop = marker === 0xFE || (marker >= 0xE1 && marker <= 0xEF && !isIcc);
+    if (!drop) {
+      kept.push(segment);
+    }
+    offset += 2 + length;
+  }
+  return Buffer.concat(kept);
+}

@@ -12,7 +12,7 @@
  *   7. optionally write the bug thumbnail (redactions burned, marks drawn)
  */
 
-import type { Mark, Pack, Point, Size } from './pack.ts';
+import type { EvidenceHost, Mark, Pack, Point, Size } from './pack.ts';
 import type { RgbaImage } from './png.ts';
 import type { Rgba } from './raster.ts';
 import type { InlineImage } from './render.ts';
@@ -21,12 +21,13 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { checkGeometry, pointToFraction, toFraction, validatePack } from './pack.ts';
-import { decodePng, encodePng, ImageFormatError, imageSize, sniffImageType } from './png.ts';
+import { decodePng, encodePng, ImageFormatError, imageSize, sniffImageType, stripJpegMetadata, stripPngMetadata } from './png.ts';
 import { downscale, drawArrow, drawPolyline, fillRect, strokeEllipse, strokeRect } from './raster.ts';
 import { renderPage } from './render.ts';
 import { describeRefusal, describeWarning, scanSecrets } from './secrets.ts';
 
-export const MB = 1024 * 1024;
+/** Decimal megabytes: the conservative reading of the hosted page limit. */
+export const MB = 1_000_000;
 export const DEFAULT_MAX_MB = 14;
 /** The hosted-artifact page limit; `--max-mb` cannot exceed it. */
 export const HARD_MAX_MB = 16;
@@ -39,6 +40,8 @@ export interface BuildOptions {
   thumb?: boolean
   maxMb?: number
   ticketKeyPattern?: RegExp
+  /** `local` writes a full standalone document (doctype included); a hosted page is wrapped by its host. */
+  host?: EvidenceHost
   now?: Date
 }
 
@@ -67,7 +70,7 @@ export function resolveImagePath(packDir: string, file: string): { path: string 
     return { error: 'points into an .auth folder; session state never goes on a page' };
   }
   const ext = extname(file).toLowerCase();
-  if (ext === '.har' || ext === '.zip' || ext === '.json' || ext === '.trace' || file.toLowerCase().includes('trace')) {
+  if (ext === '.har' || ext === '.zip' || ext === '.json' || ext === '.trace' || ext === '.ndjson' || ext === '.log') {
     return { error: 'is a HAR, trace or state file; those never go on a page (attach a screenshot instead)' };
   }
   if (!ALLOWED_EXTENSIONS.has(ext)) {
@@ -118,9 +121,24 @@ function drawMark(image: RgbaImage, mark: Mark, size: Size, scale: number): void
 
 interface LoadedImage extends Size {
   type: 'png' | 'jpeg'
+  /** The resolved file: two keys on one file share every redaction. */
+  path: string
   bytes: Uint8Array
   /** Decoded with redactions burned; PNG only. */
   pixels: RgbaImage | null
+}
+
+/** How many evidence items show each image key (current cases and history). */
+function usesOf(pack: Pack): Map<string, number> {
+  const uses = new Map<string, number>();
+  const count = (cases: Pack['cases']) => cases.forEach(c => (c.evidence ?? []).forEach((item) => {
+    if (item.type === 'image') {
+      uses.set(item.image, (uses.get(item.image) ?? 0) + 1);
+    }
+  }));
+  count(pack.cases);
+  (pack.history ?? []).forEach(round => count(round.cases));
+  return uses;
 }
 
 /** The image a bug thumbnail shows: `bug.thumbnail`, else the first image of the first FAILED case. */
@@ -182,7 +200,7 @@ export function buildEvidencePage(options: BuildOptions): BuildResult {
     }
     try {
       const size = imageSize(bytes);
-      loaded[key] = { type, bytes, width: size.width, height: size.height, pixels: null };
+      loaded[key] = { type, path: resolved.path, bytes, width: size.width, height: size.height, pixels: null };
     }
     catch (err) {
       errors.push(`images.${key}.file: ${(err as Error).message}`);
@@ -198,54 +216,70 @@ export function buildEvidencePage(options: BuildOptions): BuildResult {
     return { ok: false, errors: geometry, warnings };
   }
 
-  // 5. burn redactions
-  const inline: Record<string, InlineImage> = {};
+  // 5. burn redactions, once per FILE: two keys on one screenshot burn the
+  // union of their boxes, so no key can inline an unredacted copy
+  const keysByPath = new Map<string, string[]>();
   for (const [key, image] of Object.entries(loaded)) {
-    const redactions = pack.images?.[key]?.redact ?? [];
+    keysByPath.set(image.path, [...(keysByPath.get(image.path) ?? []), key]);
+  }
+  const inline: Record<string, InlineImage> = {};
+  for (const keys of keysByPath.values()) {
+    const image = loaded[keys[0]];
+    const redactions = keys.flatMap(k => pack.images?.[k]?.redact ?? []);
+    const named = keys.map(k => `images.${k}`).join(' / ');
     const needsPixels = redactions.length > 0 || (options.thumb === true && pack.kind === 'bug');
+    let dataUri: string;
+    let pixels: RgbaImage | null = null;
     if (image.type === 'jpeg') {
       if (redactions.length > 0) {
-        errors.push(`images.${key}.redact: a JPEG cannot take a burned redaction; capture the screenshot as PNG`);
+        errors.push(`${named}.redact: a JPEG cannot take a burned redaction; capture the screenshot as PNG`);
         continue;
       }
-      inline[key] = { width: image.width, height: image.height, dataUri: `data:image/jpeg;base64,${Buffer.from(image.bytes).toString('base64')}` };
-      continue;
+      dataUri = `data:image/jpeg;base64,${Buffer.from(stripJpegMetadata(image.bytes)).toString('base64')}`;
     }
-    let bytes = image.bytes;
-    if (needsPixels) {
-      try {
-        const pixels = decodePng(image.bytes);
-        for (const box of redactions) {
-          const f = toFraction(box, image);
-          fillRect(pixels, f.x * image.width, f.y * image.height, f.w * image.width, f.h * image.height);
+    else {
+      let bytes = stripPngMetadata(image.bytes);
+      if (needsPixels) {
+        try {
+          pixels = decodePng(image.bytes);
+          for (const box of redactions) {
+            const f = toFraction(box, image);
+            fillRect(pixels, f.x * image.width, f.y * image.height, f.w * image.width, f.h * image.height);
+          }
+          if (redactions.length > 0) {
+            bytes = encodePng(pixels);
+          }
         }
-        image.pixels = pixels;
-        if (redactions.length > 0) {
-          bytes = encodePng(pixels);
+        catch (err) {
+          if (err instanceof ImageFormatError) {
+            errors.push(`${named}.file: ${err.message}`);
+            continue;
+          }
+          throw err;
         }
       }
-      catch (err) {
-        if (err instanceof ImageFormatError) {
-          errors.push(`images.${key}.file: ${err.message}`);
-          continue;
-        }
-        throw err;
-      }
+      dataUri = `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
     }
-    inline[key] = { width: image.width, height: image.height, dataUri: `data:image/png;base64,${Buffer.from(bytes).toString('base64')}` };
+    for (const key of keys) {
+      loaded[key].pixels = pixels;
+      inline[key] = { width: image.width, height: image.height, dataUri };
+    }
   }
   if (errors.length > 0) {
     return { ok: false, errors, warnings };
   }
 
   // 6. render + size guard
-  const html = renderPage(pack, inline, { generatedAt: (options.now ?? new Date()).toISOString() });
+  const html = renderPage(pack, inline, { generatedAt: (options.now ?? new Date()).toISOString(), standalone: options.host === 'local' });
   const bytes = Buffer.byteLength(html, 'utf8');
   if (bytes > maxMb * MB) {
+    // An image is inlined once per evidence item that shows it: weigh every use
+    const uses = usesOf(pack);
     const largest = Object.entries(inline)
-      .sort((a, b) => b[1].dataUri.length - a[1].dataUri.length)
+      .map(([key, img]) => ({ key, count: Math.max(1, uses.get(key) ?? 0), size: img.dataUri.length }))
+      .sort((a, b) => b.size * b.count - a.size * a.count)
       .slice(0, 3)
-      .map(([key, img]) => `${key} (${(img.dataUri.length / MB).toFixed(1)} MB inlined)`);
+      .map(({ key, count, size }) => `${key} (${count === 1 ? '' : `${count} uses, `}${((size * count) / MB).toFixed(1)} MB inlined)`);
     return {
       ok: false,
       errors: [`the page is ${(bytes / MB).toFixed(1)} MB, over the ${maxMb} MB limit. Largest images: ${largest.join(', ')}. Crop them to the element that proves the case, or split the pack`],

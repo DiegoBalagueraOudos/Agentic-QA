@@ -57,7 +57,8 @@ Marks are DATA drawn over the image on the page: `{ "shape": "rect|ellipse|arrow
 | A PASSED or FAILED case with no evidence item | PASSED and FAILED only on observation (`discovery-driven-doctrine.md` §5) |
 | A BLOCKED case with no `reason`; a DEFERRED case with no `reason` or no `followUp` key | a NOT RUN reason is a recorded decision |
 | A `ticket.verdict` the CURRENT cases contradict (any FAILED → FAILED; any BLOCKED / NOT RUN, or only deferrals → PENDING) | a verdict is derived, never asserted; history rounds never count |
-| A bug `RETEST PASSED` with no current PASSED case, `RETEST FAILED` with no FAILED case | a retest never closes on a deferral |
+| A bug `RETEST PASSED` whose current round does not allow PASSED (any FAILED, BLOCKED or NOT RUN case) or holds a DEFERRED case; `RETEST FAILED` with no FAILED case | the bug status is the retest's verdict, and a retest never closes on a deferral |
+| A `ticket.link` or `bugs[].link` that is not an absolute http(s) URL | the page renders it as a link |
 | A key that does not match the board's `ticket_key_pattern` (generic shape when `board:` is not configured) | one key shape across the board |
 | An unknown field, a missing title, a mark or redaction outside its image | a typo must not drop evidence silently |
 
@@ -85,9 +86,13 @@ Append to the pack while testing (Stage 2), not at the end: each case gets its e
 bun run evidence build --pack <ticket folder>/evidence/evidence-pack.json [--thumb] [--host claude-artifact|local] [--json]
 ```
 
-The build fails closed, in this order: the pack validates; no secret anywhere in it (bearer tokens, JWTs, cookies, private keys, cloud access keys, any value under a key that names a secret unless it is masked as `[REDACTED]` or `***`; emails only warn); every image resolves inside the pack folder and is a PNG or JPEG by its bytes (`.auth` files, HAR, traces and state files are refused); every mark and redaction lies inside its image; redactions are burned into the pixels; the page stays under the size limit (14 MB by default, `--max-mb` up to the hosted page limit of 16). An error names the path and the rule, never the secret's value.
+The build fails closed, in this order: the pack validates; no secret anywhere in it; every image resolves inside the pack folder and is a PNG or JPEG by its bytes (`.auth` files, HAR, traces and state files are refused); every mark and redaction lies inside its image; redactions are burned into the pixels, per FILE (two keys on one screenshot burn the union of their boxes); the page stays under the size limit (`DEFAULT_MAX_MB` in `cli/lib/evidence-page/build.ts`, raised with `--max-mb` up to `HARD_MAX_MB`, the hosted page limit, in decimal megabytes). An error names the path and the rule, never the secret's value. Images inlined without a redaction still lose their text, EXIF and comment metadata.
 
-`--thumb` on a bug pack writes the bug thumbnail: `bug.thumbnail` (or the first image of the first FAILED case), redactions burned, marks drawn, at most 1200 px wide.
+**Secrets the build refuses**: bearer tokens, any `Authorization:` header, a `Cookie:` header anywhere in a line, JWTs, private keys, cloud and common vendor tokens, `secret=value` assignments (query strings included); any value under a key whose name contains a secret word (`newPassword`, `X-Auth-Token`, `service_role_key`); any SQL cell under a column named that way. A value counts as masked only when a few clear characters at most remain (`[REDACTED]`, `***`, `ab****`). Emails only warn. **Known limit**: a secret written as plain prose ("the password is ...") has no shape to detect; mask it before it reaches the pack.
+
+`--thumb` on a bug pack writes the bug thumbnail: `bug.thumbnail` (or the first image of the first FAILED case), redactions burned, marks drawn, at most `THUMB_MAX_WIDTH` pixels wide.
+
+`--host local` writes a standalone document (with a doctype) to open from disk; the default hosted build leaves the document skeleton to its host.
 
 `bun run evidence demo` builds a synthetic story page and bug page into a gitignored folder, to see the result without real data.
 
@@ -100,7 +105,7 @@ The CLI builds; it never publishes. Hosts are adapters behind `publishEvidence(h
 | Host | What the agent does | Ref |
 |---|---|---|
 | `claude-artifact` (default) | Publishes the page with the harness's `Artifact` tool, then runs `bun run evidence record --pack <pack> --url <returned url>` | the artifact URL |
-| `local` | Nothing: the report links the page path | the repo-relative path |
+| `local` | Nothing: the report links the page path (build with `--host local`) | the repo-relative path |
 
 The build prints the exact step. For `claude-artifact`:
 

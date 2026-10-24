@@ -207,6 +207,24 @@ class Checker {
     return value;
   }
 
+  /** A link rendered as `href`: only an absolute http(s) URL, never `javascript:` or `data:`. */
+  link(obj: Obj, key: string, path: string): void {
+    const value = this.string(obj, key, path, false);
+    if (value === undefined) {
+      return;
+    }
+    let protocol = '';
+    try {
+      protocol = new URL(value).protocol;
+    }
+    catch {
+      // Not an absolute URL: refused below
+    }
+    if (protocol !== 'https:' && protocol !== 'http:') {
+      this.error(`${path}.${key}`, 'must be an absolute http(s) URL');
+    }
+  }
+
   point(value: unknown, path: string): void {
     if (!Array.isArray(value) || value.length !== 2 || !value.every(n => typeof n === 'number' && Number.isFinite(n))) {
       this.error(path, 'must be a [x, y] pair of numbers');
@@ -400,7 +418,7 @@ export function validatePack(raw: unknown, options: ValidateOptions = {}): Valid
     c.key(pack.ticket, 'id', 'ticket', true);
     c.string(pack.ticket, 'title', 'ticket', true);
     verdict = c.oneOf(pack.ticket, 'verdict', 'ticket', VERDICTS, kind === 'story');
-    c.string(pack.ticket, 'link', 'ticket', false);
+    c.link(pack.ticket, 'link', 'ticket');
   }
   else if (pack.ticket === undefined) {
     c.error('ticket', 'is required');
@@ -447,7 +465,7 @@ export function validatePack(raw: unknown, options: ValidateOptions = {}): Valid
       c.key(b, 'id', path, true);
       c.string(b, 'title', path, true);
       c.oneOf(b, 'status', path, BUG_STATUSES, true);
-      c.string(b, 'link', path, false);
+      c.link(b, 'link', path);
     }
   });
 
@@ -516,8 +534,17 @@ export function validatePack(raw: unknown, options: ValidateOptions = {}): Valid
       });
     }
     // A retest never closes on a deferral (doctrine §5.4)
-    if (bugStatus === 'RETEST PASSED' && !current.some(x => x.status === 'PASSED')) {
-      c.error('bug.status', 'RETEST PASSED needs a current case observed PASSED');
+    // RETEST PASSED is the bug's verdict: the current round must allow PASSED, with no deferral in it
+    if (bugStatus === 'RETEST PASSED') {
+      const deferred = current.findIndex(x => x.status === 'DEFERRED');
+      if (allowed !== 'PASSED') {
+        const culprit = current.findIndex(x => x.status !== 'PASSED' && x.status !== 'DEFERRED');
+        const why = culprit >= 0 ? `cases[${culprit}] is ${current[culprit].status}` : 'no current case was observed PASSED';
+        c.error('bug.status', `RETEST PASSED contradicts the current cases (they allow ${allowed}: ${why})`);
+      }
+      else if (deferred >= 0) {
+        c.error('bug.status', `RETEST PASSED cannot close on a deferral (cases[${deferred}] is DEFERRED)`);
+      }
     }
     if (bugStatus === 'RETEST FAILED' && !current.some(x => x.status === 'FAILED')) {
       c.error('bug.status', 'RETEST FAILED needs a current case observed FAILED');

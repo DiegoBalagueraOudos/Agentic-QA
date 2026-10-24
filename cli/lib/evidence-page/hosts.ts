@@ -96,6 +96,9 @@ export function evidenceUrlError(url: string, allowedHosts: readonly string[]): 
   if (parsed.protocol !== 'https:') {
     return 'an evidence link must be https';
   }
+  if (parsed.username !== '' || parsed.password !== '') {
+    return 'an evidence link carries no user name or password';
+  }
   if (!allowedHosts.includes(parsed.hostname)) {
     return `host ${parsed.hostname} is not in board.evidence.allowed_hosts (${allowedHosts.join(', ') || 'empty'})`;
   }

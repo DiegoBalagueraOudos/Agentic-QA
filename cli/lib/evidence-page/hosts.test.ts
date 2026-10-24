@@ -44,6 +44,8 @@ describe('evidenceUrlError', () => {
     expect(evidenceUrlError('https://claude.ai/chat/abc', HOSTS)).toContain('must be https://claude.ai/artifact/<id>');
     expect(evidenceUrlError(`${URL_A}?share=1`, HOSTS)).toBe('an evidence link carries no query string or fragment');
     expect(evidenceUrlError('not a url', HOSTS)).toContain('is not a URL');
+    // N8: userinfo in an evidence link
+    expect(evidenceUrlError('https://u:p@claude.ai/artifact/x', HOSTS)).toBe('an evidence link carries no user name or password');
   });
 });
 

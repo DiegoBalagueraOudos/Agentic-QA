@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 
 import { buildEvidencePage, MB } from './build.ts';
 import { demoBugPack, demoStoryPack, writeDemo } from './demo.ts';
-import { decodePng, encodePng } from './png.ts';
+import { crc32, decodePng, encodePng, stripJpegMetadata, stripPngMetadata } from './png.ts';
 import { REDACTION_COLOR } from './raster.ts';
 import { escapeHtml, scriptJson } from './render.ts';
 
@@ -138,7 +138,7 @@ describe('buildEvidencePage', () => {
     expect(result.ok).toBe(false);
     expect((result as { errors: string[] }).errors[0]).toMatch(/over the 0\.01 MB limit\. Largest images: (form|error) \(/);
     expect(buildEvidencePage({ packPath: story, maxMb: 17 }).ok).toBe(false);
-    expect(MB).toBe(1048576);
+    expect(MB).toBe(1_000_000);
   });
 
   it('refuses an invalid pack with every error path', () => {
@@ -154,5 +154,98 @@ describe('render helpers', () => {
   it('escapes HTML and script-breaking JSON', () => {
     expect(escapeHtml('<a href="x">\'&')).toBe('&lt;a href=&quot;x&quot;&gt;&#39;&amp;');
     expect(scriptJson({ s: '</script>' })).toBe('{"s":"\\u003c/script>"}');
+  });
+});
+
+describe('fix round: the reviewer probes (VERIFY M4, N2, N5, N6, N7)', () => {
+  function burnedShare(html: string, index: number): number {
+    const image = decodePng(Buffer.from(dataUris(html)[index].split(',')[1], 'base64'));
+    let burned = 0;
+    let total = 0;
+    for (let y = 344; y < 360; y++) {
+      for (let x = 284; x < 500; x++) {
+        const o = (y * image.width + x) * 4;
+        total++;
+        if ([...image.data.subarray(o, o + 4)].join() === REDACTION_COLOR.join()) {
+          burned++;
+        }
+      }
+    }
+    return burned / total;
+  }
+
+  it('M4: two image keys on one file burn the union of their redactions on every key and the thumbnail', () => {
+    const { bug } = writeDemo(dir);
+    const pack = structuredClone(demoBugPack()) as any;
+    pack.images = {
+      a: { file: 'form-error.png', redact: [{ x: 280, y: 340, w: 228, h: 24 }] },
+      b: { file: './form-error.png' },
+    };
+    pack.bug.thumbnail = 'b';
+    pack.cases[0].evidence[0].image = 'a';
+    pack.cases.push({ title: 'same shot, second key', status: 'FAILED', evidence: [{ type: 'image', image: 'b' }] });
+    writeFileSync(bug, JSON.stringify(pack));
+    const result = buildEvidencePage({ packPath: bug, thumb: true });
+    expect(result.ok).toBe(true);
+    const html = readFileSync((result as { pagePath: string }).pagePath, 'utf8');
+    expect(dataUris(html)).toHaveLength(2);
+    expect(burnedShare(html, 0)).toBe(1);
+    expect(burnedShare(html, 1)).toBe(1);
+    const thumb = decodePng(readFileSync((result as { thumbPath: string }).thumbPath));
+    const t = (350 * thumb.width + 300) * 4;
+    expect([...thumb.data.subarray(t, t + 4)]).toEqual([...REDACTION_COLOR]);
+  });
+
+  it('N2: the local host writes a standalone document; a hosted page has no skeleton', () => {
+    const { story } = writeDemo(dir);
+    const local = buildEvidencePage({ packPath: story, host: 'local' });
+    expect(readFileSync((local as { pagePath: string }).pagePath, 'utf8')).toStartWith('<!doctype html>');
+    const hosted = buildEvidencePage({ packPath: story });
+    expect(readFileSync((hosted as { pagePath: string }).pagePath, 'utf8')).toStartWith('<meta charset="utf-8">');
+  });
+
+  it('N5: a screenshot named after a trace view is accepted; trace files are not', () => {
+    writeDemo(dir);
+    writeFileSync(join(dir, 'story', 'contract-trace.png'), encodePng({ width: 4, height: 4, data: new Uint8Array(64) }));
+    const pack = structuredClone(demoStoryPack()) as any;
+    pack.images.form = { file: 'contract-trace.png' };
+    pack.cases[0].evidence[0].marks = [];
+    expect(buildEvidencePage({ packPath: writePack('story', pack) }).ok).toBe(true);
+    pack.images.form = { file: 'trace.zip' };
+    expect((buildEvidencePage({ packPath: writePack('story', pack) }) as { errors: string[] }).errors[0]).toContain('HAR, trace or state file');
+  });
+
+  it('N6: the size error weighs an image by its uses', () => {
+    const { story } = writeDemo(dir);
+    const pack = structuredClone(demoStoryPack()) as any;
+    pack.cases[2] = { title: 'reuse', status: 'PASSED', evidence: [{ type: 'image', image: 'error' }, { type: 'image', image: 'error' }] };
+    pack.ticket.verdict = 'FAILED';
+    pack.bugs = undefined;
+    writeFileSync(story, JSON.stringify(pack));
+    const errors = (buildEvidencePage({ packPath: story, maxMb: 0.01 }) as { errors: string[] }).errors;
+    expect(errors[0]).toMatch(/Largest images: error \(3 uses, /);
+  });
+
+  it('N7: PNG text chunks and JPEG EXIF / comments are stripped before inlining', () => {
+    const png = encodePng({ width: 2, height: 2, data: new Uint8Array(16) });
+    const text = new TextEncoder().encode('tEXtComment\0gps 40.4,-3.7');
+    const chunk = new Uint8Array(12 + text.length - 4);
+    new DataView(chunk.buffer).setUint32(0, text.length - 4);
+    chunk.set(text, 4);
+    new DataView(chunk.buffer).setUint32(8 + text.length - 4, crc32(text));
+    const withText = Buffer.concat([png.subarray(0, 33), chunk, png.subarray(33)]);
+    const stripped = stripPngMetadata(withText);
+    expect(Buffer.from(stripped).includes('gps')).toBe(false);
+    expect(decodePng(stripped).width).toBe(2);
+
+    const exif = [0xFF, 0xE1, 0x00, 0x0A, ...new TextEncoder().encode('Exif\0\0GP')];
+    const comment = [0xFF, 0xFE, 0x00, 0x06, ...new TextEncoder().encode('note')];
+    const jpeg = Uint8Array.from([0xFF, 0xD8, ...exif, ...comment, 0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0x02, 0x00, 0x02, 0x03, ...Array.from<number>({ length: 9 }).fill(0), 0xFF, 0xDA, 0x00, 0x02, 0x11, 0x22, 0xFF, 0xD9]);
+    const clean = Buffer.from(stripJpegMetadata(jpeg));
+    expect(clean.includes('Exif')).toBe(false);
+    expect(clean.includes('note')).toBe(false);
+    expect([...clean.subarray(-8)]).toEqual([0xFF, 0xDA, 0x00, 0x02, 0x11, 0x22, 0xFF, 0xD9]);
+    expect(clean.subarray(0, 2)).toEqual(Buffer.from([0xFF, 0xD8]));
+    expect(clean.includes(Buffer.from([0xFF, 0xC0]))).toBe(true);
   });
 });

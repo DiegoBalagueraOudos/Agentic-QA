@@ -25,6 +25,12 @@ export interface InlineImage extends Size {
 
 export interface RenderMeta {
   generatedAt: string
+  /**
+   * A full document of its own (doctype, `<html>`, viewport): the `local` host
+   * opens the file straight from disk, where a missing doctype means quirks
+   * mode. A hosted page leaves it out because its host wraps the page.
+   */
+  standalone?: boolean
 }
 
 export function escapeHtml(value: unknown): string {
@@ -397,7 +403,7 @@ export function renderPage(pack: Pack, images: Readonly<Record<string, InlineIma
 </details>`
     : '';
 
-  return `<meta charset="utf-8">
+  const page = `<meta charset="utf-8">
 <title>${escapeHtml(pack.ticket.id)} evidence</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>${STYLE}</style>
@@ -428,4 +434,7 @@ ${history}
 <script type="application/json" id="evidence-pack">${scriptJson(embeddedPack(pack))}</script>
 <script>${SCRIPT}</script>
 `;
+  return meta.standalone === true
+    ? `<!doctype html>\n<html lang="en">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n${page}</html>\n`
+    : page;
 }
