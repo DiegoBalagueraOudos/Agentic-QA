@@ -255,7 +255,7 @@ Two scales exist and stay separate:
 
 | Scale | Owner | Decides |
 |---|---|---|
-| MTP risk (high / medium / low) | `project-context` mode `test-plan` | the ORDER of the gap list and of the exploration queue |
+| MTP risk (the levels `project-context` mode `test-plan` defines) | `project-context` mode `test-plan` | the ORDER of the gap list and of the exploration queue |
 | ROI score | `test-documentation` | the VERDICT per scenario: Candidate / Manual / Deferred |
 
 There is no translation between them. A high-risk gap can still end with every scenario Deferred; that drop
