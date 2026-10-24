@@ -279,6 +279,19 @@ describe('arrivals (Ready for QA watch)', () => {
     expect(ids([...tested, back], c)).toEqual(['DEMO-1:new']);
   });
 
+  test('a move between two statuses of the test bucket after the launch is not a new arrival', () => {
+    // The verifier's sequence: the ticket enters the bucket, the conductor launches it, the tracker then
+    // moves it Ready for QA -> In Test (both in_test). Only the entry counts, as in the board this was ported from.
+    const entered = { ...ev(at(1), 'tracker', 'DEMO-1', { from: 'In Progress', to: 'Ready for QA', fromBucket: 'not_ready', bucket: 'in_test' }), text: 'Tracker status In Progress -> Ready for QA' };
+    const launched = [entered, ev(at(2), 'arrival', 'DEMO-1', { action: 'launched' }), ev(at(2), 'worker', 'DEMO-1', { state: 'running' })];
+    expect(ids(launched, tracker({ 'DEMO-1': { status: 'Ready for QA', tcs: [] } }))).toEqual([]);
+    const inside = { ...ev(at(3), 'tracker', 'DEMO-1', { from: 'Ready for QA', to: 'In Test', fromBucket: 'in_test', bucket: 'in_test' }), text: 'Tracker status Ready for QA -> In Test' };
+    expect(ids([...launched, inside], tracker({ 'DEMO-1': { status: 'In Test', tcs: [] } }))).toEqual([]);
+    // Leaving the bucket and entering it again (a retest) is a new arrival.
+    const back = { ...ev(at(5), 'tracker', 'DEMO-1', { from: 'In Progress', to: 'Ready for QA', fromBucket: 'not_ready', bucket: 'in_test' }), text: 'Tracker status In Progress -> Ready for QA' };
+    expect(ids([...launched, inside, back], tracker({ 'DEMO-1': { status: 'Ready for QA', tcs: [] } }))).toEqual(['DEMO-1:new']);
+  });
+
   test('a ticket marked out of scope is not proposed', () => {
     expect(ids([ev(at(1), 'scope.remove', 'DEMO-1')], tracker({ 'DEMO-1': { status: 'Ready for QA', tcs: [] } }))).toEqual([]);
   });

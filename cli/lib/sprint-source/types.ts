@@ -113,6 +113,11 @@ export interface SourceSnapshot {
   bugs: Record<string, Bug>
   /** Sprint rows the board does not track yet; only when `discover` was asked for. */
   discover?: { at: string, sprintRows: number, untracked: UntrackedRow[] }
+  /**
+   * Ids asked for in `bugKeys` that the source could not find: named, and still counted in
+   * `searched.bugs`, so a bug the board links is never silently left open.
+   */
+  missing?: { bugs: string[] }
 }
 
 export interface SnapshotOptions {
@@ -122,6 +127,11 @@ export interface SnapshotOptions {
   keys?: readonly string[]
   /** Also list the sprint rows that are not in `keys`. */
   discover?: boolean
+  /**
+   * Bugs the board links to its tickets, read too whatever the tracker links: their status
+   * reaches `bugs` and they count in `searched.bugs`; an id not found lands in `missing.bugs`.
+   */
+  bugKeys?: readonly string[]
 }
 
 export interface Source {

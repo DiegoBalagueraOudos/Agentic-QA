@@ -87,6 +87,15 @@ describe('none source', () => {
     expect((await shared.snapshot()).searched).toEqual({ tickets: 2, tests: 1, bugs: 0 });
   });
 
+  test('bug ids the board links are read too; one the file does not hold is named and counted', async () => {
+    const snapshot = await createNoneSource(demoConfig(), { repoRoot: REPO_ROOT }).snapshot({ now: DEMO_NOW, keys: ['DEMO-101'], bugKeys: ['DEMO-202', 'DEMO-777'] });
+    // DEMO-201 comes through DEMO-101's own link; DEMO-202 only because the board linked it.
+    expect(Object.keys(snapshot.bugs).sort()).toEqual(['DEMO-201', 'DEMO-202']);
+    expect(snapshot.bugs['DEMO-202']).toMatchObject({ status: 'Closed', bucket: 'resolved', tickets: [] });
+    expect(snapshot.missing).toEqual({ bugs: ['DEMO-777'] });
+    expect(snapshot.searched.bugs).toBe(3);
+  });
+
   test('keys narrow the board, discover lists the rest of the sprint', async () => {
     const snapshot = await createNoneSource(demoConfig(), { repoRoot: REPO_ROOT }).snapshot({ now: DEMO_NOW, keys: ['DEMO-101', 'DEMO-102'], discover: true });
     expect(Object.keys(snapshot.tickets)).toEqual(['DEMO-101', 'DEMO-102']);

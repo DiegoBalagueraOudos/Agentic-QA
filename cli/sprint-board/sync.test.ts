@@ -14,9 +14,9 @@ const DIR = mkdtempSync(join(tmpdir(), 'sprint-board-sync-'));
 process.env.SPRINT_BOARD_DIR = DIR;
 process.env.SPRINT_BOARD_PROJECT_YAML = join(import.meta.dir, 'demo', 'project.yaml');
 // Imported after the env is set: the store resolves its directory at load time.
-const { appendEvent, BOARD_DIR, readTracker, setCurrent, writeSprint } = await import('./store.ts');
+const { appendEvent, BOARD_DIR, readSprint, readTracker, setCurrent, writeSprint } = await import('./store.ts');
 const { boardConfig, syncFromSource } = await import('./sync.ts');
-const { SCHEMA } = await import('./model.ts');
+const { fold, SCHEMA } = await import('./model.ts');
 const { resolveBoardConfig, UnknownStatusError } = await import('../lib/sprint-source/index.ts');
 const { createJiraNativeSource } = await import('../lib/sprint-source/jira-native.ts');
 
@@ -97,7 +97,27 @@ suite('sync through the none source (the demo tickets.yaml)', () => {
     await quiet(async () => syncFromSource(slug, { now: NOW }));
     const moved = events().filter(e => e.kind === 'tracker');
     expect(moved).toHaveLength(1);
-    expect(moved[0]).toMatchObject({ ticket: 'DEMO-103', text: 'tickets.yaml status In Progress -> Ready for QA', data: { from: 'In Progress', to: 'Ready for QA', bucket: 'in_test' } });
+    expect(moved[0]).toMatchObject({ ticket: 'DEMO-103', text: 'tickets.yaml status In Progress -> Ready for QA', data: { from: 'In Progress', to: 'Ready for QA', fromBucket: 'not_ready', bucket: 'in_test' } });
+  });
+
+  test('bugs linked on the board are read whatever the tracker links; one it cannot find is named and counted', async () => {
+    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-101', text: 'added' });
+    appendEvent(slug, { kind: 'bug.link', ticket: 'DEMO-101', text: 'linked', data: { bug: 'DEMO-777', title: 'Not in the file' } });
+    const warned: string[] = [];
+    const warn = console.warn;
+    const log = console.log;
+    console.warn = (m: string) => warned.push(m);
+    console.log = () => {};
+    try { await syncFromSource(slug, { now: NOW }); }
+    finally { console.warn = warn; console.log = log; }
+    const t = readTracker(slug)!;
+    expect(t.missing).toEqual({ bugs: ['DEMO-777'] });
+    // DEMO-201 through DEMO-101's own link, plus the board's DEMO-777
+    expect(t.searched.bugs).toBe(2);
+    expect(warned).toContain('sync: 1 board-linked bug(s) not found in tickets.yaml: DEMO-777');
+    const state = fold({ sprint: readSprint(slug), events: events(), tracker: t, now: NOW.toISOString() });
+    expect(state.bugSearch?.missing).toEqual(['DEMO-777']);
+    expect(state.bugs?.find(b => b.id === 'DEMO-777')?.status).toBe('not found in tickets.yaml');
   });
 
   test('the sprint keeps a copy of board.evidence.allowed_hosts for the pure fold', async () => {
@@ -137,6 +157,9 @@ suite('sync failures keep the last good source.json', () => {
     finally { console.warn = warn; console.log = log; }
     expect(lines).toContain('sync: DEMO-999 not found in tickets.yaml');
     expect(lines.at(-1)).toContain('(2 missing)');
+    // the denominator counts the tickets searched, found or not
+    expect(readTracker(slug)!.searched.tickets).toBe(2);
+    expect(lines.at(-1)).toContain('searched 2 tickets (2 missing)');
     expect((readTracker(slug) as TrackerSnapshot).tickets).toEqual({});
   });
 });

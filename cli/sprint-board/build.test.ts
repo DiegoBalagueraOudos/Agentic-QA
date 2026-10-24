@@ -19,6 +19,15 @@ describe('page bundle', () => {
 });
 
 describe('brand slot', () => {
+  test('every id in the page is unique (the footer\'s local-data line and tracker line are two spans)', () => {
+    // the page as the server sends it (brand slot filled)
+    const html = brandHtml(readFileSync(join(import.meta.dir, 'app', 'index.html'), 'utf8'), { name: 'Shop', logo: null });
+    const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+    expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+    expect(ids).toContain('foot-source');
+    expect(ids).toContain('foot-tracker');
+  });
+
   test('index.html carries the slot and the label placeholder', () => {
     const html = readFileSync(join(import.meta.dir, 'app', 'index.html'), 'utf8');
     expect(html).toContain(BRAND_SLOT);

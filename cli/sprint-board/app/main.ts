@@ -175,7 +175,7 @@ function render(): void {
         ? `${tr('Local data', 'Datos locales')}: .session/sprint-board/sprints/${state.sprint.slug}`
         : `${tr('Frozen copy from', 'Copia congelada del')} ${state.generatedAt.slice(0, 16).replace('T', ' ')}Z`;
   const trk = trackerName(state.tracker?.source);
-  $('#foot-source')!.textContent = state.tracker ? `${trk} ${tr('synced', 'sincronizado')} ${hhmm(state.tracker.syncedAt)} · ${state.tracker.searched.tickets} ${tr('tickets', 'tickets')}, ${state.tracker.searched.tcs} TCs` : tr(`${trk} not synced yet`, `${trk} aún sin sincronizar`);
+  $('#foot-tracker')!.textContent = state.tracker ? `${trk} ${tr('synced', 'sincronizado')} ${hhmm(state.tracker.syncedAt)} · ${state.tracker.searched.tickets} ${tr('tickets', 'tickets')}, ${state.tracker.searched.tcs} TCs` : tr(`${trk} not synced yet`, `${trk} aún sin sincronizar`);
 
   if (openId) {
     const t = state.tickets.find(x => x.id === openId);

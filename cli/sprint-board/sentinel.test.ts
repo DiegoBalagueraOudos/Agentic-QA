@@ -208,6 +208,22 @@ describe('cycle', () => {
     expect(JSON.parse(json)).toMatchObject({ reason: 'change', slug: 'sprint-1', rearm: 'bun run board sentinel' });
   });
 
+  test('a launched ticket moving Ready for QA -> In Test does not wake the conductor', async () => {
+    const at = (m: number) => mon(9, m).toISOString();
+    const events = [
+      ev('scope.add', 'DEMO-1', undefined, 'conductor', at(0)),
+      ev('tracker', 'DEMO-1', { from: 'In Progress', to: 'Ready for QA', fromBucket: 'not_ready', bucket: 'in_test' }, undefined, at(1)),
+      ev('arrival', 'DEMO-1', { action: 'launched' }, 'conductor', at(2)),
+      ev('worker', 'DEMO-1', { state: 'running' }, 'conductor', at(3)),
+    ];
+    const { w, deps } = world({ events, tracker: tracker({ 'DEMO-1': 'Ready for QA' }, { syncedAt: mon(9, 58).toISOString() }) });
+    const st = fresh(signatureOf(w.events, w.tracker));
+    expect(st.baseline?.arrivals).toEqual([]);
+    w.events = [...events, ev('tracker', 'DEMO-1', { from: 'Ready for QA', to: 'In Test', fromBucket: 'in_test', bucket: 'in_test' }, undefined, at(30))];
+    w.tracker = tracker({ 'DEMO-1': 'In Test' }, { syncedAt: mon(9, 58).toISOString() });
+    expect(await cycle(cfg, deps, st)).toBeNull();
+  });
+
   test('outside working hours nothing is read and nothing wakes', async () => {
     const { w, deps } = world();
     const st = fresh(signatureOf([], tracker({})));

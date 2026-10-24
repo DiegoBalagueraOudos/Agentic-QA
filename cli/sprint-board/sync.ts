@@ -125,6 +125,8 @@ async function syncOpen(slug: string, sprint: Sprint, config: BoardConfig, opts:
   const now = opts.now ?? new Date();
   const { events } = readEvents(slug);
   const prev = readTracker(slug);
+  // The bugs linked on this board (`bug <ticket> <bug>`): the source reads them whatever the tracker links.
+  const bugKeys = [...new Set(events.filter(e => e.kind === 'bug.link').map(e => String(e.data?.bug ?? '').toUpperCase()).filter(Boolean))];
   const ids = new Set<string>(opts.only?.length
     ? opts.only.map(x => x.toUpperCase())
     : [
@@ -142,7 +144,7 @@ async function syncOpen(slug: string, sprint: Sprint, config: BoardConfig, opts:
   let first: SourceSnapshot | null = null;
   let added = 0;
   if (opts.discover) {
-    first = await source.snapshot({ keys: [...ids], discover: true, now });
+    first = await source.snapshot({ keys: [...ids], discover: true, bugKeys, now });
     const rows = first.discover?.untracked ?? [];
     const sprintRows = first.discover?.sprintRows ?? 0;
     const mine = rows.filter(r => isBoardQa(sprint, r.qaOwner));
@@ -169,13 +171,14 @@ async function syncOpen(slug: string, sprint: Sprint, config: BoardConfig, opts:
   }
 
   // One keyed read; the discover read already holds every id unless it added some.
-  const snap = first && !added ? first : await source.snapshot({ keys: [...ids], now });
+  const snap = first && !added ? first : await source.snapshot({ keys: [...ids], bugKeys, now });
 
   const next: TrackerSnapshot = {
     v: SCHEMA,
     source: snap.source,
     syncedAt: snap.syncedAt,
-    searched: { tickets: snap.searched.tickets, tcs: snap.searched.tests, bugs: snap.searched.bugs },
+    // Counted as asked for, like the source: a ticket the tracker cannot find was still searched.
+    searched: { tickets: ids.size, tcs: snap.searched.tests, bugs: snap.searched.bugs },
     tickets: { ...(prev?.tickets ?? {}) },
     bugs: { ...(prev?.bugs ?? {}) },
     discover: discovered,
@@ -187,12 +190,16 @@ async function syncOpen(slug: string, sprint: Sprint, config: BoardConfig, opts:
     const t = trackerTicketOf(src);
     const before = prev?.tickets[id]?.status;
     if (before && t.status && before !== t.status) {
-      appendEvent(slug, { kind: 'tracker', ticket: id, text: `${name} status ${before} -> ${t.status}`, data: { from: before, to: t.status, bucket: t.bucket } });
+      appendEvent(slug, { kind: 'tracker', ticket: id, text: `${name} status ${before} -> ${t.status}`, data: { from: before, to: t.status, fromBucket: prev?.tickets[id]?.bucket, bucket: t.bucket } });
     }
     next.tickets[id] = t;
     console.log(`sync: ${id} ${t.status ?? '?'} (${t.bucket}), ${t.tcs.length} TCs`);
   }
   for (const [id, b] of Object.entries(snap.bugs)) { next.bugs[id] = trackerBugOf(b); }
+  // A bug linked on the board that the tracker cannot find is named, never left silently open.
+  const lost = snap.missing?.bugs ?? [];
+  next.missing = { bugs: lost };
+  if (lost.length) { console.warn(`sync: ${lost.length} board-linked bug(s) not found in ${name}: ${lost.join(', ')}`); }
 
   writeTracker(slug, next);
   console.log(`sync: searched ${next.searched.tickets} tickets (${missing} missing), ${next.searched.tcs} TCs, ${next.searched.bugs} bugs from ${name} (${snap.source})`);

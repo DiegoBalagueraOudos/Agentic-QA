@@ -410,7 +410,8 @@ function bugSearchLine(c: Ctx): string {
   const sprint = s.bugRows === null
     ? tr('the sprint\'s own Bug rows not checked yet (needs a <code>sync --discover</code>)', 'las filas Bug del sprint aún sin revisar (falta un <code>sync --discover</code>)')
     : `${s.createdInSprint} ${tr('created this sprint, of', 'creados en este sprint, de')} ${s.bugRows} ${tr('Bug rows among the', 'filas Bug entre las')} ${s.sprintRows} ${tr('sprint rows', 'filas del sprint')}${s.discoveredAt ? ` (${tr('read', 'leído')} ${esc(day(s.discoveredAt).slice(5))} ${hhmm(s.discoveredAt)})` : ''}`;
-  return `${tr('Searched', 'Buscado')}: ${linked}; ${sprint}. ${tr('A bug filed into another sprint and never linked here is not found.', 'Un bug cargado en otro sprint y nunca vinculado aquí no aparece.')}`;
+  const lost = s.missing?.length ? ` <b>${s.missing.length} ${tr(`linked here but not found in ${TRK(c)}`, `vinculados aquí pero no encontrados en ${TRK(c)}`)}: ${s.missing.map(esc).join(', ')}.</b>` : '';
+  return `${tr('Searched', 'Buscado')}: ${linked}; ${sprint}. ${tr('A bug filed into another sprint and never linked here is not found.', 'Un bug cargado en otro sprint y nunca vinculado aquí no aparece.')}${lost}`;
 }
 
 function bugRow(b: SprintBug): string {

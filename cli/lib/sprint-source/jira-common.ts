@@ -283,8 +283,11 @@ export function createJiraSource(parts: JiraSourceParts): Source {
         };
       }
 
+      // The bugs the tracker links to these tickets, plus the ones the board links (`bugKeys`).
+      const askedBugs = [...new Set((options.bugKeys ?? []).map(k => k.toUpperCase()))];
+      const bugKeys = [...new Set([...linkedBugs.keys(), ...askedBugs])];
       const bugs: Record<string, Bug> = {};
-      for (const issue of await issuesByKey(transport, [...linkedBugs.keys()], fields)) {
+      for (const issue of await issuesByKey(transport, bugKeys, fields)) {
         const row = common(issue);
         bugs[issue.key] = {
           ...row,
@@ -298,10 +301,12 @@ export function createJiraSource(parts: JiraSourceParts): Source {
       const snapshot: SourceSnapshot = {
         source: kind,
         syncedAt: now.toISOString(),
-        searched: { tickets: issues.length, tests: distinctTests.size, bugs: Object.keys(bugs).length },
+        searched: { tickets: issues.length, tests: distinctTests.size, bugs: bugKeys.length },
         tickets,
         bugs,
       };
+      const missingBugs = bugKeys.filter(k => !(k in bugs));
+      if (options.bugKeys) { snapshot.missing = { bugs: missingBugs }; }
       if (options.discover) {
         const rows = keys ? await searchAll(transport, config.jql as string, fields) : issues;
         const tracked = new Set(issues.map(i => i.key));

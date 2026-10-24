@@ -184,6 +184,8 @@ export interface TrackerSnapshot {
    * absent until a source returns the sprint's own bug rows.
    */
   discover?: { at: string, sprintRows: number, untracked: UntrackedTicket[], bugs?: TrackerBugRow[] }
+  /** Bugs linked on the board that the tracker could not find at the last sync. */
+  missing?: { bugs: string[] }
 }
 /** A sprint ticket in the tracker that is not on the board: QA blank or another QA. */
 export interface UntrackedTicket { id: string, title?: string, status?: string, bucket?: TicketBucket, qa?: string }
@@ -294,7 +296,8 @@ export interface SprintBug {
   resolvedInSprint: boolean
 }
 /** What the Bugs view searched (fail loudly). null = never checked (no `sync --discover` with bug rows yet). */
-export interface BugSearch { linked: number, sprintRows: number | null, bugRows: number | null, createdInSprint: number | null, discoveredAt?: string }
+/** `missing`: bugs linked on the board that the tracker could not find (named on the page, never counted as found). */
+export interface BugSearch { linked: number, sprintRows: number | null, bugRows: number | null, createdInSprint: number | null, discoveredAt?: string, missing?: string[] }
 
 export interface TicketView {
   id: string
@@ -999,12 +1002,13 @@ export function sprintBugs(input: { sprint: Sprint, tickets: TicketView[], track
 
   const make = (id: string, cb: TrackerBug | undefined): SprintBug => {
     const statusClass = bugStatusClass(cb?.bucket);
+    const lost = tracker?.missing?.bugs.includes(id);
     return {
       id,
       title: cb?.title,
       severity: cb?.priority,
       priority: cb?.priority,
-      status: cb?.status,
+      status: cb?.status ?? (lost ? `not found in ${trackerName(tracker?.source)}` : undefined),
       bucket: cb?.bucket,
       statusClass,
       sprint: cb?.sprint,
@@ -1086,6 +1090,7 @@ export function sprintBugs(input: { sprint: Sprint, tickets: TicketView[], track
       bugRows: rows ? rows.length : null,
       createdInSprint,
       discoveredAt: rows ? tracker?.discover?.at : undefined,
+      missing: tracker?.missing?.bugs.length ? [...tracker.missing.bugs] : undefined,
     },
   };
 }
@@ -1691,7 +1696,10 @@ export function arrivals(events: BoardEvent[], tracker: TrackerSnapshot | null |
     if (e.kind === 'scope.add') { out.delete(e.ticket); }
     if (e.kind === 'worker' || e.kind === 'verdict') { latest(handled, e.ticket, e.at); }
     if (e.kind === 'hold.set') { latest(held, e.ticket, e.at); }
-    if (e.kind === 'tracker' && x.bucket === 'in_test') { latest(arrived, e.ticket, e.at); }
+    // An arrival is a move INTO the test bucket from another one (as in the board this was ported from): a move
+    // between two statuses of the bucket (Ready for QA -> In Test, made after the launch) is not one.
+    // An event written before `fromBucket` existed counts as an entry.
+    if (e.kind === 'tracker' && x.bucket === 'in_test' && x.fromBucket !== 'in_test') { latest(arrived, e.ticket, e.at); }
     if (e.kind === 'arrival') {
       if (x.action === 'held') { latest(held, e.ticket, e.at); }
       else { latest(handled, e.ticket, e.at); }
