@@ -17,11 +17,13 @@ on:
       - main
 
 concurrency:
-  group: unit-tests-${{ github.ref }}
-  # A superseded run on a branch is cancelled, it publishes nothing. Never on
-  # main: work lands there by direct push, and a cancelled run would leave a
-  # landed commit without a run of its own.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # A superseded run on a branch is cancelled: it publishes nothing. On main
+  # every commit gets its own group, so no run there is ever cancelled. Work
+  # lands on main by direct push, and a shared group would cancel a landed
+  # commit's run: `cancel-in-progress: false` alone is not enough, because a
+  # group keeps one pending run and cancels it when a newer one arrives.
+  group: unit-tests-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: true
 
 env:
   CI: true

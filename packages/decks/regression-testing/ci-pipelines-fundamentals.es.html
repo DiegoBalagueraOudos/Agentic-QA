@@ -1360,7 +1360,7 @@ select.sel:focus,input.inp:focus{border-color:var(--accent)}
           <li><b>FIFO.</b> Los pending arrancan en el orden en que empezaron a esperar.</li>
           <li><b>Nivel workflow o nivel job.</b> Todos los workflows lo declaran a nivel workflow; pages.yml usa un grupo fijo (<code class="k">pages-docs-hub</code>) porque siempre publica al mismo sitio.</li>
         </ul>
-        <div class="callout mt-m"><h4>La pregunta que decide</h4><p>«Este workflow deja algo publicado o compartido?» Si no (validar, lint, compilar): <b>cancelar</b>, es más barato. Si sí (reporte, deploy, rama gh-pages): <b>encolar</b>, porque cancelar a medias deja un estado que parece completo y no lo es. Todos nuestros workflows publican salvo build.yml y unit-tests.yml, que cancelan (unit-tests.yml nunca en main: ahí cada push es trabajo que ya aterrizó, y merece su propio run).</p></div>
+        <div class="callout mt-m"><h4>La pregunta que decide</h4><p>«Este workflow deja algo publicado o compartido?» Si no (validar, lint, compilar): <b>cancelar</b>, es más barato. Si sí (reporte, deploy, rama gh-pages): <b>encolar</b>, porque cancelar a medias deja un estado que parece completo y no lo es. Todos nuestros workflows publican salvo build.yml y unit-tests.yml, que cancelan (unit-tests.yml nunca en main: ahí cada push es trabajo que ya aterrizó y merece su propio run, así que cada commit de main lleva su propio grupo; <code class="k">cancel-in-progress: false</code> no alcanza, porque el grupo guarda un solo run pendiente y lo cancela cuando llega otro).</p></div>
       </div>
     </div>
     </div>
