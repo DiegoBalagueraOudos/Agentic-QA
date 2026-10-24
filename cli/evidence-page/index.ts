@@ -25,7 +25,7 @@ import type { EvidenceHost } from '../lib/evidence-page/hosts.ts';
 import type { Pack } from '../lib/evidence-page/pack.ts';
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { buildEvidencePage } from '../lib/evidence-page/build.ts';
@@ -128,6 +128,11 @@ function runBuild(values: Record<string, string | boolean | undefined>, keyPatte
   return 0;
 }
 
+// A demo pack carries synthetic DEMO- keys: build and record it with the shape `demo` built it with
+function keyPatternFor(packPath: string | undefined, projectPattern: RegExp): RegExp {
+  return packPath !== undefined && resolve(packPath).startsWith(resolve(DEMO_OUT) + sep) ? GENERIC_TICKET_KEY : projectPattern;
+}
+
 function runRecord(values: Record<string, string | boolean | undefined>, config: ProjectEvidenceConfig): number {
   const packPath = values.pack as string | undefined;
   const url = values.url as string | undefined;
@@ -142,7 +147,7 @@ function runRecord(values: Record<string, string | boolean | undefined>, config:
     console.error(`✗ ${packPath}: cannot read the pack (${(err as Error).message})`);
     return 1;
   }
-  const validation = validatePack(raw, { ticketKeyPattern: config.ticketKeyPattern });
+  const validation = validatePack(raw, { ticketKeyPattern: keyPatternFor(packPath, config.ticketKeyPattern) });
   if (!validation.ok) {
     console.error(`✗ ${display(packPath)}: invalid pack`);
     validation.errors.forEach(e => console.error(`  ✗ ${e}`));
@@ -211,7 +216,7 @@ function main(argv: string[]): number {
   }
   switch (command) {
     case 'build':
-      return runBuild(values, config.ticketKeyPattern, values.json === true);
+      return runBuild(values, keyPatternFor(values.pack as string | undefined, config.ticketKeyPattern), values.json === true);
     case 'record':
       return runRecord(values, config);
     case 'demo':
