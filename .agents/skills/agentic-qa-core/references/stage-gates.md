@@ -225,7 +225,9 @@ the stage NEEDS REVISION.
 [ ] Smoke pass run first (Go/No-Go) before deep exploration
 [ ] Planned outlines executed AND exploration probed beyond them
 [ ] Newly-discovered partition/boundary/transition folded back into the outline set
-[ ] Evidence captured under the PBI folder; outline/Test status updated
+[ ] Evidence captured under the PBI folder; outline/Test status updated: PASSED / FAILED only
+    on observation in the precondition's environment, else NOT RUN with its ladder reason
+    (`discovery-driven-doctrine.md` §5)
 [ ] Bugs filed with story + AC traceability where found
 [ ] Artifact statuses match §"Lifecycle expectations per stage"; light stage verifier run
 ```
@@ -235,6 +237,7 @@ the stage NEEDS REVISION.
 ```
 [ ] ATR authored as a **Test Execution** item (`ATR: {STORY-KEY}: Story Testing`); Story custom field only as fallback
 [ ] QA comment posted; ticket transitioned to the correct status
+[ ] No case left `BLOCKED`; every `DEFERRED (execution)` recorded in the ATR and listed in the QA comment
 [ ] Regression follow-up noted for any regression-worthy bug (Stage-4 hand-off); bug retest (xray):
     repro Test's run recorded PASSED/FAILED in the retest Execution
 [ ] Traceability verified — xray: Story↔ATS (`test` slug, coverage) + ATS membership complete

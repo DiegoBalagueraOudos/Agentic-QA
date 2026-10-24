@@ -330,7 +330,7 @@ Options, in priority order:
 2. **Clock-mock.** If the stack supports injecting/freezing time (test hooks, a mockable clock, `sinon`-style fake timers on the backend, or a DB-side `now()` override in a transaction), advance the clock past the TTL and assert the expiry. Use only when option 1 is unavailable and the mock genuinely drives the production expiry logic (not a parallel test-only branch).
 3. **Explicit manual-defer with a written follow-up.** Last resort. Document the boundary you could not exercise, why (no fixture, no clock-mock), and the concrete follow-up (e.g. "add a `MAGIC_LINK_TTL` test override" or "automate with fake timers in Stage 5"). File it so coverage is not lost silently.
 
-**Rule.** When a time-dependent TC cannot run live, mark it `BLOCKED — needs time fixture` in `test-session-memory.md` with the option chosen (1/2/3) and a one-line rationale. Never record a bare `BLOCKED` with no decision path — that loses coverage silently. The §5.4 "no NOT RUN" rule still applies: a deferred time-boundary TC carries its `BLOCKED — needs time fixture` reason into the Findings list for Stage 3.
+**Rule.** When a time-dependent TC cannot run live, mark it `BLOCKED — needs time fixture` in `test-session-memory.md` with the option chosen (1/2/3) and a one-line rationale. Never record a bare `BLOCKED` with no decision path — that loses coverage silently. The §5.4 observation rule applies: until a fixture or clock-mock lets it be observed, the TC is NOT RUN, and option 3 is the ladder's QA deferral (`DEFERRED (execution)` with the follow-up named); its reason goes into the Findings list for Stage 3.
 
 ---
 
@@ -403,7 +403,7 @@ The whole PBI tree is a gitignored Jira cache (`.agents/instructions/agent-local
 
 ### 5.4 Status propagation
 
-At end of Stage 2, each Stage-1 test outline / TC must have PASSED or FAILED. No NOT RUN. If one remains NOT RUN, it is either out of scope (mark why in Notes) or incomplete (return to the loop).
+At end of Stage 2, each Stage-1 test outline / TC is PASSED or FAILED only when it was observed in the environment its precondition names; anything else is NOT RUN, whatever indirect evidence exists (a unit test, green CI, reading code, a local or lower environment). A NOT RUN case runs the blocking ladder (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §5) and ends Stage 2 with its reason recorded: `BLOCKED` while the ladder is open, `DEFERRED (execution)` once QA deferred it with a follow-up. Out of scope stays a stated note in Notes.
 
 ### 5.5 Handoff to Stage 3
 
@@ -421,5 +421,5 @@ At end of Stage 2, each Stage-1 test outline / TC must have PASSED or FAILED. No
 - [ ] Evidence screenshots named per §5.3 and stored under the ticket's `evidence/` folder
 - [ ] RLS / authorization probes run when multi-tenant or role-sensitive
 - [ ] DB constraint probes wrapped in transactions and rolled back
-- [ ] All TCs / outlines ended Stage 2 with PASSED or FAILED (no NOT RUN)
+- [ ] Every TC / outline ended Stage 2 PASSED or FAILED on observation in its precondition's environment, or NOT RUN with its ladder reason (`BLOCKED` / `DEFERRED (execution)`) recorded
 - [ ] Findings list populated for Stage 3 handoff

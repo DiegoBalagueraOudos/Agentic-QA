@@ -423,16 +423,16 @@ Actions:
    - API on `{{API_URL}}` via `[API_TOOL]`.
    - DB cross-validation via `[DB_TOOL]` on `{{DB_MCP}}`.
 3. Use TCs as guides but explore beyond them (edge cases, boundaries, data variations, user perspectives). Create new TCs for significant discoveries.
-4. Update TC statuses in the TMS (PASSED / FAILED).
+4. Update TC statuses in the TMS: PASSED / FAILED only when observed in the precondition's environment, else NOT RUN with its ladder reason.
 5. Bug reporting — file any issues per `references/reporting-templates.md` (Bug Report template).
-6. Decision: PASSED -> Stage 3. BLOCKED -> wait, retry. FAILED -> triage first (a FAIL is not auto-Critical). A **blocking** failure (smoke/env down, data integrity, security-exploitable) stops the pass and is surfaced now; a **non-blocking** finding is logged, the TC marked FAILED, and the pass continues — surface it at Stage 2 close. See `exploration-patterns.md` "Finding triage".
+6. Decision: PASSED (incl. recorded deferrals) -> Stage 3. BLOCKED -> run the blocking ladder (recreate -> QA defers with a follow-up task -> developers -> owner if unsure; `agentic-qa-core/references/discovery-driven-doctrine.md` §5), never an open-ended wait. FAILED -> triage first (a FAIL is not auto-Critical). A **blocking** failure (smoke/env down, data integrity, security-exploitable) stops the pass and is surfaced now; a **non-blocking** finding is logged, the TC marked FAILED, and the pass continues — surface it at Stage 2 close. See `exploration-patterns.md` "Finding triage".
 
 Output checkpoint:
 
 ```markdown
 ## Stage 2 Complete
 - [ ] Smoke: PASSED / FAILED
-- [ ] Deep exploration: PASSED / FAILED / BLOCKED
+- [ ] Deep exploration: PASSED / FAILED / NOT RUN (BLOCKED or DEFERRED (execution), reason recorded)
 - [ ] Bugs created: N (or none)
 - [ ] Recommendation: APPROVE / REJECT / WAIT
 ```
@@ -449,7 +449,7 @@ Actions:
 2. Fill the ATR Test Report via `[TMS_TOOL] atr update {ATR-ID} --report "..."` (or write `{{jira.acceptance_test_results}}` / fallback comment in Modality jira-native). Mark ATR complete.
 3. Materialize the read-only cache (never hand-written) per modality: jira-native -> `bun run jira:sync-issues get <KEY> --include-comments` -> `acceptance-test-results.md` in the STORY folder; jira-xray -> `bun run jira:sync-issues get <ATR_KEY>` -> `.context/PBI/test-executions/ATR-<ATR_KEY>-<slug>.md`.
 4. Post the QA comment to the ticket via `[ISSUE_TRACKER_TOOL]`. Use the user-story templates (PASSED / FAILED) from `reporting-templates.md`.
-5. Transition the ticket via substrate. Decision tree: Story PASSED -> `{{jira.transition.story.qa_sign_off}}`; Bug PASSED -> `{{jira.transition.bug.retest_passed}}`; Story FAILED with `{{FORMAL_BLOCKED_GATE}}=true` -> `{{jira.transition.story.defect_reported}}` (`in_test` -> `blocked`); Story FAILED non-strict (flag false or no `blocked` slug) -> leave in `{{jira.status.story.in_test}}` with linked bug; Bug FAILED -> leave in `{{jira.status.bug.ready_for_qa}}` (or `back` / `re_open` if previously closed). See `sprint-orchestration.md` Briefing 4 Step 5 for the full decision tree.
+5. Transition the ticket via substrate. Decision tree: Story PASSED (every case PASSED, or `DEFERRED (execution)` listed in the QA comment for the signer) -> `{{jira.transition.story.qa_sign_off}}`; Bug PASSED -> `{{jira.transition.bug.retest_passed}}`; Story FAILED with `{{FORMAL_BLOCKED_GATE}}=true` -> `{{jira.transition.story.defect_reported}}` (`in_test` -> `blocked`); Story FAILED non-strict (flag false or no `blocked` slug) -> leave in `{{jira.status.story.in_test}}` with linked bug; Bug FAILED -> leave in `{{jira.status.bug.ready_for_qa}}` (or `back` / `re_open` if previously closed). See `sprint-orchestration.md` Briefing 4 Step 5 for the full decision tree.
 6. Attach evidence screenshot paths for the user.
 
 Output checkpoint:

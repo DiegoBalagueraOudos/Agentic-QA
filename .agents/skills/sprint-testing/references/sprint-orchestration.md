@@ -498,6 +498,7 @@ Report format:
 Rules:
   - `severity` is an option slug of `{{jira.severity}}` (the five impact levels of `agentic-qa-core/references/defect-management-doctrine.md` Part 5.1), never a Priority word: Priority is derived from it at filing time.
   - Do NOT file the bug in the issue tracker yet — Stage 3 handles filing per the bug-report template in reporting-templates.md.
+  - PASSED / FAILED only on observation in the environment the case's precondition names; otherwise NOT RUN through the blocking ladder (`agentic-qa-core/references/discovery-driven-doctrine.md` §5). Never FAILED for a case that did not run.
   - Do NOT modify production data; for write-side checks use staging entities flagged in the ATP.
   - Critical Rule #1 (credentials by NAME, never by value): use each credential through its variable name; never open .env, print or hardcode a value.
   - Identity: every role signs in through the app's own login only (UI form → `.auth/<env>-<role>.json`, or `bun run api:login --role <role>`). NEVER obtain a session through a service-role / admin key, an admin user-management API, a server-generated magic link or reset token, a locally signed JWT or a database session row; seeding test DATA through API / DB stays allowed. An auth story runs end to end through a real inbox (`/resend-cli`). A check that seems to need a shortcut is a blocker to report, not a step to take (`agentic-qa-core/references/browser-sessions.md` §4).
@@ -524,7 +525,7 @@ Exact instructions:
   2. Author the ATR body from the template in reporting-templates.md §"ATR Test Report body" (do NOT hand-write a local file — it is materialized from the sync in step 3a).
   3. Update the ATR in TMS:
        - Modality jira-xray: [TMS_TOOL] Update Test Execution / Run statuses, then TRANSITION the Execution: `[ISSUE_TRACKER_TOOL] Transition: {{jira.transition.test_execution.complete}}` (`active` -> `close`). "Mark complete" is the transition — an ATR left at `{{jira.status.test_execution.active}}` reads as a run still in progress.
-  3-bis. **Run statuses are per-project vocabulary — read them, do not assume them.** The TMS advertises a generic set, but each instance configures which run statuses exist. Measured on one instance (ADR-0006): it accepted only `TODO`, `EXECUTING`, `PASSED`, `FAILED` and rejected `BLOCKED` and `ABORTED` outright, with a bare validation error and no list of the accepted values. So: on the FIRST status write of the session, use the project's own vocabulary (the TMS skill's status list for this instance, or one probe), and when a value is rejected do NOT retry variants — record the blocked case through the documented alternative instead: mark the run `FAILED` (or leave it `TODO` when nothing was executed) **and** write the real reason into the ATR body as `BLOCKED — <reason>` per `reporting-templates.md`, plus the same reason in the Findings list. The reason text is what the reader needs; the enum value is only a filter. Never silently drop a blocked case because its status would not fit.
+  3-bis. **Run statuses are per-project vocabulary — read them, do not assume them.** The TMS advertises a generic set, but each instance configures which run statuses exist. Measured on one instance (ADR-0006): it accepted only `TODO`, `EXECUTING`, `PASSED`, `FAILED` and rejected `BLOCKED` and `ABORTED` outright, with a bare validation error and no list of the accepted values. So: on the FIRST status write of the session, use the project's own vocabulary (the TMS skill's status list for this instance, or one probe), and when a value is rejected do NOT retry variants — record the case through the documented alternative instead: leave an unexecuted run `TODO` (never `FAILED`: FAILED claims an observation) **and** write the ladder reason into the ATR body (`DEFERRED (execution) <date> by QA decision: <reason>; follow-up <KEY>`) per `reporting-templates.md` §2.4, plus the same reason in the Findings list. The reason text is what the reader needs; the enum value is only a filter. Never silently drop a blocked case because its status would not fit.
        - Modality jira-native: [ISSUE_TRACKER_TOOL] Update Issue with {{jira.acceptance_test_results}} field (or `## Acceptance Test Results (ATR)` fallback comment when the field is absent).
   3b. **Close the other two Stage-1 artifacts** (`agentic-qa-core/references/artifact-lifecycle.md` §1) — Modality jira-xray:
         - ATS: membership is now final -> `[ISSUE_TRACKER_TOOL] Transition: {{jira.transition.test_set.done}}` (`designing` -> `close`).
@@ -576,6 +577,7 @@ Report format:
 Rules:
   - Do NOT edit ACs on the parent ticket (read-only on AC fields).
   - Do NOT close the ticket — only transition to the QA-defined state.
+  - Report only with no open `BLOCKED`; list every `DEFERRED (execution)` in the QA comment so the signer sees it.
   - DO close the QA artifacts: an ATR left `active`, an ATS left `designing` or an ATP left `planning` after this stage is a Reporting DoD failure (artifact-lifecycle.md §1, sprint-testing anti-pattern S18).
   - Apply the bug summary format from reporting-templates.md §1.2 verbatim (no improvisation).
   - On 4xx/5xx from any [ISSUE_TRACKER_TOOL] / [TMS_TOOL] call: stop, report partial state, do NOT auto-retry the transition.
@@ -727,8 +729,8 @@ Created at `<SESSION_DIR>/test-session-memory.md` — i.e. `.session/sprint-test
 ### Execution
 - [ ] Ticket transitioned to in-test (or skipped per substrate)
 - [ ] Smoke test passed (Go/No-Go)
-- [Feature] All TCs executed; none NOT RUN
-- [Feature] TCs marked PASSED or FAILED in [TMS_TOOL]
+- [Feature] Every TC observed in its precondition's environment, or NOT RUN with its ladder reason
+- [Feature] TCs marked PASSED / FAILED (observed) or left NOT RUN with the reason in [TMS_TOOL]
 - [Feature] Edge cases explored beyond TCs
 - [Bug] Fix verified against original bug ACs
 - [Bug] Regression check on adjacent areas

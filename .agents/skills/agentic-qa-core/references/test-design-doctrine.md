@@ -230,7 +230,8 @@ Three legitimate outcomes, in order of preference:
    precondition: <state>` in the plan and the results, with the reason and what it would take
    (a fixture account, a seed hook, a reset endpoint). That is a product / test-environment
    decision to be raised, not a QA omission to be hidden — and per the `Improvement` bridge it
-   may itself be the report worth filing.
+   may itself be the report worth filing. In-sprint, this outcome is the blocking ladder of
+   `discovery-driven-doctrine.md` §5 (QA deferral with a follow-up task).
 
 **Never** substitute a similar-looking state for the empty one ("only two orders" is not
 "none"), and never mark such a case PASSED on a partial observation.
