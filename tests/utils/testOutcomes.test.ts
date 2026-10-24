@@ -12,7 +12,9 @@ import {
   buildOutcomeRecords,
   classifyAttempt,
   errorLine,
+  isListOnlyRun,
   knownDefectKey,
+  listedHeadline,
   outcomeHeadline,
   stepSummaryMarkdown,
   summarizeOutcomes,
@@ -205,6 +207,54 @@ describe('errorLine', () => {
     expect(errorLine(`${esc}[31mboom${esc}[39m\nstack`)).toBe('boom');
     expect(errorLine('x'.repeat(400))?.length).toBe(303);
     expect(errorLine(undefined)).toBeNull();
+  });
+});
+
+describe('fix round: the reviewer probes (VERIFY M1, M2, S4, N10)', () => {
+  it('M1: a test.fail test that times out is failed / timeout, never a reproduced known defect', () => {
+    const r = one({
+      expectedStatus: 'failed',
+      annotations: [{ type: 'known-defect', description: 'BK-997' }, { type: 'fail', description: 'Blocked by BK-997' }],
+      attempts: [{ status: 'timedOut', durationMs: 60000 }, { status: 'timedOut', durationMs: 60000 }],
+    });
+    expect(r).toMatchObject({ class: 'failed', cause: 'timeout', testStatus: 'FAILED', knownDefect: null, actionItem: null });
+    const h = outcomeHeadline(summarizeOutcomes([r]), 'failed');
+    expect(h.text).toBe('EXECUTION FAILED: 1 FAILED');
+  });
+
+  it('M2: free text in a test.fail reason never mints a defect key and the headline stays red', () => {
+    for (const reason of ['Broken UTF-8 handling', 'ISO-8601 dates off by one', 'SHA-256 mismatch', 'HTTP-2 only']) {
+      const r = one({ expectedStatus: 'failed', annotations: [{ type: 'fail', description: reason }], attempts: [{ status: 'failed', durationMs: 1 }] });
+      expect(r).toMatchObject({ class: 'known-defect', knownDefect: null, actionItem: 'known-defect-without-key' });
+      expect(outcomeHeadline(summarizeOutcomes([r])).ok).toBe(false);
+    }
+  });
+
+  it('M2: a key is read only from a whole marker value or the "Blocked by <KEY>" form', () => {
+    expect(knownDefectKey({ annotations: [{ type: 'known-defect', description: 'see UTF-8' }], tags: ['@blocked:BK-1 and more'] })).toBeNull();
+    expect(knownDefectKey({ annotations: [{ type: 'fail', description: 'Blocked by BK-12: parser drops the BOM' }], tags: [] })).toBe('BK-12');
+    expect(knownDefectKey({ annotations: [{ type: 'fail', description: 'Fails until BK-12 ships' }], tags: [] })).toBeNull();
+  });
+
+  it('S4: a setup project failing only through an unexpected pass marks its dependents dependency-failed', () => {
+    const setup = input({ project: 'setup', expectedStatus: 'failed', tags: ['@blocked:BK-3'], annotations: [{ type: 'fail' }] });
+    const dependent = input({ project: 'e2e', attempts: [] });
+    const [, d] = buildOutcomeRecords([setup, dependent], { e2e: ['setup'] });
+    expect(d).toMatchObject({ class: 'failed', cause: 'dependency-failed', testStatus: 'BLOCKED', rootTestId: setup.id });
+  });
+
+  it('N11: a listing is recognised and never reads as passed', () => {
+    expect(isListOnlyRun('passed', [input({ attempts: [] }), input({ attempts: [] })])).toBe(true);
+    expect(isListOnlyRun('passed', [input({ attempts: [] }), input()])).toBe(false);
+    expect(isListOnlyRun('interrupted', [input({ attempts: [] })])).toBe(false);
+    expect(isListOnlyRun('passed', [])).toBe(false);
+    expect(listedHeadline(14)).toBe('LISTED 14 TESTS, NONE RUN');
+  });
+
+  it('N10: a test.fail test that passed first and failed on retry is flaky', () => {
+    const r = one({ expectedStatus: 'failed', tags: ['@blocked:BK-4'], annotations: [{ type: 'fail' }], attempts: [{ status: 'passed', durationMs: 1 }, { status: 'failed', durationMs: 1 }] });
+    expect(r).toMatchObject({ class: 'known-defect', flaky: true });
+    expect(one({ attempts: [{ status: 'passed', durationMs: 1 }] }).flaky).toBe(false);
   });
 });
 

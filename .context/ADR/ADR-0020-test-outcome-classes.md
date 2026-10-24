@@ -31,20 +31,20 @@ We will classify every test the run knows about into exactly one outcome class, 
 | Last attempt | Class | Cause | `TestStatus` |
 |---|---|---|---|
 | passed, expected to pass | `passed` | — | PASSED |
-| failed or timed out, expected to pass | `failed` | `assertion` / `timeout` | FAILED |
+| failed or timed out, expected to pass; or timed out under an expected failure | `failed` | `assertion` / `timeout` | FAILED |
 | skipped, expected to pass, no `skip`/`fixme` annotation | `failed` | `setup-cascade` | BLOCKED |
 | no result, a (transitive) dependency project had a failure | `failed` | `dependency-failed` | BLOCKED |
 | no result otherwise, or interrupted | `skipped` | `not-run` | NOT RUN |
-| expected failure (`test.fail`), failed | `known-defect` | `expected-failure` | FAILED |
+| expected failure (`test.fail`), failed (a timeout never reproduces the defect) | `known-defect` | `expected-failure` | FAILED |
 | expected failure, passed | `unexpected-pass` | `expected-failure` | PASSED |
 | skipped with a `skip`/`fixme` annotation | `skipped` | `skip-annotation` | NOT RUN |
 
 1. **A setup cascade is `failed` in the headline and BLOCKED on the board.** The test was expected to pass and did not, so the run cannot read green; but its body never ran, so it was not observed and PASSED or FAILED would be a false observation (D21). BLOCKED is the doctrine's "the blocking ladder is still open" reason: someone has to fix the setup. The pairing is stated in the banner and the step summary ("NOT OBSERVED: SETUP FAILED, BLOCKED ON THE BOARD") so nobody reads BLOCKED as a softer result. Each cascaded record names its root (`rootTestId`): the first plain failure in the same describe of the same project, or in the failed dependency project.
-2. **An expected failure names its defect.** `knownDefect('<KEY>')` (`tests/utils/knownDefect.ts`) pushes a `known-defect` annotation and calls `test.fail()` in one call. The repo's existing markers, the `@blocked:<KEY>` title tag and `test.fail(true, 'Blocked by <KEY>')`, are read too. An expected failure that names no key is still `known-defect`, plus the action item `known-defect-without-key`.
+2. **An expected failure names its defect.** `knownDefect('<KEY>')` (`tests/utils/knownDefect.ts`) pushes a `known-defect` annotation and calls `test.fail()` in one call. The repo's existing markers, the `@blocked:<KEY>` title tag and `test.fail(true, 'Blocked by <KEY>')`, are read too. A key is read only from a whole marker value or a description that starts with `Blocked by <KEY>`: free text such as "Broken UTF-8 handling" never mints a key. An expected failure that names no key is still `known-defect`, plus the action item `known-defect-without-key`.
 3. **An unexpected pass is an action item, never silently green.** Its `TestStatus` is PASSED because the assertions were observed passing, but it keeps the headline red until the bug is retested and the marker removed.
 4. **`skipped` never becomes DEFERRED or BLOCKED automatically.** Both need a QA decision record the reporter cannot mint (a gate that opens on a value the gated agent wrote is open by construction).
 5. **The headline is green only** when no record is `failed` or `unexpected-pass`, no action item is open, no test was left not run, and Playwright's own run status is `passed` (an error outside any test fails the run while every record reads clean). A green run still names its known defects and skips (`PASSED WITH 2 KNOWN DEFECTS, 1 SKIPPED`). The reporter never changes the exit code: Playwright still owns it.
-6. **Retries:** the last attempt decides the class; the record keeps the attempt count and `flaky: true` when an earlier attempt failed. There is no sixth class.
+6. **Retries:** the last attempt decides the class; the record keeps the attempt count and `flaky: true` when the last attempt matched the expectation and an earlier one did not (a `test.fail` test that passed first and failed on retry is flaky too). There is no sixth class. A test Playwright calls `unexpected` (a failure, a timeout, or an unexpected pass) is the root of the setup cascade or failed dependency it causes.
 7. **TC ids ride on the `@atc` decorator**, which now also pushes an `atc` annotation per ATC id; the records carry them as `atcIds`. A test whose body never ran has no ids in this version. The Xray/Jira write-back (`tests/utils/jiraSync.ts`, `reports/atc_results.json`) is unchanged.
 8. **Records hold the run's environment** (`run.environment`), because a run in a lower or local environment is not an execution the board may count. Error text is the first line only, ANSI-stripped and truncated, and never reaches the step summary.
 
@@ -54,6 +54,7 @@ The board (E3) will load the file, refuse any other schema, use `testStatus` thr
 
 - **Positive:** a run with a broken setup, a hidden expected failure or a fixed bug can no longer print ALL TESTS PASSED. The board gets per-test outcomes in its own vocabulary without parsing Allure. The classifier is unit-tested on the measured shapes (`bun test tests/utils`).
 - **Negative / trade-offs:** the final banner text changes for any run that is not truly all-passed, so a CI step that grepped the old failure text must read the records instead. A test that never ran carries no ATC ids until a static resolver exists. The classification depends on Playwright's skip and annotation shapes: re-measure them when `@playwright/test` moves a minor version.
+- **Inherent limit:** a static or describe-level `test.fail` whose `beforeAll` throws reads `known-defect` on its first test, exactly as Playwright counts it as expected; a one-test group then reads green. Marking expected failures inside the test body (`knownDefect()`) avoids it.
 - **Neutral / follow-ups:** the CI workflows do not run `bun test`, so the classifier tests gate only locally and in `repo:check` pieces a maintainer runs; wiring unit tests into CI is a separate decision. A static TC resolver for skipped tests and the board lane are E3 work.
 
 ## Alternatives considered

@@ -170,7 +170,10 @@ export interface OutcomesDocument {
 // Classification
 // ============================================
 
-const DEFECT_KEY = /\b([A-Z][A-Z0-9]+-\d+)\b/;
+/** A whole marker value is a key, never a key-shaped fragment of prose (`UTF-8`, `SHA-256`). */
+const DEFECT_KEY = /^[A-Z][A-Z0-9]+-\d+$/;
+/** The only form of a `test.fail` description that names a key (automation-standards §"Blocked by a known bug"). */
+const BLOCKED_BY = /^Blocked by ([A-Z][A-Z0-9]+-\d+)(?![\w-])/;
 const FAILED_STATUSES: ReadonlySet<PlaywrightStatus> = new Set(['failed', 'timedOut']);
 const MAX_ERROR_LEN = 300;
 
@@ -180,18 +183,23 @@ function hasAnnotation(input: OutcomeInput, ...types: string[]): boolean {
 
 /**
  * The defect a `test.fail` names, from the first marker that holds a key:
- * a `known-defect` annotation, the `@blocked:{BUG-KEY}` tag, or the
- * `test.fail(true, 'Blocked by {BUG-KEY}')` description
- * (`test-automation/references/automation-standards.md` §"Blocked by a known bug").
+ * a `known-defect` annotation whose whole value is a key, the
+ * `@blocked:{BUG-KEY}` tag, or a `test.fail` description that starts with
+ * `Blocked by {BUG-KEY}` (`test-automation/references/automation-standards.md`
+ * §"Blocked by a known bug"). Free text never mints a key: a reason such as
+ * "Broken UTF-8 handling" leaves the record keyless, which is an action item.
  */
 export function knownDefectKey(input: Pick<OutcomeInput, 'annotations' | 'tags'>): string | null {
-  const candidates = [
-    ...input.annotations.filter(a => a.type === 'known-defect').map(a => a.description ?? ''),
-    ...input.tags.filter(t => t.startsWith('@blocked:')).map(t => t.slice('@blocked:'.length)),
-    ...input.annotations.filter(a => a.type === 'fail').map(a => a.description ?? ''),
+  const exact = [
+    ...input.annotations.filter(a => a.type === 'known-defect').map(a => (a.description ?? '').trim()),
+    ...input.tags.filter(t => t.startsWith('@blocked:')).map(t => t.slice('@blocked:'.length).trim()),
   ];
-  for (const candidate of candidates) {
-    const match = candidate.match(DEFECT_KEY);
+  const key = exact.find(candidate => DEFECT_KEY.test(candidate));
+  if (key !== undefined) {
+    return key;
+  }
+  for (const a of input.annotations) {
+    const match = a.type === 'fail' ? (a.description ?? '').trim().match(BLOCKED_BY) : null;
     if (match) {
       return match[1];
     }
@@ -237,7 +245,8 @@ export function classifyAttempt(input: OutcomeInput): Classified {
     if (last.status === 'passed') {
       return { outcome: 'unexpected-pass', cause: 'expected-failure' };
     }
-    if (FAILED_STATUSES.has(last.status)) {
+    // Only an observed failure reproduces the defect: a timeout falls through to failed / timeout
+    if (last.status === 'failed') {
       return { outcome: 'known-defect', cause: 'expected-failure' };
     }
   }
@@ -284,8 +293,10 @@ export function buildOutcomeRecords(
 ): OutcomeRecord[] {
   const classified = inputs.map(input => ({ input, ...classifyAttempt(input) }));
 
+  // A root is any test Playwright calls `unexpected`: a plain failure or timeout,
+  // and an unexpected pass, which also stops a serial group or a setup project
   const isPlainFailure = (c: (typeof classified)[number]) =>
-    c.outcome === 'failed' && (c.cause === 'assertion' || c.cause === 'timeout');
+    (c.outcome === 'failed' && (c.cause === 'assertion' || c.cause === 'timeout')) || c.outcome === 'unexpected-pass';
 
   const firstFailureInSuite = new Map<string, string>();
   const firstFailureInProject = new Map<string, string>();
@@ -322,8 +333,10 @@ export function buildOutcomeRecords(
     }
 
     const last = input.attempts.at(-1);
-    const flaky = last?.status === 'passed'
-      && input.attempts.slice(0, -1).some(a => FAILED_STATUSES.has(a.status));
+    // Flaky = the last attempt matched the expectation and an earlier one did not
+    // (a `test.fail` that passed first and failed on retry is flaky too)
+    const flaky = last?.status === input.expectedStatus
+      && input.attempts.slice(0, -1).some(a => a.status !== input.expectedStatus);
     const defect = finalOutcome === 'known-defect' || finalOutcome === 'unexpected-pass'
       ? knownDefectKey(input)
       : null;
@@ -446,6 +459,20 @@ export function outcomeHeadline(summary: OutcomeSummary, runStatus = 'passed'): 
     parts.push('ERROR OUTSIDE ANY TEST');
   }
   return { ok, text: `EXECUTION FAILED: ${parts.join(', ')}` };
+}
+
+/**
+ * `playwright test --list` reaches the reporter's onEnd too, with no attempt
+ * anywhere: nothing ran, so there is no outcome to record. The records of the
+ * last real run stay where they are: a listing is not a run.
+ */
+export function isListOnlyRun(runStatus: string, inputs: readonly Pick<OutcomeInput, 'attempts'>[]): boolean {
+  return runStatus === 'passed' && inputs.length > 0 && inputs.every(i => i.attempts.length === 0);
+}
+
+/** The banner of a listing: never "passed", since nothing ran. */
+export function listedHeadline(total: number): string {
+  return `LISTED ${plural(total, 'TEST')}, NONE RUN`;
 }
 
 /** One line of counts that always follows the headline. */

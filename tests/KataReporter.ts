@@ -29,6 +29,8 @@ import {
   actionItemLines,
   buildOutcomeRecords,
   buildOutcomesDocument,
+  isListOnlyRun,
+  listedHeadline,
   outcomeCountsLine,
   outcomeHeadline,
   OUTCOMES_PATH,
@@ -62,6 +64,7 @@ class KataReporter implements Reporter {
   private parallelTests: boolean;
   private totalTests: number;
   private rootSuite: Suite | undefined;
+  private listOnly = false;
   private fullConfig: FullConfig | undefined;
 
   constructor() {
@@ -332,7 +335,14 @@ class KataReporter implements Reporter {
     const message = headline ? ` ${headline.text} ` : resultMessages[result.status];
     const green = headline ? headline.ok : result.status === 'passed';
 
-    if (green) {
+    if (this.listOnly) {
+      console.log(
+        `${colors.bold}${colors.white}%s${colors.reset}${colors.bgYellow}${colors.bgBlack}%s${colors.reset}`,
+        '🚀 Overall Output: 📋 ',
+        ` ${listedHeadline(this.totalTests)} `,
+      );
+    }
+    else if (green) {
       console.log(
         `${colors.bold}${colors.white}%s${colors.reset}${colors.bgGreen}${colors.bgBlack}%s${colors.reset}`,
         '🚀 Overall Output: ✅ ',
@@ -370,7 +380,6 @@ class KataReporter implements Reporter {
       return undefined;
     }
 
-    const rootDir = this.fullConfig.rootDir;
     const inputs: OutcomeInput[] = this.rootSuite.allTests().map((test) => {
       const project = test.parent.project()?.name ?? '';
       const lastResult = test.results.at(-1);
@@ -384,7 +393,8 @@ class KataReporter implements Reporter {
         id: test.id,
         title: test.title,
         titlePath: test.titlePath(),
-        file: relative(rootDir, test.location.file),
+        // Repo-relative (the run's cwd), not relative to the config's testDir
+        file: relative(process.cwd(), test.location.file),
         line: test.location.line,
         project,
         parentKey: [project, ...test.parent.titlePath()].join(' > '),
@@ -402,7 +412,8 @@ class KataReporter implements Reporter {
 
     // `playwright test --list` reaches onEnd too, with no attempt anywhere:
     // nothing ran, so there is no outcome to record (and no headline to bend)
-    if (result.status === 'passed' && inputs.every(i => i.attempts.length === 0)) {
+    if (isListOnlyRun(result.status, inputs)) {
+      this.listOnly = true;
       return undefined;
     }
 
