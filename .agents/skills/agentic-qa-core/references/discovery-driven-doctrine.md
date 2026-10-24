@@ -45,6 +45,10 @@ automate       a discovery-driven work package (`test-automation`)
 regression     the RTP grows; recompute the inventory and compare it with the first one
 ```
 
+`automate` takes only TCs that already exist in the TMS with a signed `Candidate` verdict: a gap with no
+signed Test goes back to `document`, never to a Test created by automation (the TC source gate of
+`test-automation`, a hard gate in `./stage-gates.md`).
+
 The `explore` and `confirm` steps are owned by `exploratory-testing`, the ticket-free entry into the
 Execution stage (`./stage-gates.md` §"The stages, by name"); `document` and `automate` run through
 `test-documentation` and `test-automation` in their `discovery-driven` scope (§2). The `inventory` step

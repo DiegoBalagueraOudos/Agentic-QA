@@ -116,7 +116,7 @@ Each candidate gets exactly one mark, from the coverage view the charter built:
 | Mark | When | Handed to `test-documentation`? |
 |---|---|---|
 | `NEW` | no counted cover on the behaviour | yes |
-| `WEAK` | only `weak` covers: a test runs through the behaviour, nothing it checks would fail if it broke | yes, naming each weak test so documentation decides strengthen-vs-new |
+| `WEAK` | only `weak` covers: a test runs through the behaviour, nothing it checks would fail if it broke | yes, naming each weak test so documentation turns it into a strengthen proposal for that test |
 | `COVERED` | at least one counted `exercises` cover whose evidence asserts what the candidate observed | no: recorded here with the covering key, never silently dropped |
 
 Fail-closed: a cover that is `stale`, unverified (`TMS not read`), in design, or `deprecated` does not
