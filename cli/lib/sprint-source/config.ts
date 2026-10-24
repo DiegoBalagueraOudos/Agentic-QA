@@ -40,7 +40,7 @@ export const LINK_TYPES_CATALOG = '.agents/jira-link-types.json';
 /** `.agents/jira-workflows.json`, only the parts read here. */
 export type WorkflowCatalog = Record<string, {
   jira_issue_type?: { name?: string }
-  statuses?: Record<string, { name?: string }>
+  statuses?: Record<string, { name?: string, category?: string }>
 }>;
 
 /** `.agents/jira-fields.json`, only the parts read here. */
