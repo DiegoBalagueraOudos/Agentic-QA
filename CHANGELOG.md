@@ -30,7 +30,11 @@ below names which one it applies to:
   on them. Doctrine: `git-flow-master/references/observer.md`.
 - **`sprint-testing/references/sprint-board.md`**: the conductor's side of the board (the board at
   every stage, the block a worker's brief carries, the channels, decision cards, the sentinel).
-- `cli/lib/sprint-source/`: untracked sprint rows now carry their `statusKey` and `bucket`.
+- `cli/lib/sprint-source/`: untracked sprint rows now carry their `statusKey` and `bucket`; a row in
+  a status `board.statuses` does not list comes back with `bucket: null` and the reason instead of
+  failing `--discover` (a tracked ticket in such a status still fails). `SnapshotOptions.bugKeys`
+  reads extra bug ids (the board's own links): they count in `searched.bugs`, and one the tracker
+  cannot find is returned in `missing.bugs`.
 
 ### Added (coverage inventory)
 - **`project-context` mode `coverage`**: crosses the behaviours in the business maps with the
