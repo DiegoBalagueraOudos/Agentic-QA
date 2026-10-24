@@ -152,7 +152,7 @@ The vocabulary is `../../agentic-qa-core/references/discovery-driven-doctrine.md
 
 ## CAND-01: Validate <core> <conditional>
 - **Behaviour**: <gap id or new kebab id> (<map section, or "not in the maps">)
-- **Mark**: <NEW | WEAK (weak: PROJ-13 checks X, not Y) | COVERED (PROJ-21 exercises it)>
+- **Mark**: <NEW | WEAK (weak: PROJ-7013 checks X, not Y) | COVERED (PROJ-7021 exercises it)>
 - **Precondition**: <concrete setup, synthetic or fixture entity>
 - **Action**: <what was done>
 - **Observed**: <what the product did>

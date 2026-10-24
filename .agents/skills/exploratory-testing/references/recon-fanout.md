@@ -35,7 +35,7 @@ writes it to `recon/<surface>.json` in the session directory and returns the sam
       "what": "the product did <X> when <action> with <data> as <role>",
       "env": "staging",
       "observed_live": true,
-      "covered_by": [{ "test": "PROJ-13", "verdict": "weak", "evidence": "checks the total, not the discount" }]
+      "covered_by": [{ "test": "PROJ-7013", "verdict": "weak", "evidence": "checks the total, not the discount" }]
     }
   ],
   "fixtures_used": ["account <id> (from module-context)"],

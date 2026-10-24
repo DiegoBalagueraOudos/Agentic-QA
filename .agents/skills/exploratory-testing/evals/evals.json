@@ -32,8 +32,8 @@
     },
     {
       "name": "weak-cover-does-not-dedupe",
-      "prompt": "Explore the user profile module. The existing test PROJ-40 opens the profile page and checks the page title, and you saw that saving a phone number with spaces silently strips the spaces.",
-      "expected_behavior": "Marks the phone-number scenario WEAK, not COVERED: PROJ-40 runs through the profile page but nothing it checks would fail if the save behaviour broke. The scenario is handed off naming PROJ-40 as the weak cover, with oracle: observed, and the question 'is stripping the spaces intended?' goes to a person.",
+      "prompt": "Explore the user profile module. The existing test PROJ-7040 opens the profile page and checks the page title, and you saw that saving a phone number with spaces silently strips the spaces.",
+      "expected_behavior": "Marks the phone-number scenario WEAK, not COVERED: PROJ-7040 runs through the profile page but nothing it checks would fail if the save behaviour broke. The scenario is handed off naming PROJ-7040 as the weak cover, with oracle: observed, and the question 'is stripping the spaces intended?' goes to a person.",
       "category": "positive"
     },
     {
@@ -62,7 +62,7 @@
     },
     {
       "name": "should-not-trigger-single-ticket",
-      "prompt": "Test the user story PROJ-123, it's about the new date filter on the orders summary page.",
+      "prompt": "Test the user story PROJ-7123, it's about the new date filter on the orders summary page.",
       "expected_behavior": "Does NOT activate exploratory-testing. Routes to sprint-testing (single-issue mode): a named ticket key means the request is ticket-scoped.",
       "category": "negative"
     },
@@ -80,7 +80,7 @@
     },
     {
       "name": "should-not-trigger-preplanning-refinement",
-      "prompt": "PROJ-124 hasn't been built yet, it's up for refinement in tomorrow's sprint planning. Go through the acceptance criteria and see if anything is ambiguous before dev picks it up.",
+      "prompt": "PROJ-7124 hasn't been built yet, it's up for refinement in tomorrow's sprint planning. Go through the acceptance criteria and see if anything is ambiguous before dev picks it up.",
       "expected_behavior": "Does NOT activate exploratory-testing: nothing exists to explore yet. Routes to shift-left-testing, which interrogates ACs before implementation.",
       "category": "negative"
     }

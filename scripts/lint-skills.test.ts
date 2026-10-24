@@ -428,9 +428,9 @@ describe('lint-skills session scopes (check 12)', () => {
   test('an exploratory-testing round is a dated scope; a ticket key under it is SESSION-SCOPE-INVALID', () => {
     const root = fixture({ listCommunityInAgentsMd: true });
     mkdirSync(join(root, '.session/exploratory-testing/2026-05-20-orders'), { recursive: true });
-    mkdirSync(join(root, '.session/exploratory-testing/PROJ-12'), { recursive: true });
+    mkdirSync(join(root, '.session/exploratory-testing/PROJ-7012'), { recursive: true });
     const { output } = runLint(root);
-    expect(output).toContain('SESSION-SCOPE-INVALID: .session/exploratory-testing/PROJ-12/');
+    expect(output).toContain('SESSION-SCOPE-INVALID: .session/exploratory-testing/PROJ-7012/');
     expect(output).not.toContain('.session/exploratory-testing/2026-05-20-orders/');
   });
 });
