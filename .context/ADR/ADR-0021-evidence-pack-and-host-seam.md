@@ -48,3 +48,7 @@ We will describe evidence as DATA, an evidence pack (`evidence-pack/1.0`), and b
 - Bucket and naming rules: `.agents/skills/agentic-qa-core/references/evidence-conventions.md`.
 - Board configuration and `allowed_hosts`: ADR-0019.
 - Outcome vocabulary: `.agents/skills/agentic-qa-core/references/discovery-driven-doctrine.md` §5.
+
+## Amendment (2026-10-24): the tracker write path
+
+Added by the `e5-evidence-complete` delivery on the conductor's plan approval; the decision above is unchanged. The tracker side the follow-ups named is `cli/lib/evidence-page/tracker.ts`, behind `bun run evidence attach` and `bun run evidence link`. `attach` puts a bug's ONE thumbnail at the end of its Description (append only; a Description the edit screen refuses falls back to a comment headed `Evidence`) and, on `jira-xray`, a named Test Run's evidence; `link` adds the published page to an issue as a remote link keyed by the page URL, so a retest republish updates one link, and on `jira-xray` appends the TC deep link to the run comment. The page HTML is never uploaded to the tracker, which would serve it as a download. Every write is read back at the destination (the attachment's size and the media node in the Description or comment, the remote link's URL, the run's evidence and comment) and a mismatch exits 1; `--dry-run` prints every call and sends nothing; the `none` source writes nothing. The calls go through the repo's existing clients (the acli media helper, `cli/lib/sprint-source/transport.ts`, `cli/xray`), never a new one.

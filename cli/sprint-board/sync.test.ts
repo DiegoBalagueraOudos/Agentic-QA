@@ -82,7 +82,8 @@ suite('sync through the none source (the demo tickets.yaml)', () => {
     // DEMO-7107 has no QA owner: it stays off the board and is listed as untracked in test.
     expect(t.discover?.untracked).toEqual([{ id: 'DEMO-7107', title: 'Saved addresses can be edited', status: 'Ready for QA', bucket: 'in_test', qa: undefined }]);
     expect(t.discover?.sprintRows).toBe(7);
-    expect(t.discover?.bugs).toBeUndefined();
+    // The file IS the sprint: every row under bugs: is one of the sprint's own bug rows.
+    expect(t.discover?.bugs?.find(b => b.id === 'DEMO-7201')).toMatchObject({ title: 'Expired discount code is accepted at checkout', bucket: 'open', createdAt: '2026-01-14T14:45:00Z' });
     expect(t.searched).toEqual({ tickets: 6, tcs: 12, bugs: 1 });
     expect(events().filter(e => e.kind === 'scope.add').map(e => e.ticket).sort()).toEqual(['DEMO-7101', 'DEMO-7102', 'DEMO-7103', 'DEMO-7104', 'DEMO-7105', 'DEMO-7106']);
   });
@@ -215,6 +216,7 @@ function replay(): Transport {
       if (jql.startsWith(`key in (${RECORDED_TESTS.join(', ')}`)) { return recorded('jira-search-tests.json'); }
       if (jql.startsWith('key in (ACME-41, ACME-42, ACME-43)')) { return recorded('jira-search-executions.json'); }
       if (jql.startsWith('key in (ACME-21)')) { return recorded('jira-search-bugs.json'); }
+      if (jql === 'project = ACME AND sprint in openSprints() AND issuetype in ("Bug")') { return recorded('jira-search-sprint-bugs.json'); }
       throw new Error(`unexpected jql ${jql}`);
     },
     async xray<T>(): Promise<T> { throw new Error('jira-native never calls Xray'); },
@@ -238,6 +240,10 @@ suite('sync through jira-native (recorded responses)', () => {
     expect(t.bugs['ACME-21']).toMatchObject({ bucket: 'open', statusKey: 'open' });
     expect(t.discover?.sprintRows).toBe(3);
     expect(t.discover?.untracked).toEqual([]);
+    // The sprint's own bug rows reach the store; the one in an unmapped status does not.
+    expect(t.discover?.bugs?.map(b => `${b.id}:${b.bucket}`)).toEqual(['ACME-21:open', 'ACME-7022:open', 'ACME-7024:open']);
+    // ...and the one left out is stored, so the Bugs view names it (ADR-0023 point 6, like a ticket row)
+    expect(t.discover?.unclassifiedBugs).toMatchObject([{ id: 'ACME-7023', status: 'Triage' }]);
   });
 });
 

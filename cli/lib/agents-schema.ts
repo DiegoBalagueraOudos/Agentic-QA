@@ -557,6 +557,7 @@ export const IDENTITY_PATHS: readonly string[] = [
   // query, the status buckets (this repo's workflow slugs), people and brand
   // are this project's own.
   'board.jql',
+  'board.bug_jql',
   'board.ticket_key_pattern',
   'board.timezone',
   'board.statuses.tickets.*',
@@ -646,6 +647,7 @@ export const FILLED_ELSEWHERE: Readonly<Record<string, string>> = {
   'harnesses': 'the agent selection of `bun setup` (`recordHarnessSelection` in cli/install.ts; null = detect from the files present, ADR-0012)',
   ...Object.fromEntries([
     'board.jql',
+    'board.bug_jql',
     'board.ticket_key_pattern',
     'board.timezone',
     'board.statuses.tickets.not_ready',

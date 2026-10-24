@@ -411,7 +411,8 @@ function bugSearchLine(c: Ctx): string {
     ? tr('the sprint\'s own Bug rows not checked yet (needs a <code>sync --discover</code>)', 'las filas Bug del sprint aún sin revisar (falta un <code>sync --discover</code>)')
     : `${s.createdInSprint} ${tr('created this sprint, of', 'creados en este sprint, de')} ${s.bugRows} ${tr('Bug rows among the', 'filas Bug entre las')} ${s.sprintRows} ${tr('sprint rows', 'filas del sprint')}${s.discoveredAt ? ` (${tr('read', 'leído')} ${esc(day(s.discoveredAt).slice(5))} ${hhmm(s.discoveredAt)})` : ''}`;
   const lost = s.missing?.length ? ` <b>${s.missing.length} ${tr(`linked here but not found in ${TRK(c)}`, `vinculados aquí pero no encontrados en ${TRK(c)}`)}: ${s.missing.map(esc).join(', ')}.</b>` : '';
-  return `${tr('Searched', 'Buscado')}: ${linked}; ${sprint}. ${tr('A bug filed into another sprint and never linked here is not found.', 'Un bug cargado en otro sprint y nunca vinculado aquí no aparece.')}${lost}`;
+  const left = s.unclassified?.length ? ` <b>${s.unclassified.length} ${tr('Bug rows not counted (status in no bucket of board.statuses)', 'filas Bug sin contar (estado fuera de los buckets de board.statuses)')}: ${s.unclassified.map(u => `${esc(u.id)} (${esc(u.status || '?')})`).join(', ')}.</b>` : '';
+  return `${tr('Searched', 'Buscado')}: ${linked}; ${sprint}. ${tr('A bug filed into another sprint and never linked here is not found.', 'Un bug cargado en otro sprint y nunca vinculado aquí no aparece.')}${lost}${left}`;
 }
 
 function bugRow(b: SprintBug, c: Ctx): string {

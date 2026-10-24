@@ -39,7 +39,7 @@ A FAIL found during deep exploration is NOT automatically a Critical bug and doe
 
 Severity is assigned per `reporting-templates.md` §1.4 (a FAIL is not auto-Critical), and security/auth/framework-default findings are recalibrated at Stage 3 per `reporting-templates.md` §5.0 — so do not pre-file a Critical bug from inside the pass. The point of finishing the pass is full coverage: one non-blocking finding should not abort the other TCs.
 
-**Visual/positional findings — annotate before filing.** If a confirmed finding is visual or positional — overlapping elements, misalignment, a wrong date/offset on a chart axis, anything a raw screenshot needs a paragraph to explain — load the `bug-screenshot-annotation` skill to produce a marked-up capture (circles, arrows, callouts, corner badge) before the Stage 3 filing loop. Skip it for purely textual findings (an error message, a wrong number in a field) where the raw capture already reads clearly. The annotated PNG becomes the lead evidence in the bug report and the Evidence Handoff.
+**Visual/positional findings — annotate before filing.** If a confirmed finding is visual or positional — overlapping elements, misalignment, a wrong date/offset on a chart axis, anything a raw screenshot needs a paragraph to explain — load the `bug-screenshot-annotation` skill to produce a marked-up capture (circles, arrows, callouts, corner badge) before the Stage 3 filing loop. Skip it for purely textual findings (an error message, a wrong number in a field) where the raw capture already reads clearly. The annotated PNG becomes the lead evidence in the bug report and the first defect image of the bug's evidence pack, so it leads the evidence page the Evidence Handoff links.
 
 ---
 

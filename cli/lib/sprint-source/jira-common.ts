@@ -21,9 +21,9 @@
 
 import type { BoardConfig, WorkflowCatalog } from './config.ts';
 import type { Transport } from './transport.ts';
-import type { Bug, SnapshotOptions, Source, SourceKind, SourceSnapshot, TestCase, Ticket, UntrackedRow } from './types.ts';
+import type { Bug, SnapshotOptions, Source, SourceKind, SourceSnapshot, TestCase, Ticket, UnclassifiedBugRow, UntrackedRow } from './types.ts';
 
-import { BUG_WORK_TYPES, TICKET_WORK_TYPES, WORKFLOWS_CATALOG } from './config.ts';
+import { BUG_WORK_TYPES, issueTypeNames, TICKET_WORK_TYPES, WORKFLOWS_CATALOG } from './config.ts';
 import { classifyBug, classifyTicket } from './status-map.ts';
 
 // ============================================================================
@@ -103,16 +103,15 @@ export async function issuesByKey(transport: Transport, keys: readonly string[],
   return out;
 }
 
-/** The `jira_issue_type.name` of each work-type slug the catalog declares, with a fallback name. */
-export function issueTypeNames(catalog: WorkflowCatalog | null, workTypes: readonly string[], fallback: readonly string[]): Set<string> {
-  const names = new Set<string>();
-  for (const workType of workTypes) {
-    const name = catalog?.[workType]?.jira_issue_type?.name;
-    if (name) { names.add(name); }
-  }
-  if (names.size === 0) { for (const name of fallback) { names.add(name); } }
-  return names;
+/** A Jira timestamp (`2026-01-15T20:30:00.000-0500`) as UTC ISO; an unparsable one is kept as it came. */
+function utcIso(at: string | null): string | null {
+  if (at === null) { return null; }
+  const ms = Date.parse(at.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
+  return Number.isNaN(ms) ? at : new Date(ms).toISOString();
 }
+
+// Moved to config.ts (the bug query is derived there); re-exported so the import path holds.
+export { issueTypeNames };
 
 /**
  * Status display name -> workflow slug, looked up in the issue's OWN work
@@ -325,6 +324,31 @@ export function createJiraSource(parts: JiraSourceParts): Source {
             }
           });
         snapshot.discover = { at: now.toISOString(), sprintRows: rows.length, untracked };
+
+        // The Bugs view's second source: the sprint's own bug rows, one more search.
+        if (config.bugJql) {
+          const sprintBugs: Bug[] = [];
+          const unclassifiedBugs: UnclassifiedBugRow[] = [];
+          for (const r of await searchAll(transport, config.bugJql, fields)) {
+            const type = r.fields.issuetype?.name ?? '';
+            const status = r.fields.status?.name ?? '';
+            if (!bugTypeNames.has(type)) {
+              unclassifiedBugs.push({ id: r.key, status, reason: `issue type "${type}" is not a bug work type (${[...bugTypeNames].join(', ')}); narrow board.bug_jql` });
+              continue;
+            }
+            // A bug row in a status no bucket lists is named, never counted as open.
+            try {
+              const row = common(r);
+              // UTC ISO, so the board's sprint window (an ISO string comparison) reads an offset time right
+              sprintBugs.push({ ...row, updatedAt: utcIso(row.updatedAt), bucket: classifyBug(config.statusMap, r.key, row.statusKey), createdAt: utcIso(r.fields.created ?? null), tickets: linkedBugs.get(r.key) ?? [] });
+            }
+            catch (err) {
+              unclassifiedBugs.push({ id: r.key, status, reason: (err as Error).message });
+            }
+          }
+          snapshot.discover.bugs = sprintBugs;
+          if (unclassifiedBugs.length > 0) { snapshot.discover.unclassifiedBugs = unclassifiedBugs; }
+        }
       }
       return snapshot;
     },

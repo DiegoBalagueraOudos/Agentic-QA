@@ -375,11 +375,13 @@ describe('listen --since', () => {
 describe('bug evidence reminder', () => {
   const base = { ticket: 'DEMO-7350', bug: 'DEMO-7450' };
 
-  test('images on disk and no hint of an embed: one line citing the bug report template', () => {
+  test('images on disk and no hint of an embed: one line naming the thumbnail build, the attach and its read-back', () => {
     const r = bugEvidenceReminder({ ...base, images: ['a.png', 'b.png'], embedded: false });
     expect(r).toContain('2 evidence image(s)');
     expect(r).toContain('DEMO-7450\'s Description');
-    expect(r).toContain('reporting-templates.md');
+    expect(r).toContain('bun run evidence build --thumb');
+    expect(r).toContain('bun run evidence attach');
+    expect(r).toContain('read-back');
     expect(r).not.toContain('\n');
   });
 

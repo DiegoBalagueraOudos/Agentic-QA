@@ -88,14 +88,15 @@ _RELATED STORIES_
 * Blocks: [other issues]
 ```
 
-**Attach visual evidence** (screenshot of the failing UI, console capture, repro recording). `![](path)` does NOT embed in Jira — use the bundled helper, which uploads the file and posts it inline as a real image:
+**Attach visual evidence.** The bug's evidence is its evidence page (the `evidence-artifact` skill): its link goes under `## Evidence`, and the bug keeps ONE annotated thumbnail in its Description, embedded after the link is written and read back before anyone says it is there:
 
 ```bash
-bun .agents/skills/acli/scripts/jira-attach-media.ts {{PROJECT_KEY}}-<bug> ./evidence/repro-step-3.png \
-  --caption "Step 3 — validation error not shown" --publish
+bun run evidence build --pack <PBI>/evidence/evidence-pack-<BUG>.json \
+  --thumb <PBI>/evidence/evidence-artifact/<BUG>/<BUG>-thumbnail.png
+bun run evidence attach --pack <PBI>/evidence/evidence-pack-<BUG>.json
 ```
 
-One call per evidence file (the image is embedded as a comment on the bug). Full recipe + when-to-use in `../../acli/references/adf-authoring-style.md` §media. This is the high-value case: a reviewer sees the failing screen inline instead of clicking through to the Attachments panel.
+`![](path)` does NOT embed in Jira; `attach` uploads the PNG with the bundled media helper and appends it to the end of the Description (`evidence-artifact/references/workflow.md` §4). Nothing else is attached by hand. Without an evidence page (no pack for this bug), the helper alone posts one image as a comment: `bun .agents/skills/acli/scripts/jira-attach-media.ts {{PROJECT_KEY}}-<bug> <png> --caption "<what it shows>" --publish` (full recipe in `../../acli/references/adf-authoring-style.md` §media). Either way a reviewer sees the failing screen inline instead of clicking through to the Attachments panel.
 
 ### 1.4 Severity matrix
 
@@ -318,6 +319,9 @@ TEST DATA
 BUGS FOUND
   {None | list with {BUG-KEY} - severity}
 
+EVIDENCE HANDOFF
+  {the §3.5 block: the evidence page URL, one line per bug page, the ranked deep links}
+
 OBSERVATIONS
   {Notable findings, edge cases, UX feedback}
 
@@ -526,38 +530,43 @@ Returning to dev for review.
 Artifacts: ATP-{id}, ATR-{id}
 ```
 
-### 3.5 Evidence Handoff (emit at Stage 3 close whenever UI or API evidence exists)
+### 3.5 Evidence Handoff (emit at Stage 3 close whenever UI, API or DB evidence exists)
 
-A ranked, captioned shortlist of exactly what belongs on the ticket, emitted in chat after the Template A-D comment posts — **on ANY verdict** (pass, fail, bug, open question): a reader trusts a finding far more when they can see it, UI work especially. It never goes inside the Jira comment body itself. When the ticket has a built evidence page, the handoff also cites the page: its URL once published, else its path and "page pending publish" (the `evidence-artifact` skill, `references/workflow.md` §3).
+All evidence a reader needs lives on the ticket's **evidence page**: one private page per story ticket under test and one per bug filed, built from the evidence pack the session wrote during Stage 2 (annotated screenshots, expected vs actual, API requests, SQL results). The `evidence-artifact` skill owns it: build and publish per its `references/workflow.md` §3 BEFORE composing this handoff, so every line below carries a real URL. The handoff is ALWAYS produced when evidence exists, on ANY verdict (pass, fail, bug, open question).
 
-Format:
+This block is for the human (printed in chat) and it is also the ATR's ONE evidence list: it goes into the ATR body as its `EVIDENCE HANDOFF` section in the same update that marks the ATR complete (§2). The ATR never carries a second list. The QA comment carries only the page link, in its footer (`Evidence → [evidence page](<url>)`); each TC's notes get their own deep link (`evidence-artifact/references/workflow.md` §3 step 6). The tracker keeps one image per bug: the thumbnail in the bug's Description (§1.3); nothing else is attached by hand.
+
+What to emit:
+
+1. **Evidence pages**: the ticket's page URL, then one line per bug page (`{BUG} — {title} — <url>`), plus the owner line: "Published private: share it from the page's Share menu."
+2. **What the page proves (ranked)**: 1-4 lines, each a business caption naming its case, with the case's deep link (`<url>#{KEY}.{TC}`): the headline proof first, then edge cases and controls.
+3. **Local pack**: the absolute path of `evidence/evidence-pack.json` and the screenshot folder, for the operator on this machine. Never in the tracker.
+
+Format (chat + the `EVIDENCE HANDOFF` section of the ATR):
 
 ```
-### Evidence Handoff — evidence for the {KEY} thread
-Evidence folder: {absolute path}/evidence/
+### Evidence Handoff — {KEY}
+Evidence page: <url>   (published private; share it from the page's Share menu)
+Bug pages: {BUG} — {title} — <url>
 
-Recommended (in this order):
-1. {file} — {business caption}
-2. {file} — {business caption}
+What it proves:
+1. {TC} — {business caption} — <url>#{KEY}.{TC}
+2. {TC} — {business caption} — <url>#{KEY}.{TC}
 
-Skipped (available, not needed): {smoke shot}, raw console/page logs.
-
-API evidence (paste as a thread reply):       <- only if the API was tested
-    GET /api/{endpoint}?{params}
-    Authorization: <redacted>
-    -> 200 · {proving field}: {value}
+Local pack: {absolute path}/evidence/evidence-pack.json (screenshots beside it)
 ```
 
-**Delivery — this repo can auto-embed.** Jira accepts inline images via the bundled helper (§1.3), so after emitting the ranked list, OFFER to publish the recommended images directly onto the target issue (one helper call per file, human confirms first); the human-attaches path stays as fallback for surfaces the helper can't reach. Either way the AI never claims an attachment happened unless the helper call verifiably succeeded.
+**When the page could not be published.** The Artifact tool is unavailable in the session, or the build stopped (it names the field). Say so in the handoff (and in the mailbox for a fleet worker): the conductor publishes from the pack (`evidence-artifact/references/workflow.md` §3). Until then the handoff lists the ranked screenshot files by absolute path with the same captions, `ls`-verified, and the ATR line says the page is pending; replace it once the URL exists.
 
 Rules:
 
-- **Curate ruthlessly — do not dump the folder.** 1-4 shots is typical. Lead with the headline / "money" shot; if a bug got an annotated capture via the `bug-screenshot-annotation` skill, that annotated PNG IS the money shot — rank it first, ahead of the raw capture. Then edge cases / controls. For bugs show the fix working (Template C) or the persisting failure (Template D); for stories show key ACs verified; never list intermediate navigation shots.
+- ALWAYS emitted when UI, API or DB evidence exists, independent of the verdict.
 - **Captions are business outcomes, not mechanism** — "discount now its own line, total unchanged", NOT "panel screenshot at 1280px".
-- **Verify each file exists on disk first** (`ls` the evidence dir) — never recommend a capture a subagent only claimed to take (`../../agentic-qa-core/references/evidence-conventions.md` §3).
-- **Skip list, one line** — name the captured-but-not-recommended files so the human knows they were considered, not forgotten.
-- **API evidence blocks carry ZERO credentials** — redact `Authorization` / Bearer / cookies / API keys / passwords / session tokens → `<redacted>`; drop any token query-param. Show only what proves the behavior (status + the one field that makes the point).
-- **Absolute paths here** (the human may open the OS file browser to drag files); the session-footer consolidated list (`../../agentic-qa-core/references/session-footer-contract.md`) uses repo-relative paths — produce both where both apply.
+- **Verify each file exists on disk first** (`ls` the evidence dir) — never cite a capture a subagent only claimed to take (`../../agentic-qa-core/references/evidence-conventions.md` §3).
+- The page holds the API and SQL proof, credentials redacted when the pack was written (`evidence-artifact/references/privacy.md`); the handoff does not repeat request blocks.
+- A link is the published page URL; the COMMENT never carries a local path.
+- The AI never claims the owner shared the page; it says the page was published private.
+- **Never hand over or embed a Playwright trace, HAR or raw network dump**, in the tracker, a PR or an evidence page. A trace bundles every network response the run captured, including unrelated data. Traces stay on the machine, gitignored, for local debugging.
 
 Naming: files in `evidence/` follow §1.11 (`{KEY}-step{NN}-{action}.{ext}`) or the Stage 2 exploration family; annotated images use the dedicated suffix — full model in `../../agentic-qa-core/references/evidence-conventions.md` §2.
 
@@ -608,7 +617,7 @@ Record the gate outcome (hypothesis, cited fact, decision) in the ATR Observatio
 
 1. ATR marked complete in TMS via `[TMS_TOOL]`, then TRANSITIONED to `{{jira.status.test_execution.close}}` per §2.4 — together with the ATS (→ `{{jira.status.test_set.close}}`) and the ATP (→ `{{jira.status.test_plan.completed}}`). Leaving any of the three where `create` dropped it is a Reporting DoD failure (sprint-testing anti-pattern S18).
 2. QA comment posted (Template A, B, C or D) via `[ISSUE_TRACKER_TOOL]`.
-3. Evidence Handoff emitted per §3.5 (ranked + captioned, absolute paths, auto-embed offered via the §1.3 helper).
+3. Evidence Handoff emitted per §3.5 (the page URLs, ranked deep links, the local pack; the same block is the ATR's evidence section).
 4. Ticket transitioned — Story PASSED (every case PASSED, or `DEFERRED (execution)` listed in the QA comment for the signer) -> `{{jira.status.story.qa_approved}}` (via `{{jira.transition.story.qa_sign_off}}`); Bug VERIFIED -> `{{jira.status.bug.closed}}` (via `{{jira.transition.bug.retest_passed}}`); Story FAILED **(run the §5.0 recalibration gate first for any security/auth/framework-default FAIL — a recalibrated finding becomes GO-with-debt and takes the PASSED path, not a blocking transition)** with `{{FORMAL_BLOCKED_GATE}}=true` -> `{{jira.status.story.blocked}}` (via `{{jira.transition.story.defect_reported}}`); Story FAILED non-strict -> left in `{{jira.status.story.in_test}}` with linked bug; Bug NOT FIXED -> left in `{{jira.status.bug.ready_for_qa}}` pending dev. See `sprint-orchestration.md` Briefing 4 Step 5 for the full decision tree.
 5. **Create the blocking traceability link — Story `is blocked by` Bug.** Whenever the `defect_reported` → `blocked` gate fires (`{{FORMAL_BLOCKED_GATE}}=true`), the status transition alone does not record the dependency; create the issuelink so the block gate and coverage consumers can walk it:
 
@@ -659,7 +668,7 @@ When some TCs pass and others fail, set ATR result to `FAILED` (one or more fail
 - [ ] ATR body written in the §2.2 plain-text format and uploaded via `[TMS_TOOL]` (or to `{{jira.acceptance_test_results}}` / `## Acceptance Test Results (ATR)` fallback comment)
 - [ ] Synced ATR cache materialized (not hand-written) — jira-native: `acceptance-test-results.md` via `bun run jira:sync-issues get <STORY_KEY> --include-comments`; jira-xray: `test-executions/ATR-<ATR_KEY>-<slug>.md` via `bun run jira:sync-issues get <ATR_KEY>` (per-TC run results read via `[TMS_TOOL]`, not synced)
 - [ ] Correct QA comment template chosen (A/B/C/D) and posted via `[ISSUE_TRACKER_TOOL]`
-- [ ] Evidence Handoff emitted (§3.5): ranked 1-4 shots with business captions, skip list, API blocks redacted, files ls-verified; auto-embed offered
+- [ ] Evidence Handoff emitted (§3.5) and written as the ATR's `EVIDENCE HANDOFF` section: page URLs, ranked deep links with business captions, local pack path; each bug's ONE thumbnail embedded with `bun run evidence attach` and read back
 - [ ] Blocking/defect ticket mentions in the posted comment are real links, not bare keys (§3 real-link rule)
 - [ ] Ticket transitioned (story PASSED -> `{{jira.status.story.qa_approved}}`; bug VERIFIED -> `{{jira.status.bug.closed}}`)
 - [ ] `context.md` updated with Final Status block

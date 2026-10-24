@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 import { parse as parseYaml } from 'yaml';
 
-import { DEFAULT_TEST_STATUSES, loadBoardConfig, modalityFromTmsCli, resolveBoardConfig } from './config.ts';
+import { DEFAULT_TEST_STATUSES, deriveBugJql, loadBoardConfig, modalityFromTmsCli, resolveBoardConfig } from './config.ts';
 
 const RECORDED = join(import.meta.dir, 'fixtures', 'recorded');
 const catalogs: Catalogs = {
@@ -143,7 +143,7 @@ describe('board config: every error names its key path', () => {
   test('a misspelled key is an error, never "unconfigured"', () => {
     const typo = project(null);
     typo.board = { source: 'auto', statuse: { tickets: { in_test: ['in_test'] } } };
-    expect(invalid(resolveBoardConfig(typo, catalogs))).toEqual(['board.statuse: unknown key (expected one of: source, tickets_file, jql, ticket_key_pattern, timezone, statuses, people, evidence, brand)']);
+    expect(invalid(resolveBoardConfig(typo, catalogs))).toEqual(['board.statuse: unknown key (expected one of: source, tickets_file, jql, bug_jql, ticket_key_pattern, timezone, statuses, people, evidence, brand)']);
     const nested = invalid(resolveBoardConfig(project({ evidence: { allowed_host: ['claude.ai'] }, brand: { logo: null, colour: 'red' }, people: [{ name: 'Rowan QA', langauge: 'en' }] }), catalogs));
     expect(nested).toEqual([
       'board.evidence.allowed_host: unknown key (expected one of: allowed_hosts)',
@@ -203,6 +203,32 @@ describe('board config: coverage warnings', () => {
       'board.statuses.tickets: workflow status "aborted" is in no bucket; a ticket in it will fail the snapshot',
       'board.statuses.tickets: workflow status "completed" is in no bucket; a ticket in it will fail the snapshot',
     ]);
+  });
+});
+
+describe('board config: the sprint\'s bug query', () => {
+  const BUG = new Set(['Bug', 'Defect']);
+
+  test('derived from board.jql: its one issuetype clause swapped, else the bug types ANDed on before ORDER BY', () => {
+    expect(deriveBugJql('project = ACME AND sprint in openSprints() AND issuetype = Story', BUG)).toBe('project = ACME AND sprint in openSprints() AND issuetype in ("Bug", "Defect")');
+    expect(deriveBugJql('project = ACME AND issuetype in (Story, "Tech Story") AND sprint = 7', BUG)).toBe('project = ACME AND issuetype in ("Bug", "Defect") AND sprint = 7');
+    expect(deriveBugJql('project = ACME AND sprint in openSprints() ORDER BY rank', BUG)).toBe('project = ACME AND sprint in openSprints() AND issuetype in ("Bug", "Defect") ORDER BY rank');
+  });
+
+  test('not derived when a rewrite could widen or invert the query', () => {
+    expect(deriveBugJql('project = ACME AND (issuetype = Story OR labels = qa)', BUG)).toBeNull();
+    expect(deriveBugJql('project = ACME AND issuetype NOT IN (Epic)', BUG)).toBeNull();
+    expect(deriveBugJql('project = ACME AND issuetype = Story AND type = Story', BUG)).toBeNull();
+  });
+
+  test('board.bug_jql wins; the derived one is printed with its source; an underivable one warns', () => {
+    const derived = ok(resolveBoardConfig(project({}), catalogs));
+    expect(derived.config.bugJql).toBe('project = ACME AND sprint in openSprints() AND issuetype in ("Bug")');
+    expect(derived.derived).toContainEqual({ key: 'board.bug_jql', value: derived.config.bugJql, from: 'board.jql' });
+    expect(ok(resolveBoardConfig(project({ bug_jql: 'project = ACME AND type = Bug' }), catalogs)).config.bugJql).toBe('project = ACME AND type = Bug');
+    const orJql = ok(resolveBoardConfig(project({ jql: 'project = ACME AND (sprint = 7 OR sprint = 8) AND issuetype = Story' }), catalogs));
+    expect(orJql.config.bugJql).toBeNull();
+    expect(orJql.warnings.some(w => w.startsWith('board.bug_jql: board.jql has an OR / NOT'))).toBe(true);
   });
 });
 

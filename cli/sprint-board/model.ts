@@ -183,7 +183,16 @@ export interface TrackerSnapshot {
    * `bugs`: the sprint's own bug rows (the same read, no extra call);
    * absent until a source returns the sprint's own bug rows.
    */
-  discover?: { at: string, sprintRows: number, untracked: UntrackedTicket[], bugs?: TrackerBugRow[], /** Untracked sprint rows in a status no bucket lists. */ unclassified?: { id: string, status: string }[] }
+  discover?: {
+    at: string
+    sprintRows: number
+    untracked: UntrackedTicket[]
+    bugs?: TrackerBugRow[]
+    /** Untracked sprint rows in a status no bucket lists. */
+    unclassified?: { id: string, status: string }[]
+    /** The sprint's own bug rows left out of `bugs` (a status no bucket lists, or not a bug type): named on the Bugs view, never counted. */
+    unclassifiedBugs?: { id: string, status: string, reason?: string }[]
+  }
   /** Bugs linked on the board that the tracker could not find at the last sync. */
   missing?: { bugs: string[] }
 }
@@ -297,7 +306,8 @@ export interface SprintBug {
 }
 /** What the Bugs view searched (fail loudly). null = never checked (no `sync --discover` with bug rows yet). */
 /** `missing`: bugs linked on the board that the tracker could not find (named on the page, never counted as found). */
-export interface BugSearch { linked: number, sprintRows: number | null, bugRows: number | null, createdInSprint: number | null, discoveredAt?: string, missing?: string[] }
+/** `unclassified`: the sprint's own bug rows the source left out (status in no bucket): named, never counted. */
+export interface BugSearch { linked: number, sprintRows: number | null, bugRows: number | null, createdInSprint: number | null, discoveredAt?: string, missing?: string[], unclassified?: { id: string, status: string }[] }
 
 export interface TicketView {
   id: string
@@ -986,8 +996,9 @@ const DAY_MS = 86_400_000;
  * The Bugs view's list. A bug belongs to the sprint when EITHER:
  *   1. it was linked on this board (`bug <ticket> <bug>`), or linked to a tracked ticket in the
  *      tracker, whatever sprint the tracker files it under; or
- *   2. it is one of the sprint's own bug rows (`discover.bugs`, when a source returns them) whose
- *      created time falls inside the sprint (start to close, or now). No source returns them yet:
+ *   2. it is one of the sprint's own bug rows (`discover.bugs`, read by `sync --discover`) whose
+ *      created time falls inside the sprint (start to close, or now). Before a discover read, or
+ *      on a jira source with no bug query (`board.bug_jql` neither set nor derivable),
  *      `search.bugRows` stays null and the view says "not checked".
  * A bug filed into another sprint (or none) and never linked here is not found: the view says so
  * with the denominators in `search`. Blocking = still open and filed against a ticket that is in QA
@@ -1091,6 +1102,7 @@ export function sprintBugs(input: { sprint: Sprint, tickets: TicketView[], track
       createdInSprint,
       discoveredAt: rows ? tracker?.discover?.at : undefined,
       missing: tracker?.missing?.bugs.length ? [...tracker.missing.bugs] : undefined,
+      unclassified: tracker?.discover?.unclassifiedBugs?.length ? tracker.discover.unclassifiedBugs.map(u => ({ id: u.id, status: u.status })) : undefined,
     },
   };
 }
@@ -1830,6 +1842,6 @@ export function listenLine(slug: string, e: BoardEvent): string {
  */
 export function bugEvidenceReminder(o: { ticket: string, bug: string, images: string[], embedded: boolean }): string | null {
   if (o.embedded || !o.images.length) { return null; }
-  return `reminder: ${o.images.length} evidence image(s) on disk for ${o.ticket}; embed the bug's thumbnail in ${o.bug}'s Description `
-    + '(sprint-testing reporting-templates.md, bug report), then pass --evidence-embedded once the image reads back from the tracker.';
+  return `reminder: ${o.images.length} evidence image(s) on disk for ${o.ticket}; embed the bug's thumbnail (bun run evidence build --thumb, then bun run evidence attach) in ${o.bug}'s Description `
+    + '(evidence-artifact workflow.md §4), then pass --evidence-embedded once its read-back passes.';
 }

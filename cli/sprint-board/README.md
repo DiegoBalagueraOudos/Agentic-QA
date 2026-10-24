@@ -209,7 +209,12 @@ Every bug of the sprint, from two sources, with what was searched printed under 
    tracker (`bugKeys`); one the tracker cannot find is printed and named on the search line as not
    found, never shown as open.
 2. **The sprint's own bug rows**, created inside the sprint (start to close, or now), when the
-   source returns them. No source returns them yet, so this part reads "not checked", never zero.
+   source returns them: `sync --discover` reads them (the `none` source: every row under `bugs:` of
+   `tickets.yaml`; the jira sources: `board.bug_jql`, else `board.jql` with its issuetype clause
+   swapped for the bug types, printed by `board:check`). Until a discover read, or when no bug query
+   can be derived, this part reads "not checked", never zero. A bug row in a status no bug bucket
+   lists (or not of a bug type) is left out and never counted as open: `sync` prints it, the store
+   keeps it, and the search line names it ("N Bug rows not counted").
 
 A bug filed into another sprint (or none) and linked to nothing tracked is not found, and the
 search line says so.
@@ -404,11 +409,12 @@ with `--discover` (as `board:up` does) for the UNTRACKED part to move between pa
 ## Bug evidence reminder
 
 `bug <ticket> <bug>` records the link, then looks in the evidence folder of both tickets (their PBI
-story folders). If it holds images, it prints one reminder line to embed the bug's thumbnail in the
-bug's Description (the bug report template of `sprint-testing/references/reporting-templates.md`). It
-is a reminder, never an error: the link is already saved. Pass `--evidence-embedded` once the image is
-in the Description (it reads back from the tracker), and the line goes away. Measured on the source
-board: three conductor-filed bugs went out with no image.
+story folders). If it holds images, it prints one reminder line to embed the bug's thumbnail (rendered
+by the `evidence-artifact` skill, `bun run evidence build --thumb`) in the bug's Description with
+`bun run evidence attach` (`evidence-artifact/references/workflow.md` §4). It is a reminder, never an
+error: the link is already saved. Pass `--evidence-embedded` once the image is in the Description (the
+`attach` read-back passed), and the line goes away. Measured on the source board: three
+conductor-filed bugs went out with no image.
 
 ## Layout
 

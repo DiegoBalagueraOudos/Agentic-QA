@@ -1,0 +1,12 @@
+[
+  {
+    "id": 7401,
+    "self": "https://acme.example/rest/api/3/issue/ACME-7001/remotelink/7401",
+    "globalId": "evidence-page:https://claude.ai/artifact/0000aaaa-7001",
+    "relationship": "Evidence",
+    "object": {
+      "url": "https://claude.ai/artifact/0000aaaa-7001",
+      "title": "ACME-7001 Evidence page"
+    }
+  }
+]

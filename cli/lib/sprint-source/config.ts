@@ -40,7 +40,7 @@ export const LINK_TYPES_CATALOG = '.agents/jira-link-types.json';
 /** `.agents/jira-workflows.json`, only the parts read here. */
 export type WorkflowCatalog = Record<string, {
   jira_issue_type?: { name?: string }
-  statuses?: Record<string, { name?: string }>
+  statuses?: Record<string, { name?: string, category?: string }>
 }>;
 
 /** `.agents/jira-fields.json`, only the parts read here. */
@@ -88,6 +88,13 @@ export interface BoardConfig {
   /** Repo-relative; read by the `none` source only. */
   ticketsFile: string
   jql: string | null
+  /**
+   * The sprint's own bug rows for the jira sources: `board.bug_jql`, else derived from
+   * `board.jql` (its one issuetype clause swapped for the bug work types). `null` = not
+   * derivable, the Bugs view's second source stays "not checked". Absent on configs
+   * built before the key existed.
+   */
+  bugJql?: string | null
   ticketKeyPattern: RegExp
   projectKey: string | null
   environment: string | null
@@ -191,6 +198,37 @@ function slugsOf(catalog: WorkflowCatalog, workTypes: readonly string[]): Set<st
   return slugs;
 }
 
+/** The `jira_issue_type.name` of each work-type slug the catalog declares, with a fallback name. */
+export function issueTypeNames(catalog: WorkflowCatalog | null, workTypes: readonly string[], fallback: readonly string[]): Set<string> {
+  const names = new Set<string>();
+  for (const workType of workTypes) {
+    const name = catalog?.[workType]?.jira_issue_type?.name;
+    if (name) { names.add(name); }
+  }
+  if (names.size === 0) { for (const name of fallback) { names.add(name); } }
+  return names;
+}
+
+const ISSUETYPE_CLAUSE = /\b(?:issuetype|type)\s*(?:=|\bin\b)\s*(?:\([^)]*\)|"[^"]*"|'[^']*'|[^\s()]+)/gi;
+
+/**
+ * The sprint's bug query from the ticket query: its ONE `issuetype = X` / `issuetype in (...)`
+ * clause swapped for the bug work types, or, with no such clause, the bug types ANDed on
+ * (before any `ORDER BY`). `null` when there are several clauses or an `OR` / `NOT` anywhere:
+ * a text rewrite there could widen or invert the query, so nothing is derived and the caller
+ * fails closed to "not checked".
+ */
+export function deriveBugJql(jql: string, bugTypeNames: ReadonlySet<string>): string | null {
+  if (/\b(?:OR|NOT)\b/i.test(jql) || bugTypeNames.size === 0) { return null; }
+  const types = `issuetype in (${[...bugTypeNames].map(name => JSON.stringify(name)).join(', ')})`;
+  const clauses = [...jql.matchAll(ISSUETYPE_CLAUSE)];
+  if (clauses.length === 1) { return jql.replace(clauses[0][0], types); }
+  if (clauses.length > 1) { return null; }
+  const order = /\s+ORDER\s+BY\s[\s\S]*$/i.exec(jql);
+  const head = order ? jql.slice(0, order.index) : jql;
+  return `${head} AND ${types}${order ? order[0] : ''}`;
+}
+
 /** `auto` follows `testing.tms_cli`: `bun xray` = jira-xray, anything else (unset, `acli`) = jira-native. */
 export function modalityFromTmsCli(tmsCli: unknown): SourceKind {
   return typeof tmsCli === 'string' && tmsCli.trim().replace(/\s+/g, ' ') === 'bun xray' ? 'jira-xray' : 'jira-native';
@@ -232,7 +270,7 @@ function readBuckets<B extends string>(
 
 /** The keys each mapping of the block may hold; anything else is a typo. */
 const BOARD_KEYS: Readonly<Record<string, readonly string[]>> = {
-  'board': ['source', 'tickets_file', 'jql', 'ticket_key_pattern', 'timezone', 'statuses', 'people', 'evidence', 'brand'],
+  'board': ['source', 'tickets_file', 'jql', 'bug_jql', 'ticket_key_pattern', 'timezone', 'statuses', 'people', 'evidence', 'brand'],
   'board.statuses': ['tickets', 'bugs', 'tests'],
   'board.evidence': ['allowed_hosts'],
   'board.brand': ['name', 'logo'],
@@ -325,10 +363,18 @@ export function resolveBoardConfig(root: unknown, catalogs: Catalogs, configFile
 
   const ticketsFile = optionalString(board.tickets_file, 'board.tickets_file', errors) ?? DEFAULT_TICKETS_FILE;
   const jql = optionalString(board.jql, 'board.jql', errors);
+  const bugJqlSet = optionalString(board.bug_jql, 'board.bug_jql', errors);
+  let bugJql: string | null = null;
 
   // --- source-specific checks
   if (source !== 'none') {
     if (jql === null) { errors.push(`board.jql: required for the ${source} source (e.g. project = PROJ AND sprint in openSprints() AND issuetype = Story)`); }
+    else if (bugJqlSet !== null) { bugJql = bugJqlSet; }
+    else {
+      bugJql = deriveBugJql(jql, issueTypeNames(catalogs.workflows, BUG_WORK_TYPES, ['Bug']));
+      if (bugJql !== null) { derived.push({ key: 'board.bug_jql', value: bugJql, from: 'board.jql' }); }
+      else { warnings.push('board.bug_jql: board.jql has an OR / NOT or several issuetype clauses, so no bug query is derived and the sprint\'s own bug rows are not read (the Bugs view says "not checked"); set board.bug_jql'); }
+    }
     if (catalogs.workflows === null) {
       errors.push(`${WORKFLOWS_CATALOG} is missing: the ${source} source names statuses by its workflow slugs (run \`bun run jira:sync-workflows\`)`);
     }
@@ -442,6 +488,7 @@ export function resolveBoardConfig(root: unknown, catalogs: Catalogs, configFile
       configFile,
       ticketsFile,
       jql,
+      bugJql,
       ticketKeyPattern,
       projectKey,
       environment,

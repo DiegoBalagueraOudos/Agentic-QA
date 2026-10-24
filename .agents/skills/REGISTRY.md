@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-24T21:07:24.866Z`
+> Generated: `2026-10-24T21:37:56.131Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -202,7 +202,9 @@ Skills indexed: 28
 - DO: give a bug its own pack (`evidence-pack-<BUG>.json`, `kind: "bug"`, a `repro` case) once the bug issue exists, and build and publish bug pages BEFORE the story page: a story's `RETEST PASSED` / `RETEST FAILED` bug card is refused unless the bug's own pack confirms it.
 - DO: build with `bun run evidence build --pack <pack>`; it needs Python 3.9+ and Pillow and names the one thing to install when either is missing.
 - DO: publish with the Artifact tool; when the pack already has `artifact.url`, run `Artifact action: "read"` on it first and publish with that `url`. Omitting `url` mints a second page and orphans every link.
-- DO: record the URL with `bun run evidence record --pack <pack> --url <url>` and on the board (`bun run board evidence-artifact <KEY> <url> [--bug <BUG>] --by worker`), then link it from the ATR, the bug description, the QA comment footer and each TC's notes.
+- DO: record the URL with `bun run evidence record --pack <pack> --url <url>` and on the board (`bun run board evidence-artifact <KEY> <url> [--bug <BUG>] --by worker`), add it to the issue with `bun run evidence link --pack <pack>`, then link it from the ATR, the bug description, the QA comment footer and each TC's notes.
+- DO: embed a bug's ONE thumbnail with `bun run evidence attach --pack <bug pack>` (`--dry-run` first prints every call), after the bug page link is in its Description; write "(image embedded below)" and pass `bun run board bug ... --evidence-embedded` only once a live run printed `read-back OK` (a dry run never does).
+- DO NOT: run `bun run evidence attach --replace` without a person's OK: it deletes the bug's earlier thumbnail attachment, which cannot be undone. `attach` refuses on its own when an earlier thumbnail (same name, other bytes) is there.
 - DO: on a retest, keep every earlier case and item with its `round`, set `currentRound` and `rounds[]`, append the retest case, and republish to the SAME URL. A retest never passes on a DEFERRED case.
 - DO: report the URLs as published private for the owner to share; when the Artifact tool is unavailable, report the pack path instead (the conductor publishes).
 - DO NOT: send evidence to any external image service, whatever the chat authorises.

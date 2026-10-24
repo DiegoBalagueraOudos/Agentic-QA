@@ -41,7 +41,9 @@ spawns no agents, and is not a stage owner.
 - DO: give a bug its own pack (`evidence-pack-<BUG>.json`, `kind: "bug"`, a `repro` case) once the bug issue exists, and build and publish bug pages BEFORE the story page: a story's `RETEST PASSED` / `RETEST FAILED` bug card is refused unless the bug's own pack confirms it.
 - DO: build with `bun run evidence build --pack <pack>`; it needs Python 3.9+ and Pillow and names the one thing to install when either is missing.
 - DO: publish with the Artifact tool; when the pack already has `artifact.url`, run `Artifact action: "read"` on it first and publish with that `url`. Omitting `url` mints a second page and orphans every link.
-- DO: record the URL with `bun run evidence record --pack <pack> --url <url>` and on the board (`bun run board evidence-artifact <KEY> <url> [--bug <BUG>] --by worker`), then link it from the ATR, the bug description, the QA comment footer and each TC's notes.
+- DO: record the URL with `bun run evidence record --pack <pack> --url <url>` and on the board (`bun run board evidence-artifact <KEY> <url> [--bug <BUG>] --by worker`), add it to the issue with `bun run evidence link --pack <pack>`, then link it from the ATR, the bug description, the QA comment footer and each TC's notes.
+- DO: embed a bug's ONE thumbnail with `bun run evidence attach --pack <bug pack>` (`--dry-run` first prints every call), after the bug page link is in its Description; write "(image embedded below)" and pass `bun run board bug ... --evidence-embedded` only once a live run printed `read-back OK` (a dry run never does).
+- DO NOT: run `bun run evidence attach --replace` without a person's OK: it deletes the bug's earlier thumbnail attachment, which cannot be undone. `attach` refuses on its own when an earlier thumbnail (same name, other bytes) is there.
 - DO: on a retest, keep every earlier case and item with its `round`, set `currentRound` and `rounds[]`, append the retest case, and republish to the SAME URL. A retest never passes on a DEFERRED case.
 - DO: report the URLs as published private for the owner to share; when the Artifact tool is unavailable, report the pack path instead (the conductor publishes).
 - DO NOT: send evidence to any external image service, whatever the chat authorises.
@@ -54,6 +56,7 @@ Stage 2  screenshot --filename -> pack: image item + marks from `eval` bbox (px)
          bug filed -> its own pack (kind "bug", a repro case)
 Stage 3  bun run evidence build --pack -> index.html  ->  Artifact publish (same path = same URL)
          URL -> bun run evidence record  ->  bun run board evidence-artifact <KEY> <url> --by worker
+         bun run evidence link (issue remote link)  ·  bug: build --thumb -> bun run evidence attach
          link -> ATR, bug description (+ one thumbnail), QA comment, TC notes, chat
          owner hand-off: "published private, share it from the page's Share menu"
 Retest   same pack: old evidence `round: 0`, `currentRound`, `rounds[]` + a retest case
@@ -70,12 +73,17 @@ bun run evidence build --pack <PBI>/evidence/evidence-pack-<BUG>.json \
   --thumb <PBI>/evidence/evidence-artifact/<BUG>/<BUG>-thumbnail.png       # the bug's tracker image
 bun run evidence extract --page <saved page.html> --out <pack.json>         # recover a pack from a published page
 bun run evidence record --pack <pack.json> --url <url>                      # store the published URL
+bun run evidence link --pack <pack.json> [--test <TC> --exec <ATR>]          # page -> issue remote link (+ jira-xray run comment)
+bun run evidence attach --pack <bug pack.json> [--test <TC> --exec <ATR>]    # thumbnail -> end of the bug's Description, read back
 bun run evidence demo                                                       # synthetic story, bug and review pages
 ```
 
 The builder is `scripts/build.py` (Python 3.9+ and Pillow: `python3 -m pip install pillow`); the
 `bun run evidence` commands pass it the project's ticket key pattern and check both are installed.
-It runs locally and makes no network call. It validates the pack and names the field when something
+It runs locally and makes no network call. `attach` and `link` are the only commands that reach the
+tracker (the modality from `board.source`, else `testing.tms_cli`; `--source` overrides): every write
+is read back before they say done, `--dry-run` prints the calls and sends nothing, and with no
+tracker (`none`) they write nothing and say where the thumbnail and the link live. It validates the pack and names the field when something
 is wrong, refuses credentials in any text, warns on email addresses, burns `redact` boxes into the
 pixels, and inlines every screenshot at native size (JPEG q88). `--host local` writes a standalone
 document to open from disk, for a harness with no Artifact tool. Relative image paths resolve against
@@ -105,6 +113,10 @@ is neither beside the story pack nor in the bug's PBI folder). Its regression te
   you did not reference, so never reference one.
 - **Do not read screenshots back during Stage 2 to place marks**: the `eval` box costs one line and
   is exact; reading a full-page PNG costs context on every later turn.
+- **The thumbnail is embedded only when a live `attach` printed `read-back OK`.** A `--dry-run` prints
+  `DRY RUN: read-back not performed` instead. "(image embedded below)" and
+  `--evidence-embedded` come after it, never before; a `bug` board call that printed the evidence
+  reminder without that flag is a bug still missing its image.
 - **A test secret made only of `x` reads as a mask** (`xxxx`): the scanner treats it as already masked.
 
 ## Briefing snippet for sub-agents
@@ -112,7 +124,7 @@ is neither beside the story pack nor in the bug's PBI folder). Its regression te
 Any dispatch whose stage captures evidence (sprint-testing Stage 2) or reports it (Stage 3, filing a
 bug) MUST carry this verbatim in component 7, Rules:
 
-> **Evidence artifact rule.** Load the `evidence-artifact` skill. Stage 2: append every proof to `<PBI>/evidence/evidence-pack.json` as you test: screenshots with `--filename`, marks from the element's box via `playwright-cli eval` (`coords: "px"`), personal data as `redact` boxes (a mark over it is not a mask), API/SQL items with credentials written as `<redacted>`; a bug gets its own pack (`evidence-pack-<BUG>.json`) once its issue exists. Stage 3 (`references/workflow.md` §3): build with `bun run evidence build`, publish with the Artifact tool (bug pages first; any later publish from another session passes the pack's `artifact.url` after an `action: "read"`), record the URL in the pack (`bun run evidence record`) and on the board (`bun run board evidence-artifact <KEY> <url> [--bug <BUG>] --by worker`), link it from the ATR, the bug description, the QA comment footer and each TC's notes. Never a trace, HAR, token or cookie in a pack. Report the URLs and say they were published private for the owner to share; if the Artifact tool is unavailable, report the pack path instead.
+> **Evidence artifact rule.** Load the `evidence-artifact` skill. Stage 2: append every proof to `<PBI>/evidence/evidence-pack.json` as you test: screenshots with `--filename`, marks from the element's box via `playwright-cli eval` (`coords: "px"`), personal data as `redact` boxes (a mark over it is not a mask), API/SQL items with credentials written as `<redacted>`; a bug gets its own pack (`evidence-pack-<BUG>.json`) once its issue exists. Stage 3 (`references/workflow.md` §3): build with `bun run evidence build`, publish with the Artifact tool (bug pages first; any later publish from another session passes the pack's `artifact.url` after an `action: "read"`), record the URL in the pack (`bun run evidence record`) and on the board (`bun run board evidence-artifact <KEY> <url> [--bug <BUG>] --by worker`), add it to the issue (`bun run evidence link --pack <pack>`), link it from the ATR, the bug description, the QA comment footer and each TC's notes; a new bug's ONE thumbnail goes in with `bun run evidence attach --pack <bug pack>` and counts as embedded only after a live run prints `read-back OK`; never `--replace` (it deletes the earlier thumbnail attachment) without a person's OK. Never a trace, HAR, token or cookie in a pack. Report the URLs and say they were published private for the owner to share; if the Artifact tool is unavailable, report the pack path instead.
 
 ## Relation to `bug-screenshot-annotation`
 

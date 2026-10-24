@@ -101,7 +101,10 @@ Order, so every link exists before the text that carries it is written:
 4. **Record the URL** in the pack: `bun run evidence record --pack <pack> --url <url>` writes
    `"artifact": {"url": "...", "path": "<page path>", "published": ["<ISO time>"]}` and appends a time
    on each republish. It accepts only a host in `board.evidence.allowed_hosts` and refuses a second
-   URL for the same pack.
+   URL for the same pack. Then link it from the issue in the tracker:
+   `bun run evidence link --pack <pack>` adds the page as a remote link (one link per page, keyed by
+   its URL, so a retest republish updates it instead of adding a second) and reads it back. With no
+   tracker (`board.source: none`) it writes nothing and says where the link lives.
 5. **Sprint Board** (worker mode, or whenever a board runs):
    `bun run board evidence-artifact <KEY> <url> --by worker`, and for a bug page
    `bun run board evidence-artifact <KEY> <url> --bug <BUG> --by worker` (the `bug` line first).
@@ -112,7 +115,10 @@ Order, so every link exists before the text that carries it is written:
    - **QA comment**: the footer link `Evidence → [evidence page](<url>)`; the comment carries the
      outcome, the page carries the proof.
    - **Each TC's notes in the TMS**: append a line `Evidence: <url>#<KEY>.<TC>` under the result
-     text, never replacing it. The deep link opens the viewer on that case.
+     text, never replacing it. The deep link opens the viewer on that case. On `jira-xray` the run
+     comment holds those notes: `bun run evidence link --pack <pack> --test <TC> --exec <ATR>`
+     (add `--case <id>` when the pack's case id is not the test key) appends the line once and reads
+     it back. On `jira-native` the TC's result text lives on the Test issue: append the line there.
    - **Chat**: the board's "Copy for Slack" adds the link; a hand-written message carries it too.
 7. **Hand-off to the owner** (chat, or the mailbox in worker mode): the URL(s), plus the line:
    "Published private: share it from the page's Share menu so the team can open the links."
@@ -126,11 +132,43 @@ itself, then records it with `--by conductor`.
 ```bash
 bun run evidence build --pack <PBI>/evidence/evidence-pack-<BUG>.json \
   --thumb <PBI>/evidence/evidence-artifact/<BUG>/<BUG>-thumbnail.png
+bun run evidence attach --pack <PBI>/evidence/evidence-pack-<BUG>.json --dry-run   # read the calls
+bun run evidence attach --pack <PBI>/evidence/evidence-pack-<BUG>.json
 ```
 
-It takes the reproduction's first defect screenshot (or `--case <id>`), burns the marks and the
-`redact` boxes in, and writes a PNG at native size. It is the one image a tracker embeds inline;
-everything else is the link. An API/DB-only bug has no thumbnail: link only.
+`build --thumb` takes the reproduction's first defect screenshot (or `--case <id>`), burns the marks
+and the `redact` boxes in, and writes a PNG at native size. It is the one image a tracker embeds
+inline; everything else is the link. An API/DB-only bug has no thumbnail: link only.
+
+`attach` embeds it in the bug, after the Description already carries the page link (step 1 of §3):
+
+1. It reads the bug: attachments, Description and comments. The same file already attached and
+   already in the Description, or in the `Evidence` comment an earlier fallback wrote: nothing to do.
+   An EARLIER thumbnail of the bug (same name, other bytes, for instance before a missed `redact` box
+   was fixed) may be unredacted, so it is never appended beside the new one: `attach` stops and says
+   so. Ask a person; on their OK, rerun with `--replace`, which takes that image out of the
+   Description (or deletes its `Evidence` comment), DELETES the attachment this tool embedded, reads
+   the bug back, then attaches the new one (on `jira-xray` it also swaps the run's evidence file).
+   Deleting a tracker attachment cannot be undone, so `--replace` never runs without that OK; an
+   attachment of that name `attach` did not embed is left for the person.
+2. It attaches the PNG to the bug (unless that copy is already there), resolves the attachment's
+   media id, and appends ONE image node at the END of the Description. The text above it is never
+   rewritten.
+3. A Description the edit screen does not expose (Jira answers 400) falls back to a comment headed
+   `Evidence` holding the image; the output says so.
+4. It reads the bug back: the attachment with the file's size, and the image in the Description (or
+   that comment). A mismatch exits 1 and names what is missing.
+5. On `jira-xray`, `--test <TC> --exec <ATR>` (or `--run <id>`) also adds the PNG to that Test Run's
+   evidence and reads the run back. The run is resolved before any write, so a wrong TC writes nothing.
+
+`--dry-run` prints every call and sends nothing; its result lines say `DRY RUN: read-back not
+performed`, never `read-back OK`, and nothing counts as embedded.
+
+Write "(image embedded below)" in a report only after a live `read-back OK` (after a fallback, name the
+`Evidence` comment instead), then `bun run board bug <KEY> <BUG> --title "<title>" --severity <...>
+--evidence-embedded --by worker` (the command prints that line, filled from the bug pack). With
+no tracker (`board.source: none`) `attach` writes nothing: the thumbnail stays on disk and the report
+links it.
 
 ## 5. Retest: same URL, a new round, history kept
 

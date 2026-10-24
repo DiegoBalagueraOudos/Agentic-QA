@@ -16,3 +16,8 @@ execution `ACME-43`.
 `workflows.json`, `fields.json` and `link-types.json` are minimal stand-ins for
 `.agents/jira-workflows.json`, `.agents/jira-fields.json` and
 `.agents/jira-link-types.json`.
+
+`jira-search-sprint-bugs.json` answers the sprint's bug query (`board.bug_jql`, derived from
+`board.jql`): `ACME-21` (also linked to `ACME-1`), `ACME-7022` (created in the sprint, linked to
+nothing), `ACME-7024` (a `-0500` offset time that is the next day in UTC) and `ACME-7023` in a `Triage` status the catalog does not know, which must be named and
+left out, never counted as open.

@@ -40,6 +40,25 @@ below names which one it applies to:
   post-promotion `merged` pass that `git-flow-master` hands off. It checks each TC's ATC and spec
   path on the production branch plus CI, then fires `merged` and reads the status back.
 
+### Added (evidence through the tracker, the sprint's own bugs, bucket suggestions)
+- **`bun run evidence attach` / `bun run evidence link`** (`cli/lib/evidence-page/tracker.ts`): `attach` embeds a
+  bug's one thumbnail at the end of its Jira Description (append only; a Description the edit screen refuses
+  falls back to an `Evidence` comment) and, on `jira-xray`, a named Test Run's evidence; `link` adds the published
+  evidence page to an issue as a remote link keyed by the page URL (a retest republish updates it) and, on
+  `jira-xray`, appends the TC deep link to the run comment. Every write is read back at the destination,
+  `--dry-run` prints every call and sends nothing, the `none` source writes nothing. They reuse the acli media
+  helper, `cli/lib/sprint-source/transport.ts` and `cli/xray`. ADR-0021 carries an amendment naming the path.
+- **The bug thumbnail loop and the Evidence Handoff follow the source design**: the board's bug evidence reminder
+  names the thumbnail build and `attach`, the conductor's wave close verifies each filed bug has its page linked and
+  its thumbnail embedded, and the sprint-testing Evidence Handoff lists the page URLs and ranked deep links and is
+  the ATR's `EVIDENCE HANDOFF` section.
+- **The Bugs view reads the sprint's own bug rows** on `sync --discover`: every `bugs:` row of `tickets.yaml` for
+  the `none` source, and for the Jira sources one more search, `board.bug_jql` or, when it is `null`, `board.jql`
+  with its issuetype clause swapped for the bug work types (never derived across an `OR` / `NOT`). A row in a status
+  no bucket lists is named and never counted as open. New optional key `board.bug_jql`.
+- **`bun run agents:setup` suggests `board.statuses` buckets** for the workflow statuses no bucket holds yet, from
+  the status category and its slug, and appends the confirmed ones (`--non-interactive` only prints them).
+
 ### Added (CI unit tests)
 - **`.github/workflows/unit-tests.yml`** runs `bun test` (the unit tests of `cli/`, `scripts/`,
   `tests/utils/`, `packages/` and `.agents/skills/`) and the `repo:check` gates no other workflow

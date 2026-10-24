@@ -20,20 +20,57 @@ export interface Transport {
   xray: <T>(query: string, variables: Record<string, unknown>) => Promise<T>
 }
 
+export interface JiraAuth { baseUrl: string, header: string }
+
+/**
+ * The Jira host and the Basic header, resolved once per call site: the host
+ * from `.agents/project.yaml` (a stale env copy only warns), the credentials by
+ * NAME from the environment, else the `bun xray auth login` store. Throws with
+ * the variable names when either is missing; never prints a value.
+ */
+export function jiraAuth(): JiraAuth {
+  const instance = resolveAtlassianInstance();
+  const warning = formatInstanceMismatchWarning(instance);
+  if (warning) { console.warn(warning); }
+  const stored = loadConfig();
+  const email = process.env.ATLASSIAN_EMAIL || stored?.jira_email;
+  const token = process.env.ATLASSIAN_API_TOKEN || stored?.jira_api_token;
+  if (!email || !token) {
+    throw new Error('Jira credentials are not set: ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN (see .env.example), or run `bun xray auth login` with --jira-* flags.');
+  }
+  return { baseUrl: instance.baseUrl, header: `Basic ${Buffer.from(`${email}:${token}`).toString('base64')}` };
+}
+
+/**
+ * One Jira REST call with any verb, for the writers (the evidence tracker
+ * adapter). An empty response body (a `PUT` answers 204) returns `null`.
+ */
+export async function jiraRequest<T>(auth: JiraAuth, method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T | null> {
+  const response = await fetch(`${auth.baseUrl}${path}`, {
+    method,
+    headers: { 'Authorization': auth.header, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new JiraHttpError(method, path, response.status, `${response.statusText}${detail ? ` ${detail.slice(0, 300)}` : ''}`);
+  }
+  const text = await response.text();
+  return text === '' ? null : JSON.parse(text) as T;
+}
+
+/** A Jira REST call that answered with an error status; `status` lets a caller fall back (a 400 on a field). */
+export class JiraHttpError extends Error {
+  constructor(readonly method: string, readonly path: string, readonly status: number, detail: string) {
+    super(`Jira REST ${method} ${path} failed: ${status} ${detail}`);
+    this.name = 'JiraHttpError';
+  }
+}
+
 export function liveTransport(): Transport {
-  let auth: { baseUrl: string, header: string } | null = null;
-  const credentials = (): { baseUrl: string, header: string } => {
-    if (auth) { return auth; }
-    const instance = resolveAtlassianInstance();
-    const warning = formatInstanceMismatchWarning(instance);
-    if (warning) { console.warn(warning); }
-    const stored = loadConfig();
-    const email = process.env.ATLASSIAN_EMAIL || stored?.jira_email;
-    const token = process.env.ATLASSIAN_API_TOKEN || stored?.jira_api_token;
-    if (!email || !token) {
-      throw new Error('Jira credentials are not set: ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN (see .env.example), or run `bun xray auth login` with --jira-* flags.');
-    }
-    auth = { baseUrl: instance.baseUrl, header: `Basic ${Buffer.from(`${email}:${token}`).toString('base64')}` };
+  let auth: JiraAuth | null = null;
+  const credentials = (): JiraAuth => {
+    auth ??= jiraAuth();
     return auth;
   };
 

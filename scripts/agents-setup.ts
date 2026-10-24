@@ -78,6 +78,13 @@
  * Fields without a corresponding env var keep their current value. Validation
  * is identical to the interactive flow; failures print to stderr and exit 1.
  *
+ * BOARD STATUSES: when `.agents/jira-workflows.json` exists and the board source is
+ * a Jira one, the workflow statuses no `board.statuses` bucket lists yet are shown
+ * with a suggested bucket (from the status category and its name,
+ * `cli/lib/sprint-source/suggest-statuses.ts`). The interactive flow asks once and
+ * appends the accepted ones to their bucket lines; --non-interactive only prints
+ * them. No catalog yet: one line says to run `bun run jira:sync-workflows` first.
+ *
  * ============================================================================
  * EXIT CODES
  * ============================================================================
@@ -89,13 +96,18 @@
  * ============================================================================
  */
 
+import type { WorkflowCatalog } from '../cli/lib/sprint-source/config.ts';
+import type { StatusSuggestion } from '../cli/lib/sprint-source/suggest-statuses.ts';
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+
 import { confirm, input, select } from '@inquirer/prompts';
 import { parse as parseYaml } from 'yaml';
 
 import { classifyProjectYaml, SCHEMA_FILE, seedFromSchema } from '../cli/lib/agents-schema.ts';
+import { WORKFLOWS_CATALOG } from '../cli/lib/sprint-source/config.ts';
+import { applyStatusSuggestions, currentBuckets, suggestStatusBuckets } from '../cli/lib/sprint-source/suggest-statuses.ts';
 
 // ============================================================================
 // CONSTANTS
@@ -337,6 +349,11 @@ VALIDATION RULES:
   *_repo                    non-empty (warns if path does not exist locally)
   default_env               must match a key under \`environments:\`
   all others                non-empty
+
+BOARD STATUSES:
+  Workflow statuses no board.statuses bucket lists yet are shown with a suggested
+  bucket; interactive mode asks once and appends the accepted ones, --non-interactive
+  only prints them. Needs .agents/jira-workflows.json (bun run jira:sync-workflows).
 
 OUTPUT:
   .agents/project.yaml is rewritten in place. Comments are preserved
@@ -1127,6 +1144,9 @@ async function runInteractive(loaded: LoadedConfig, dryRun: boolean): Promise<vo
     }
   }
 
+  // Step 5: workflow statuses no board bucket lists yet.
+  const statusPlan = await promptStatusSuggestions(loaded.rawText);
+
   printSummary(newFlat, desiredEnvs, newEnvValues);
 
   const proceed = await confirm({
@@ -1140,7 +1160,7 @@ async function runInteractive(loaded: LoadedConfig, dryRun: boolean): Promise<vo
   }
 
   const updates = buildUpdateMap(newFlat, newEnvValues);
-  const updated = renderUpdatedYaml(loaded.rawText, desiredEnvs, updates);
+  const updated = withStatusSuggestions(renderUpdatedYaml(loaded.rawText, desiredEnvs, updates), statusPlan);
   if (dryRun) {
     out(updated);
     log.success('Dry run complete — file NOT written.');
@@ -1151,11 +1171,73 @@ async function runInteractive(loaded: LoadedConfig, dryRun: boolean): Promise<vo
 }
 
 // ============================================================================
+// BOARD STATUSES — suggested buckets for the workflow statuses no bucket lists
+// ============================================================================
+
+/**
+ * The statuses `board:check` would warn about, each with a suggested bucket, or the
+ * one line that says why there is nothing to suggest. A `none` source buckets the
+ * strings of its own tickets file, so it gets no suggestion.
+ */
+function statusSuggestions(rawText: string): { suggestions: StatusSuggestion[], note: string | null } {
+  let root: unknown;
+  try { root = parseYaml(rawText); }
+  catch { return { suggestions: [], note: null }; }
+  const board = (root as { board?: { source?: unknown } } | null)?.board;
+  if (board === undefined || board === null || board.source === 'none') { return { suggestions: [], note: null }; }
+  const catalogPath = join(REPO_ROOT, WORKFLOWS_CATALOG);
+  if (!existsSync(catalogPath)) {
+    return { suggestions: [], note: `board.statuses: ${WORKFLOWS_CATALOG} is not there yet, so no bucket can be suggested. Run \`bun run jira:sync-workflows\`, then \`bun run agents:setup\` again.` };
+  }
+  let catalog: WorkflowCatalog;
+  try { catalog = JSON.parse(readFileSync(catalogPath, 'utf8')) as WorkflowCatalog; }
+  catch (e) { return { suggestions: [], note: `board.statuses: ${WORKFLOWS_CATALOG} does not parse (${(e as Error).message}); run \`bun run jira:sync-workflows\` again.` }; }
+  return { suggestions: suggestStatusBuckets(catalog, currentBuckets(root)), note: null };
+}
+
+function printStatusSuggestions(suggestions: readonly StatusSuggestion[]): void {
+  log.header('[board.statuses]');
+  log.info(`${suggestions.length} workflow status(es) are in no bucket yet; a ticket or bug in one fails the board snapshot. Suggested from the status category and its name:`);
+  for (const s of suggestions) {
+    err(`  ${s.domain.padEnd(8)} ${s.slug.padEnd(28)} ${(s.category ?? '?').padEnd(14)} -> ${s.bucket}`);
+  }
+}
+
+/** Interactive: show the suggestions and ask once; returns the ones to write. */
+async function promptStatusSuggestions(rawText: string): Promise<StatusSuggestion[]> {
+  const { suggestions, note } = statusSuggestions(rawText);
+  if (note !== null) { log.warn(note); }
+  if (suggestions.length === 0) { return []; }
+  printStatusSuggestions(suggestions);
+  const accept = await confirm({ message: 'Add these statuses to their suggested buckets? (bun run board:check validates the result)', default: true });
+  return accept ? suggestions : [];
+}
+
+/** Write the accepted suggestions into the bucket lines; a line it cannot rewrite leaves the file as it was. */
+function withStatusSuggestions(text: string, accepted: readonly StatusSuggestion[]): string {
+  if (accepted.length === 0) { return text; }
+  const result = applyStatusSuggestions(text, accepted);
+  if (!result.ok) {
+    log.warn(`board.statuses not written: ${result.error}`);
+    return text;
+  }
+  log.success(`board.statuses: ${result.applied} status(es) added to their buckets.`);
+  return result.text;
+}
+
+// ============================================================================
 // FLOW: NON-INTERACTIVE
 // ============================================================================
 
 function runNonInteractive(loaded: LoadedConfig, dryRun: boolean): void {
   log.header('agents-setup — non-interactive mode');
+  // Suggested board buckets are printed, never written without a person confirming them.
+  const { suggestions, note } = statusSuggestions(loaded.rawText);
+  if (note !== null) { log.warn(note); }
+  if (suggestions.length > 0) {
+    printStatusSuggestions(suggestions);
+    log.dim('Not written in --non-interactive mode: run bun run agents:setup to confirm them, or copy them into board.statuses.');
+  }
   const newFlat: Record<string, string | null> = { ...loaded.flatValues };
   const newEnvValues: Record<string, Record<string, string | null>> = {};
   // Seed with existing envs.
