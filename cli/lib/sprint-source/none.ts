@@ -195,7 +195,8 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
           .filter(([id]) => wanted !== null && !wanted.has(id))
           .map(([id, row]) => {
             const r = row as Mapping;
-            return { id, title: text(r.title) ?? id, status: text(r.status) ?? '', qaOwner: text(r.qa) };
+            const status = text(r.status) ?? '';
+            return { id, title: text(r.title) ?? id, status, statusKey: status, bucket: classifyTicket(config.statusMap, id, status), qaOwner: text(r.qa) };
           });
         snapshot.discover = { at: now.toISOString(), sprintRows: Object.keys(ticketRows).length, untracked };
       }

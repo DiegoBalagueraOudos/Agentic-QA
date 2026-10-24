@@ -93,5 +93,7 @@ describe('none source', () => {
     expect(Object.keys(snapshot.bugs)).toEqual(['DEMO-201']);
     expect(snapshot.discover?.sprintRows).toBe(5);
     expect(snapshot.discover?.untracked.map(r => r.id)).toEqual(['DEMO-103', 'DEMO-104', 'DEMO-105']);
+    // An untracked row is classified exactly like a tracked ticket.
+    for (const row of snapshot.discover?.untracked ?? []) { expect(row.statusKey).toBe(row.status); expect(row.bucket).toBeTruthy(); }
   });
 });

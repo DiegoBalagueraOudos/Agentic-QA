@@ -307,7 +307,10 @@ export function createJiraSource(parts: JiraSourceParts): Source {
         const tracked = new Set(issues.map(i => i.key));
         const untracked: UntrackedRow[] = rows
           .filter(r => !tracked.has(r.key))
-          .map(r => ({ id: r.key, title: r.fields.summary ?? r.key, status: r.fields.status?.name ?? '', qaOwner: qaField ? userName(r.fields[qaField]) : null }));
+          .map((r) => {
+            const row = common(r);
+            return { id: r.key, title: row.title, status: row.status, statusKey: row.statusKey, bucket: classifyTicket(config.statusMap, r.key, row.statusKey), qaOwner: row.qaOwner };
+          });
         snapshot.discover = { at: now.toISOString(), sprintRows: rows.length, untracked };
       }
       return snapshot;

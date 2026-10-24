@@ -154,7 +154,7 @@ describe('jira-native source', () => {
   test('keys narrow the query and discover lists sprint rows the board does not track', async () => {
     const transport = replay({ [SPRINT_JQL]: recorded('jira-search-sprint.json') });
     const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW, keys: ['ACME-1', 'ACME-2'], discover: true });
-    expect(snapshot.discover).toEqual({ at: NOW.toISOString(), sprintRows: 3, untracked: [{ id: 'ACME-3', title: 'Search suggests spelling fixes', status: 'To Do', qaOwner: 'Rowan QA' }] });
+    expect(snapshot.discover).toEqual({ at: NOW.toISOString(), sprintRows: 3, untracked: [{ id: 'ACME-3', title: 'Search suggests spelling fixes', status: 'To Do', statusKey: 'to_do', bucket: 'not_ready', qaOwner: 'Rowan QA' }] });
   });
 
   test('an empty sprint is all zeros, never an error', async () => {

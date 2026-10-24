@@ -94,6 +94,9 @@ export interface UntrackedRow {
   id: string
   title: string
   status: string
+  /** Classified exactly like a tracked ticket's, so the board can tell which untracked rows are in test. */
+  statusKey: string
+  bucket: TicketBucket
   qaOwner: string | null
 }
 
