@@ -9,11 +9,11 @@ import type { JournalEntry } from '../cli/lib/ui/events.ts';
 import type { SetupFixture } from './ui-setup-fixture.ts';
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 
 import { buildSetupFixture, fixtureEnv } from './ui-setup-fixture.ts';
 
@@ -91,8 +91,13 @@ const ANSWERS: Record<string, unknown> = {
   'gh-create': false,
 };
 
+// Every fixture of this file sits under one temp root, removed in afterAll
+// (it fires whether the tests passed or failed): left behind, each run kept
+// tens of MB in the temp dir.
+const root = mkdtempSync(join(tmpdir(), 'ui-setup-e2e-'));
+
 describe('bun setup on a throwaway project', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ui-setup-e2e-'));
+  afterAll(() => { rmSync(root, { recursive: true, force: true }); });
 
   test('the page: every question answered in it, phases in order, yaml and .env written, no secret anywhere but .env', async () => {
     const f = buildSetupFixture(join(root, 'page'));
@@ -166,4 +171,9 @@ describe('bun setup on a throwaway project', () => {
     expect(run.out).toContain('unknown option --dryrun');
     expect(existsSync(join(f.project, '.template', 'installer.state.json'))).toBe(false);
   }, 60_000);
+});
+
+// Declared after the describe on purpose: it runs once that afterAll has fired.
+test('the fixture projects leave nothing behind in the temp dir', () => {
+  expect(existsSync(root)).toBe(false);
 });

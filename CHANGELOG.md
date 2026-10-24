@@ -33,6 +33,11 @@ below names which one it applies to:
   concurrent runs (two worktrees, two test processes) deleted each other's clone and one stopped
   with `CLONE_FAILED`. Each run now clones into a directory named after its process. This was the
   intermittent failure of `scripts/ui-up-e2e.test.ts` under load.
+- **The `bun sync` and `bun setup` end-to-end tests clean up after themselves.**
+  `scripts/ui-up-e2e.test.ts` (two full clones of the repo per test, hundreds of MB a run) and
+  `scripts/ui-setup-e2e.test.ts` left every fixture in the OS temp dir; a day of parallel runs filled
+  a disk. Both now remove their temp root in `afterAll`, which also fires when a test fails, and a
+  test declared after each block asserts the root is gone.
 
 ### Added (coverage inventory)
 - **`project-context` mode `coverage`**: crosses the behaviours in the business maps with the
