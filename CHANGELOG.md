@@ -16,6 +16,27 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Changed (signed ROI gate for automation, discovery intake)
+- **`test-automation` no longer creates Tests.** A TC source gate runs before Plan: every TC in
+  scope must exist in the TMS at `candidate` with a signed verdict, read from the TMS in the same
+  run. A missing or unsigned TC stops the session and goes to `/test-documentation` with its scope
+  (Story, coverage Tech Story or gap ids). The planning playbook's "create them in the TMS first",
+  the module master document's own scenarios, the batch fleet's discovery work packages and the
+  tracing troubleshooting row all follow the gate. `bun run test:sync` is documented as allowed only
+  after a run in the environment the Test Execution names.
+- **Signed ROI verdicts.** `test-documentation` fires Candidate or Manual only after a person signs
+  the verdict, and the ROI comment ends with a `Verdict signed:` line, which is what the automation
+  gate reads. Candidates without the line get a sign-only pass. `stage-gates.md` makes signed ROI a
+  hard gate with no collapse path.
+- **Discovery intake** (`test-documentation/references/discovery-intake.md`): the coverage gap list
+  and the exploratory round's candidate file feed Analyze, ROI and Document. COVERED is dropped with
+  a line, WEAK becomes a proposal to strengthen the existing test, and NEW runs the full pipeline on
+  its coverage Tech Story. Anchors and oracle answers are read back from Jira, and the >50%
+  Candidate/Manual alarm runs per chunk of one anchor.
+- **Mode `post-promotion`** (`test-documentation/references/post-promotion-pass.md`): the
+  post-promotion `merged` pass that `git-flow-master` hands off. It checks each TC's ATC and spec
+  path on the production branch plus CI, then fires `merged` and reads the status back.
+
 ### Added (CI unit tests)
 - **`.github/workflows/unit-tests.yml`** runs `bun test` (the unit tests of `cli/`, `scripts/`,
   `tests/utils/`, `packages/` and `.agents/skills/`) and the `repo:check` gates no other workflow
