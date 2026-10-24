@@ -16,6 +16,17 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Added (sprint source layer)
+- **`cli/lib/sprint-source/`**: the configuration layer and `Source` interface the Sprint Board,
+  Merge Line and evidence modules will build on (ADR-0019). Three sources (`jira-xray`,
+  `jira-native`, `none`) return one snapshot with denominators; every status goes through the
+  new `board:` block of `.agents/project.yaml`, and a status no bucket lists fails the snapshot
+  instead of being counted. The block derives the ticket key, environment, mainline branch,
+  approvals, modality and Jira host from the keys that already own them.
+- **`bun run board:check`** validates the block offline and runs inside `repo:check`; an
+  unconfigured block (how the template ships) is one INFO line and exit 0. `bun sync` offers the
+  new block to existing projects through the schema diff.
+
 ### Changed (`bun sync` and `bun setup` are the command names)
 - **The updater is `bun sync`**, a new `sync` script. `up` stays as a hidden alias running the
   same updater, so a project whose `package.json` only has `up` runs `bun up` (or
