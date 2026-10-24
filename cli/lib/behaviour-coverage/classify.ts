@@ -5,9 +5,10 @@
  * run. Pure: same inputs, same gap list, which is what makes it recomputable.
  *
  * Fail-closed (AGENTS.md §3 FAIL-CLOSED GATES): a coverage row with no
- * evidence, or on a deprecated Test, does not count; a test key the inventory
- * does not hold, or a section the map does not have, is an error. A risk level
- * whose MTP flow the cache does not name is dropped to unranked.
+ * evidence, on a deprecated Test, on a Test still in design, or on a key nobody
+ * could verify (TMS not read) does not count; a test key the inventory does not
+ * hold when the TMS WAS read, or a section the map does not have, is an error.
+ * A risk level whose MTP flow the cache does not name is dropped to unranked.
  */
 
 import type {
@@ -15,6 +16,7 @@ import type {
   BucketChange,
   ClassifiedBehaviour,
   CollectResult,
+  Cover,
   CoverageRow,
   GapList,
   InventoryTest,
@@ -24,7 +26,7 @@ import type {
   RunDiff,
 } from './types.ts';
 
-import { BEHAVIOUR_MAPS, BUCKETS, GAP_BUCKETS, parseBehaviourId, RISK_LEVELS, SCHEMA_VERSION } from './types.ts';
+import { BEHAVIOUR_MAPS, BUCKETS, compareIds, GAP_BUCKETS, parseBehaviourId, RISK_LEVELS, SCHEMA_VERSION } from './types.ts';
 
 /** A `BR-NNN` / `FEAT-NNN` style id: the map promises these are stable. */
 export const STRUCTURED_LOCAL_ID = /^[A-Z]+-\d+$/;
@@ -91,18 +93,25 @@ export function validateJudgments(collect: CollectResult, judgments: Judgments):
       if (row.verdict !== 'exercises' && row.verdict !== 'weak') { errors.push(`${where}: ${row.test}: verdict must be exercises or weak`); }
       if (rowTests.has(row.test)) { errors.push(`${where}: ${row.test} listed twice`); }
       rowTests.add(row.test);
-      // Without the TMS a key outside the manifest cannot be checked: it stays, unverified.
+      // Without the TMS a key outside the manifest cannot be checked: it stays in the report, not counted (classifyRow).
       if (!tests.has(row.test) && tmsRead) { errors.push(`${where}: ${row.test} is not in the test inventory`); }
     }
   }
   return errors;
 }
 
+export const NOT_VERIFIED = 'not verified: TMS not read';
+
+const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
 function classifyRow(row: JudgedBehaviour['covered_by'][number], test: InventoryTest | undefined): CoverageRow {
   const evidence = typeof row.evidence === 'string' ? row.evidence.trim() : '';
   let reason: string | null = null;
   if (evidence === '') { reason = 'no evidence: a coverage claim without evidence does not count'; }
-  else if (test?.deprecated) { reason = 'the Test is deprecated in the TMS'; }
+  // Only reachable when the TMS was not read (validation rejects an unknown key otherwise): fail closed.
+  else if (!test) { reason = NOT_VERIFIED; }
+  else if (test.deprecated) { reason = 'the Test is deprecated in the TMS'; }
+  else if (test.in_design) { reason = `the Test is still in design (status \`${test.status}\`), not an approved Test`; }
   const kind = test?.kind ?? 'manual';
   return {
     test: row.test,
@@ -120,12 +129,37 @@ function classifyRow(row: JudgedBehaviour['covered_by'][number], test: Inventory
 
 const riskRank = (level: RiskLevel | undefined): number => (level ? RISK_LEVELS.indexOf(level) : RISK_LEVELS.length);
 
+const plainCell = (cell: string): string => cell.replace(/[*`_]/g, '').trim().toLowerCase();
+
+/**
+ * Where the MTP cache names a flow: a table row with a cell equal to the flow
+ * (`level` is the row's own CRITICAL / HIGH / MEDIUM / LOW cell, null when it
+ * has none), else a heading that contains it. Prose mentions do not count: a
+ * flow named only in passing is not a ranked flow.
+ */
+export function mtpFlow(mtpText: string, flow: string): { found: 'row', level: RiskLevel | null } | { found: 'heading' } | null {
+  const wanted = plainCell(flow);
+  if (wanted === '') { return null; }
+  let heading = false;
+  for (const raw of mtpText.split('\n')) {
+    const line = raw.trim();
+    if (line.startsWith('|')) {
+      const cells = line.replace(/^\||\|$/g, '').split('|').map(plainCell);
+      if (!cells.includes(wanted)) { continue; }
+      const level = cells.map(c => c.toUpperCase()).find((c): c is RiskLevel => (RISK_LEVELS as readonly string[]).includes(c)) ?? null;
+      return { found: 'row', level };
+    }
+    if (line.startsWith('#') && plainCell(line.replace(/^#+/, '')).includes(wanted)) { heading = true; }
+  }
+  return heading ? { found: 'heading' } : null;
+}
+
 /** Gap priority: risk, then uncovered before weak, then module, then id. */
 export function compareGaps(a: ClassifiedBehaviour, b: ClassifiedBehaviour): number {
   return riskRank(a.risk?.level) - riskRank(b.risk?.level)
     || BUCKETS.indexOf(b.bucket) - BUCKETS.indexOf(a.bucket)
-    || a.module.localeCompare(b.module)
-    || a.id.localeCompare(b.id);
+    || compareIds(a.module, b.module)
+    || compareIds(a.id, b.id);
 }
 
 export function diffRuns(previous: GapList | null, current: readonly ClassifiedBehaviour[]): RunDiff {
@@ -145,7 +179,7 @@ export function diffRuns(previous: GapList | null, current: readonly ClassifiedB
     regressed: changed.filter(c => !GAP_BUCKETS.has(c.from) && GAP_BUCKETS.has(c.to)),
     changed,
     added,
-    removed: [...before.keys()].filter(id => !now.has(id)).sort(),
+    removed: [...before.keys()].filter(id => !now.has(id)).sort(compareIds),
   };
 }
 
@@ -170,7 +204,8 @@ export function classify(input: ClassifyInput): GapList {
   // A gap an existing coverage Tech Story names keeps its key, even before the judgment records it.
   const anchored = new Map<string, string>();
   for (const anchor of collect.anchors) { for (const id of anchor.gap_ids) { anchored.set(id, anchor.key); } }
-  const mtp = mtpText?.toLowerCase() ?? null;
+  const mtp = mtpText;
+  const tmsRead = collect.sources.tms.state === 'read';
   if (mtp === null && judgments.behaviours.some(b => b.risk)) {
     warnings.push(`MTP cache missing (${collect.sources.mtp.path}): every behaviour is unranked`);
   }
@@ -183,11 +218,25 @@ export function classify(input: ClassifyInput): GapList {
     const rows = b.covered_by.map(row => classifyRow(row, tests.get(row.test)));
     let risk = b.risk ?? null;
     if (risk && mtp === null) { risk = null; }
-    else if (risk && mtp !== null && !mtp.includes(risk.flow.trim().toLowerCase())) {
-      warnings.push(`${b.id}: MTP flow "${risk.flow}" is not in the MTP cache: unranked`);
-      risk = null;
+    else if (risk && mtp !== null) {
+      const found = mtpFlow(mtp, risk.flow);
+      if (found === null) {
+        warnings.push(`${b.id}: MTP flow "${risk.flow}" is not a row or heading of the MTP cache: unranked`);
+        risk = null;
+      }
+      else if (found.found === 'row' && found.level !== null && found.level !== risk.level) {
+        warnings.push(`${b.id}: judged ${risk.level}, but the MTP row of "${risk.flow}" says ${found.level}: the MTP level is used`);
+        risk = { level: found.level, flow: risk.flow };
+      }
     }
+    // A free kebab local id has no seed row of its own: its map text is the section's.
     const seedHash = seedHashes.get(b.id) ?? seedHashes.get(`${source.map}#${source.section}`) ?? null;
+    // Stale detection needs the fingerprints copied at judgment time; without them it is off, and said so.
+    const missing = [
+      ...(b.seed_hash ? [] : ['seed_hash']),
+      ...b.covered_by.filter(r => !r.test_fingerprint && tests.has(r.test)).map(r => `test_fingerprint of ${r.test}`),
+    ];
+    if (missing.length > 0) { warnings.push(`${b.id}: no ${missing.join(', ')}: stale detection is off for it`); }
     return {
       id: b.id,
       title: b.title.trim(),
@@ -195,17 +244,17 @@ export function classify(input: ClassifyInput): GapList {
       source,
       risk,
       bucket: bucketFor(rows),
-      covered_by: [...rows].sort((x, y) => x.test.localeCompare(y.test)),
+      covered_by: [...rows].sort((x, y) => compareIds(x.test, y.test)),
       stale: Boolean(b.seed_hash && seedHash && b.seed_hash !== seedHash),
       tech_story: b.tech_story ?? anchored.get(b.id) ?? null,
     };
-  }).sort((a, b) => a.id.localeCompare(b.id));
+  }).sort((a, b) => compareIds(a.id, b.id));
 
-  const covers = new Map<string, { kind: CoverageRow['kind'], covers: string[] }>();
+  const covers = new Map<string, { kind: CoverageRow['kind'], covers: Cover[] }>();
   for (const b of behaviours) {
     for (const row of b.covered_by.filter(r => r.counted)) {
       const entry = covers.get(row.test) ?? { kind: row.kind, covers: [] };
-      entry.covers.push(b.id);
+      entry.covers.push({ id: b.id, verdict: row.verdict });
       covers.set(row.test, entry);
     }
   }
@@ -217,7 +266,13 @@ export function classify(input: ClassifyInput): GapList {
       const local = parseBehaviourId(id)?.local_id;
       return Boolean(local && STRUCTURED_LOCAL_ID.test(local)) && !judgedIds.has(id);
     })
-    .sort();
+    .sort(compareIds);
+  if (behaviours.length === 0 && collect.seed.length > 0) {
+    warnings.push(`${plural(collect.seed.length, 'behaviour')} not judged yet: nothing is classified, so this list is not a clean slate`);
+  }
+  else if (unjudged.length > 0) {
+    warnings.push(`${plural(unjudged.length, 'behaviour')} not judged yet (structured rule ids): the gap list is incomplete`);
+  }
 
   const buckets = Object.fromEntries(BUCKETS.map(k => [k, 0])) as Record<Bucket, number>;
   for (const b of behaviours) { buckets[b.bucket] += 1; }
@@ -239,10 +294,11 @@ export function classify(input: ClassifyInput): GapList {
       },
       buckets,
       gaps: gaps.length,
+      gaps_upper_bound: !tmsRead,
     },
     behaviours,
     gaps: gaps.map(b => b.id),
-    tests: [...covers.entries()].map(([key, v]) => ({ key, kind: v.kind, covers: v.covers })).sort((a, b) => a.key.localeCompare(b.key)),
+    tests: [...covers.entries()].map(([key, v]) => ({ key, kind: v.kind, covers: v.covers })).sort((a, b) => compareIds(a.key, b.key)),
     unjudged_seed: unjudged,
     warnings,
     diff: diffRuns(previous, behaviours),

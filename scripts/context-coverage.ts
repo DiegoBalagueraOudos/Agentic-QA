@@ -36,9 +36,9 @@ import { parse as parseYaml } from 'yaml';
 
 import { classify, JudgmentError } from '../cli/lib/behaviour-coverage/classify.ts';
 import { proposeTechStories } from '../cli/lib/behaviour-coverage/propose.ts';
-import { renderGapList } from '../cli/lib/behaviour-coverage/render.ts';
-import { DEPRECATED_SLUG, readTmsInventory } from '../cli/lib/behaviour-coverage/tms.ts';
-import { BEHAVIOUR_MAPS, SCHEMA_VERSION } from '../cli/lib/behaviour-coverage/types.ts';
+import { gapsCell, pendingNote, renderGapList } from '../cli/lib/behaviour-coverage/render.ts';
+import { DEPRECATED_SLUG, designStatusSlugs, readTmsInventory } from '../cli/lib/behaviour-coverage/tms.ts';
+import { BEHAVIOUR_MAPS, compareIds, SCHEMA_VERSION } from '../cli/lib/behaviour-coverage/types.ts';
 import { contextMapStatuses } from '../cli/lib/context-maps.ts';
 import { LINK_TYPES_CATALOG, modalityFromTmsCli, WORKFLOWS_CATALOG } from '../cli/lib/sprint-source/config.ts';
 import { liveTransport } from '../cli/lib/sprint-source/transport.ts';
@@ -141,7 +141,7 @@ export function seedFromMap(map: MapKey, html: string): { sections: string[], se
     }
   }
   const unique = new Map(seed.map(b => [b.id, b]));
-  return { sections: parsed.sections.map(s => s.id).sort(), seed: [...unique.values()].sort((a, b) => a.id.localeCompare(b.id)) };
+  return { sections: parsed.sections.map(s => s.id).sort(compareIds), seed: [...unique.values()].sort((a, b) => compareIds(a.id, b.id)) };
 }
 
 interface ManifestFile { components?: Record<string, Array<{ relativePath?: string, atcs?: Array<{ id?: string, method?: string, line?: number }> }>> }
@@ -196,6 +196,16 @@ function readProjectYaml(root: string): ProjectYaml {
   return existsSync(path) ? (parseYaml(readFileSync(path, 'utf8')) as ProjectYaml) ?? {} : {};
 }
 
+/**
+ * What changes when the test changes. An ATC: its `file:line:method`, the same
+ * with or without the TMS. A manual Test: the TMS `updated` stamp, which also
+ * moves on a comment or a new link, so expect some stale noise there, never a
+ * wrong bucket.
+ */
+function fingerprint(atc: { file: string, line: number, method: string } | null, updated: string | null): string {
+  return sha(atc ? `atc:${atc.file}:${atc.line}:${atc.method}` : `tms:${updated ?? ''}`);
+}
+
 export async function collect(root: string, opts: { tms: string | null }, deps: Deps = {}): Promise<CollectResult> {
   const now = deps.now?.() ?? new Date();
   const git = deps.git ?? defaultGit;
@@ -217,17 +227,19 @@ export async function collect(root: string, opts: { tms: string | null }, deps: 
     seed.push(...read.seed);
   }
 
-  // --- tests: the manifest at production, then the TMS
+  // --- tests: the manifest at production, then the TMS (skipped when there is nothing to cross it with)
   const manifest = readManifest(root, project.git_strategy?.branches?.production ?? null, git);
   const projectKey = project.project?.project_key ?? null;
   const modality = opts.tms === 'none' ? 'none' : modalityFromTmsCli(project.testing?.tms_cli);
+  const workflows = readJson<WorkflowCatalog>(join(root, WORKFLOWS_CATALOG));
+  const design = designStatusSlugs(workflows);
   let tms: TmsSource = { modality, state: 'unavailable', reason: null };
   let tmsTests: Awaited<ReturnType<typeof readTmsInventory>> | null = null;
   if (modality === 'none') { tms.reason = '--tms none: manifest only'; }
+  else if (!maps.some(m => m.state === 'generated')) { tms.reason = 'not read: no business map is generated, so there is nothing to cross the tests with'; }
   else if (!projectKey) { tms.reason = 'project.project_key is not set in .agents/project.yaml'; }
   else {
     try {
-      const workflows = readJson<WorkflowCatalog>(join(root, WORKFLOWS_CATALOG));
       const linkTypes = readJson<Record<string, { name?: string }>>(join(root, LINK_TYPES_CATALOG));
       tmsTests = await readTmsInventory({ transport: deps.transport ?? liveTransport(), projectKey, modality, workflows, testLink: linkTypes?.test?.name ?? null });
       tms = { modality, state: 'read', reason: null };
@@ -247,11 +259,12 @@ export async function collect(root: string, opts: { tms: string | null }, deps: 
       in_tms: true,
       status: t.status,
       deprecated: t.status === DEPRECATED_SLUG,
+      in_design: t.status !== null && design.has(t.status),
       in_regression: t.in_regression,
       components: t.components,
       coverables: t.coverables,
       atc,
-      fingerprint: sha(`${t.updated ?? ''}|${atc ? `${atc.file}:${atc.line}:${atc.method}` : ''}`),
+      fingerprint: fingerprint(atc, t.updated),
     });
     if (!atc && t.status === 'automated') { warnings.push(`${t.key}: TMS status is automated but no ATC with this id is in the manifest${manifest.source.ref ? ` at ${manifest.source.ref}` : ''}: counted as manual`); }
   }
@@ -266,11 +279,12 @@ export async function collect(root: string, opts: { tms: string | null }, deps: 
       in_tms: false,
       status: null,
       deprecated: false,
+      in_design: false,
       in_regression: null,
       components: [],
       coverables: [],
       atc,
-      fingerprint: sha(`|${atc.file}:${atc.line}:${atc.method}`),
+      fingerprint: fingerprint(atc, null),
     });
   }
 
@@ -283,8 +297,8 @@ export async function collect(root: string, opts: { tms: string | null }, deps: 
       manifest: manifest.source,
       mtp: { state: existsSync(join(base, MTP_CACHE)) ? 'present' : 'missing', path: MTP_CACHE },
     },
-    seed: seed.sort((a, b) => a.id.localeCompare(b.id)),
-    tests: [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key)),
+    seed: seed.sort((a, b) => compareIds(a.id, b.id)),
+    tests: [...byKey.values()].sort((a, b) => compareIds(a.key, b.key)),
     anchors: tmsTests?.anchors ?? [],
     warnings,
   };
@@ -300,7 +314,7 @@ const hasBehaviourSource = (c: CollectResult): boolean => c.sources.maps.some(m 
 function previousRun(outDir: string): GapList | null {
   const dir = join(outDir, 'runs');
   if (!existsSync(dir)) { return null; }
-  const last = readdirSync(dir).filter(f => f.endsWith('.json')).sort().pop();
+  const last = readdirSync(dir).filter(f => f.endsWith('.json')).sort(compareIds).pop();
   return last ? readJson<GapList>(join(dir, last)) : null;
 }
 
@@ -365,7 +379,7 @@ export async function run(argv: string[], cwd: string, io: Io = STDIO, deps: Dep
     writeJson(join(outDir, 'runs', `${list.run_id}.json`), list);
     writeFileSync(join(outDir, 'gap-list.md'), renderGapList(list));
     const b = list.denominators.buckets;
-    io.out(`classify -> ${join(outDir, 'gap-list.md')}\n  ${list.denominators.behaviours} behaviours: automated ${b.automated} · manual-only ${b['manual-only']} · weak ${b.weak} · uncovered ${b.uncovered} · gaps ${list.denominators.gaps}${list.diff.previous_run ? ` · vs ${list.diff.previous_run}: ${list.diff.closed.length} closed, ${list.diff.regressed.length} regressed` : ''}\n`);
+    io.out(`classify -> ${join(outDir, 'gap-list.md')}\n  ${list.denominators.behaviours} behaviours: automated ${b.automated} · manual-only ${b['manual-only']} · weak ${b.weak} · uncovered ${b.uncovered} · gaps ${gapsCell(list)}${list.diff.previous_run ? ` · vs ${list.diff.previous_run}: ${list.diff.closed.length} closed, ${list.diff.regressed.length} regressed` : ''}\n`);
     return 0;
   }
 
@@ -388,8 +402,11 @@ export async function run(argv: string[], cwd: string, io: Io = STDIO, deps: Dep
     writeJson(join(dir, `${name}.json`), p);
     writeFileSync(join(dir, `${name}.md`), p.description_md);
   });
+  const pending = pendingNote(list);
   io.out(`${[
     `propose (DRY RUN, nothing was created) -> ${dir}`,
+    list.denominators.gaps_upper_bound ? '  the TMS was not read: these gaps are an upper bound, manual coverage was not verified' : '',
+    pending ? `  ${pending.replace(/\*/g, '')}` : '',
     ...result.proposals.map(p => `  ${p.summary}  [${p.gap_ids.length} gap(s), parent ${p.payload.parentIssueId ?? 'UNRESOLVED'}, component ${p.module}]`),
     ...result.skipped.map(s => `  skipped ${s.id}: already anchored by ${s.tech_story}`),
     result.proposals.some(p => p.payload.parentIssueId === null) ? '  parent unresolved: qa.qa_epics.test_repository_epic.key is not set (resolve or create the QA Test Repository epic first)' : '',

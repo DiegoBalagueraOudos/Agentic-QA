@@ -39,6 +39,11 @@ export const BEHAVIOUR_ID = /^(e2e|api|data)#([a-z0-9][a-z0-9-]*)(?:\/([A-Za-z0-
 
 export interface BehaviourRef { map: MapKey, section: string, local_id: string | null }
 
+/** The one order every list in these files uses: UTF-16 code units, the same on every machine and locale. */
+export function compareIds(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export function parseBehaviourId(id: string): BehaviourRef | null {
   const m = BEHAVIOUR_ID.exec(id);
   return m ? { map: m[1] as MapKey, section: m[2], local_id: m[3] ?? null } : null;
@@ -76,6 +81,8 @@ export interface InventoryTest {
   /** Workflow slug of the TMS Test (`.agents/jira-workflows.json` `test_case`); null when not read. */
   status: string | null
   deprecated: boolean
+  /** In a design status (the catalog's create and `start_design` targets): not an approved Test yet. */
+  in_design: boolean
   /** RTP member (jira-xray) or a regression label (jira-native); null when the TMS was not read. */
   in_regression: boolean | null
   components: string[]
@@ -171,9 +178,12 @@ export interface CoverageRow {
   outside_regression: boolean
   /** The test changed since it was judged. */
   stale: boolean
-  /** False = the TMS was not read, so the key could not be checked. */
+  /** False = the key is not in the inventory (the TMS was not read): the row does not count. */
   verified: boolean
 }
+
+/** One entry of the inverse view: a behaviour a test claims, with the verdict of that claim. */
+export interface Cover { id: string, verdict: Verdict }
 
 export interface ClassifiedBehaviour {
   id: string
@@ -211,13 +221,15 @@ export interface GapList {
     tests: { inventory: number, automated: number, manual: number }
     buckets: Record<Bucket, number>
     gaps: number
+    /** True when manual coverage could not be verified (TMS not read): the real gap count may be lower. */
+    gaps_upper_bound: boolean
   }
   /** Every behaviour, sorted by id (stable diffs). */
   behaviours: ClassifiedBehaviour[]
   /** Gap ids in priority order: risk, then bucket, then module, then id. */
   gaps: string[]
-  /** The inverse view: which behaviours each test covers (counted rows only). */
-  tests: Array<{ key: string, kind: 'automated' | 'manual', covers: string[] }>
+  /** The inverse view: which behaviours each test claims (counted rows only), each with its verdict: a `weak` cover is not coverage. */
+  tests: Array<{ key: string, kind: 'automated' | 'manual', covers: Cover[] }>
   /** Structured seed rows (BR / FEAT ids) no judgment names yet. */
   unjudged_seed: string[]
   warnings: string[]

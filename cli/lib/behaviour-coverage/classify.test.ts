@@ -2,7 +2,7 @@ import type { CollectResult, InventoryTest, JudgedBehaviour, Judgments } from '.
 
 import { describe, expect, test } from 'bun:test';
 
-import { bucketFor, classify, compareGaps, diffRuns, JudgmentError, runIdFor, validateJudgments } from './classify.ts';
+import { bucketFor, classify, compareGaps, diffRuns, JudgmentError, mtpFlow, NOT_VERIFIED, runIdFor, validateJudgments } from './classify.ts';
 
 const NOW = new Date('2026-01-14T16:00:00Z');
 const MTP = '| 1 | Checkout and payment | CRITICAL |\n| 2 | Catalog browsing | HIGH |';
@@ -16,6 +16,7 @@ function testRow(key: string, over: Partial<InventoryTest> = {}): InventoryTest 
     in_tms: true,
     status: 'ready',
     deprecated: false,
+    in_design: false,
     in_regression: true,
     components: [],
     coverables: [],
@@ -50,6 +51,7 @@ function collectResult(over: Partial<CollectResult> = {}): CollectResult {
       testRow('T-2'),
       testRow('T-3', { in_regression: false }),
       testRow('T-4', { deprecated: true, status: 'deprecated' }),
+      testRow('T-5', { in_design: true, status: 'in_design' }),
     ],
     anchors: [],
     warnings: [],
@@ -104,10 +106,24 @@ describe('validation fails closed', () => {
     expect(validateJudgments(collectResult(), judgments([behaviour('e2e#feature-billing/refund-window')]))).toEqual([]);
   });
 
-  test('without the TMS a key outside the manifest stays, unverified', () => {
-    const collect = collectResult({ sources: { ...collectResult().sources, tms: { modality: 'none', state: 'unavailable', reason: '--tms none' } } });
+  test('without the TMS a key nobody can verify does not count: the behaviour stays a gap, the total is an upper bound', () => {
+    const collect = collectResult({
+      sources: { ...collectResult().sources, tms: { modality: 'none', state: 'unavailable', reason: '--tms none' } },
+      tests: [testRow('T-1', { kind: 'automated', in_manifest: true, in_tms: false })],
+    });
     const list = classify({ collect, judgments: judgments([behaviour('e2e#feature-billing/BR-001', { covered_by: [ev('T-9')] })]), mtpText: MTP, previous: null, now: NOW });
-    expect(list.behaviours[0].covered_by[0]).toMatchObject({ test: 'T-9', verified: false, kind: 'manual', counted: true });
+    expect(list.behaviours[0].covered_by[0]).toMatchObject({ test: 'T-9', verified: false, kind: 'manual', counted: false, reason: NOT_VERIFIED });
+    expect(list.behaviours[0].bucket).toBe('uncovered');
+    expect(list.gaps).toEqual(['e2e#feature-billing/BR-001']);
+    expect(list.denominators.gaps_upper_bound).toBe(true);
+    expect(list.tests).toEqual([]);
+  });
+
+  test('a Test still in design does not count, like a deprecated one', () => {
+    const list = classify({ collect: collectResult(), judgments: judgments([behaviour('e2e#feature-billing/BR-001', { covered_by: [ev('T-5')] })]), mtpText: MTP, previous: null, now: NOW });
+    expect(list.behaviours[0].covered_by[0]).toMatchObject({ counted: false, reason: 'the Test is still in design (status `in_design`), not an approved Test' });
+    expect(list.behaviours[0].bucket).toBe('uncovered');
+    expect(list.denominators.gaps_upper_bound).toBe(false);
   });
 
   test('classify throws JudgmentError listing every error', () => {
@@ -154,7 +170,7 @@ describe('classify', () => {
   test('a flow the MTP cache does not name is unranked, and a missing cache unranks everything', () => {
     const named = classify({ collect: collectResult(), judgments: judgments([behaviour('e2e#feature-billing/BR-001', { risk: { level: 'HIGH', flow: 'Invented flow' } })]), mtpText: MTP, previous: null, now: NOW });
     expect(named.behaviours[0].risk).toBeNull();
-    expect(named.warnings.some(w => w.includes('"Invented flow" is not in the MTP cache'))).toBe(true);
+    expect(named.warnings.some(w => w.includes('"Invented flow" is not a row or heading of the MTP cache'))).toBe(true);
     const none = classify({ collect: collectResult(), judgments: set, mtpText: null, previous: null, now: NOW });
     expect(none.behaviours.every(b => b.risk === null)).toBe(true);
     expect(none.warnings.some(w => w.startsWith('MTP cache missing'))).toBe(true);
@@ -182,19 +198,60 @@ describe('classify', () => {
     expect(list.unjudged_seed).toEqual(['e2e#feature-billing/BR-002', 'e2e#feature-catalog/BR-003']);
   });
 
-  test('the inverse view lists only counted rows', () => {
+  test('the inverse view lists only counted rows, each with its verdict, so a weak cover never reads as coverage', () => {
     const list = classify({ collect: collectResult(), judgments: set, mtpText: MTP, previous: null, now: NOW });
     expect(list.tests).toEqual([
-      { key: 'T-1', kind: 'automated', covers: ['e2e#feature-billing/BR-001'] },
-      { key: 'T-2', kind: 'manual', covers: ['e2e#feature-billing', 'e2e#feature-billing/BR-001'] },
-      { key: 'T-3', kind: 'manual', covers: ['e2e#feature-billing/BR-002'] },
+      { key: 'T-1', kind: 'automated', covers: [{ id: 'e2e#feature-billing/BR-001', verdict: 'exercises' }] },
+      { key: 'T-2', kind: 'manual', covers: [{ id: 'e2e#feature-billing', verdict: 'exercises' }, { id: 'e2e#feature-billing/BR-001', verdict: 'exercises' }] },
+      { key: 'T-3', kind: 'manual', covers: [{ id: 'e2e#feature-billing/BR-002', verdict: 'weak' }] },
     ]);
+  });
+
+  test('a judgment without its fingerprints says stale detection is off for it', () => {
+    const list = classify({
+      collect: collectResult(),
+      judgments: judgments([
+        behaviour('e2e#feature-billing/BR-001', { seed_hash: 'h-br1', covered_by: [ev('T-1', 'exercises', { test_fingerprint: 'fp-T-1' })] }),
+        behaviour('e2e#feature-billing/BR-002', { covered_by: [ev('T-2')] }),
+      ]),
+      mtpText: MTP,
+      previous: null,
+      now: NOW,
+    });
+    expect(list.warnings.filter(w => w.includes('stale detection is off'))).toEqual(['e2e#feature-billing/BR-002: no seed_hash, test_fingerprint of T-2: stale detection is off for it']);
+  });
+
+  test('no judgment yet against a seed is a stated note, never a clean slate', () => {
+    const list = classify({ collect: collectResult(), judgments: judgments([]), mtpText: MTP, previous: null, now: NOW });
+    expect(list.gaps).toEqual([]);
+    expect(list.warnings).toContain('4 behaviours not judged yet: nothing is classified, so this list is not a clean slate');
+    const partial = classify({ collect: collectResult(), judgments: judgments([behaviour('e2e#feature-billing/BR-001')]), mtpText: MTP, previous: null, now: NOW });
+    expect(partial.warnings).toContain('2 behaviours not judged yet (structured rule ids): the gap list is incomplete');
   });
 
   test('same inputs, same gap list (recomputable)', () => {
     const a = classify({ collect: collectResult(), judgments: set, mtpText: MTP, previous: null, now: NOW });
     const b = classify({ collect: collectResult(), judgments: structuredClone(set), mtpText: MTP, previous: null, now: NOW });
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  });
+});
+
+describe('MTP flow lookup', () => {
+  const mtp = '# Plan\n\n## Silent killers: nightly price sync\n\n| Level | Flow |\n|---|---|\n| **HIGH** | Checkout and payment |\n| MEDIUM | `Saved searches` |\n\nPayment retries are mentioned here in prose.';
+
+  test('a table row matches by a whole cell and carries its own level; a heading matches without a level; prose does not count', () => {
+    expect(mtpFlow(mtp, 'checkout and payment')).toEqual({ found: 'row', level: 'HIGH' });
+    expect(mtpFlow(mtp, 'Saved searches')).toEqual({ found: 'row', level: 'MEDIUM' });
+    expect(mtpFlow(mtp, 'nightly price sync')).toEqual({ found: 'heading' });
+    expect(mtpFlow(mtp, 'payment')).toBeNull();
+    expect(mtpFlow(mtp, 'Payment retries')).toBeNull();
+    expect(mtpFlow(mtp, ' ')).toBeNull();
+  });
+
+  test('a judged level that disagrees with the MTP row is replaced by the row\'s level, with a warning', () => {
+    const list = classify({ collect: collectResult(), judgments: judgments([behaviour('e2e#feature-billing/BR-001', { risk: { level: 'CRITICAL', flow: 'Checkout and payment' } })]), mtpText: mtp, previous: null, now: NOW });
+    expect(list.behaviours[0].risk).toEqual({ level: 'HIGH', flow: 'Checkout and payment' });
+    expect(list.warnings).toContain('e2e#feature-billing/BR-001: judged CRITICAL, but the MTP row of "Checkout and payment" says HIGH: the MTP level is used');
   });
 });
 

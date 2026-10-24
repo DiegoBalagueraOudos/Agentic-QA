@@ -7,10 +7,12 @@
  * Every key (`DEMO-*`), id and name is invented. The graph, read through
  * `replayTransport`: `DEMO-11` is automated (an ATC in the manifest) and labelled
  * regression; `DEMO-12` is manual, reaches Story `DEMO-2` through its ATS
- * `DEMO-31` and is a member of the RTP `DEMO-41`; `DEMO-13` is manual and
- * outside the regression repository; `DEMO-14` is deprecated; `DEMO-16` says
- * AUTOMATED with no ATC; ATC `DEMO-15` has no Test. Tech Story `DEMO-51`
- * already anchors gap `e2e#feature-catalog/BR-003`.
+ * `DEMO-31` and is a member of the RTP `DEMO-41`; `DEMO-13` is manual, outside
+ * the regression repository, and reaches `DEMO-2` through the ATP `DEMO-42`
+ * it belongs to (the Test Plan leg); `DEMO-14` is deprecated; `DEMO-16` says
+ * AUTOMATED with no ATC; `DEMO-17` is still In Design; ATC `DEMO-15` has no
+ * Test. The FTP `DEMO-43` links no coverable, so its members are never read.
+ * Tech Story `DEMO-51` already anchors gap `e2e#feature-catalog/BR-003`.
  */
 
 import type { Transport } from '../../sprint-source/transport.ts';
@@ -84,13 +86,14 @@ export function replayTransport(overrides: Record<string, unknown> = {}): Transp
       if (jql in overrides) { return overrides[jql] as T; }
       if (jql === 'project = DEMO AND issuetype in ("Test") ORDER BY key') { return recorded('search-tests.json') as T; }
       if (jql === 'key in (DEMO-31) ORDER BY key') { return recorded('search-sets.json') as T; }
-      if (jql.startsWith('project = DEMO AND issuetype in ("Test Plan") AND summary ~ "RTP"')) { return recorded('search-plans.json') as T; }
+      if (jql === 'project = DEMO AND issuetype in ("Test Plan") ORDER BY key') { return recorded('search-plans.json') as T; }
       if (jql === 'project = DEMO AND issuetype in ("Tech Story") AND labels = "coverage-gap" ORDER BY key') { return recorded('search-anchors.json') as T; }
       throw new Error(`unexpected jql ${jql}`);
     },
     async xray<T>(query: string, variables: Record<string, unknown>): Promise<T> {
       calls.push(`xray ${JSON.stringify(variables)}`);
       if (query === TEST_PLAN_TESTS_QUERY && variables.issueId === '2041') { return recorded('xray-rtp.json') as T; }
+      if (query === TEST_PLAN_TESTS_QUERY && variables.issueId === '2042') { return recorded('xray-atp.json') as T; }
       throw new Error(`unexpected xray call ${JSON.stringify(variables)}`);
     },
   };

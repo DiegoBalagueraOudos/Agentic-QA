@@ -53,7 +53,10 @@ describe('collect -> classify -> propose on the fixture project', () => {
       ['DEMO-14', 'manual', true, true],
       ['DEMO-15', 'automated', false, false],
       ['DEMO-16', 'manual', true, false],
+      ['DEMO-17', 'manual', true, false],
     ]);
+    expect(c.tests.find(t => t.key === 'DEMO-17')!.in_design).toBe(true);
+    expect(c.tests.find(t => t.key === 'DEMO-13')!.coverables).toEqual(['DEMO-2']);
     expect(c.sources.tms).toEqual({ modality: 'jira-xray', state: 'read', reason: null });
     expect(c.sources.manifest).toMatchObject({ state: 'read', ref: 'working-tree', production: 'main' });
     expect(c.warnings).toEqual([
@@ -77,7 +80,11 @@ describe('collect -> classify -> propose on the fixture project', () => {
     const md = readFileSync(join(outDir, 'gap-list.md'), 'utf8');
     expect(md).toContain('| 1 | CRITICAL (Checkout and payment) | weak | Billing |');
     expect(md).toContain('The business-data-context map is placeholder');
-    expect(md).toContain('MTP flow "Saved searches" is not in the MTP cache');
+    expect(md).toContain('MTP flow "Saved searches" is not a row or heading of the MTP cache');
+    expect(md).toContain('**1 behaviour not judged yet (structured rule ids): this list is incomplete.**');
+    expect(md).toContain('`DEMO-17` (not counted, outside regression)');
+    expect(list.behaviours.find(b => b.id === 'e2e#feature-catalog/BR-004')!.covered_by[0].reason).toContain('still in design');
+    expect(list.warnings.some(w => w.includes('stale detection is off'))).toBe(false);
     expect(out).toContain('automated 1 · manual-only 1 · weak 1 · uncovered 2 · gaps 3');
   });
 
@@ -112,14 +119,57 @@ describe('collect -> classify -> propose on the fixture project', () => {
     expect(p.payload).toMatchObject({ projectKey: 'DEMO', type: 'Tech Story', parentIssueId: 'DEMO-70', labels: ['coverage-gap'] });
   });
 
-  test('without the TMS, manual-only is unknown and the rows stay unverified', async () => {
+  test('without the TMS, a manual claim nobody can verify does not count: gaps are an upper bound', async () => {
     expect(await cli(['collect', '--tms', 'none'])).toBe(0);
     expect(read<CollectResult>('collect.json').sources.tms).toEqual({ modality: 'none', state: 'unavailable', reason: '--tms none: manifest only' });
     copyFileSync(join(FIXTURES, 'judgments.json'), join(outDir, 'judgments.json'));
     expect(await cli(['classify'])).toBe(0);
+    const list = read<GapList>('gap-list.json');
+    // Only DEMO-11 is an ATC in the manifest; every manual claim stays unverified and the behaviour stays a gap.
+    expect(list.denominators.buckets).toEqual({ 'automated': 1, 'manual-only': 0, 'weak': 0, 'uncovered': 4 });
+    expect(list.denominators.gaps_upper_bound).toBe(true);
+    expect(list.behaviours.find(b => b.id === 'e2e#feature-billing/FEAT-001')!.covered_by[0]).toMatchObject({ test: 'DEMO-12', counted: false, verified: false, reason: 'not verified: TMS not read' });
     const md = readFileSync(join(outDir, 'gap-list.md'), 'utf8');
-    expect(md).toMatch(/\| manual-only \| unknown \(\d+ judged, unverified\) \|/);
+    expect(md).toContain('| manual-only | unknown (not measured: TMS not read) |');
+    expect(md).toContain('| **gaps** (weak + uncovered) | 4, upper bound: manual coverage not verified (TMS not read) |');
+    expect(md).toContain('`DEMO-12` (unverified, not counted)');
     expect(md).toContain('`manual-only` was not measured: TMS not read (--tms none: manifest only)');
+    out = '';
+    expect(await cli(['propose', '--grain', 'gap'])).toBe(0);
+    expect(out).toContain('the TMS was not read: these gaps are an upper bound, manual coverage was not verified');
+  });
+
+  test('reviewer repro: a nonexistent key and a deprecated-only behaviour under --tms none stay gaps', async () => {
+    expect(await cli(['collect', '--tms', 'none'])).toBe(0);
+    const judgments = JSON.parse(readFileSync(join(FIXTURES, 'judgments.json'), 'utf8')) as { behaviours: Array<{ id: string, covered_by: unknown[] }> };
+    judgments.behaviours.find(b => b.id === 'e2e#feature-catalog/BR-004')!.covered_by = [{ test: 'DEMO-99', verdict: 'exercises', evidence: 'invented' }];
+    writeFileSync(join(outDir, 'judgments.json'), JSON.stringify(judgments));
+    expect(await cli(['classify'])).toBe(0);
+    const list = read<GapList>('gap-list.json');
+    expect(list.gaps).toContain('e2e#feature-catalog/BR-004');
+    expect(list.gaps).toContain('e2e#feature-catalog/BR-003');
+    expect(list.tests.map(t => t.key)).toEqual(['DEMO-11']);
+  });
+
+  test('a map edit after judging marks the judgment stale', async () => {
+    const map = join(repo, '.agents', 'skills', 'business-e2e-context', 'references', 'business-e2e-map.html');
+    writeFileSync(map, readFileSync(map, 'utf8').replace('minus the discount', 'minus the discount and the gift card'));
+    await cli(['collect']);
+    copyFileSync(join(FIXTURES, 'judgments.json'), join(outDir, 'judgments.json'));
+    expect(await cli(['classify'])).toBe(0);
+    const list = read<GapList>('gap-list.json');
+    // The rule row changed, and so did the feature block that holds it.
+    expect(list.behaviours.filter(b => b.stale).map(b => b.id)).toEqual(['e2e#feature-billing/BR-001', 'e2e#feature-billing/FEAT-001']);
+    expect(readFileSync(join(outDir, 'gap-list.md'), 'utf8')).toContain('- `e2e#feature-billing/BR-001`: its map text changed');
+  });
+
+  test('no judgment yet: the gap list says nothing is classified, never "No gaps"', async () => {
+    await cli(['collect']);
+    writeFileSync(join(outDir, 'judgments.json'), JSON.stringify({ schema_version: 1, behaviours: [] }));
+    expect(await cli(['classify'])).toBe(0);
+    const md = readFileSync(join(outDir, 'gap-list.md'), 'utf8');
+    expect(md).toContain('**8 behaviours not judged yet: nothing is classified, this is not a clean slate.**');
+    expect(md).not.toContain('No gaps among the judged behaviours.');
   });
 
   test('a TMS failure is stated as the reason, never an empty inventory', async () => {
@@ -139,10 +189,13 @@ describe('collect -> classify -> propose on the fixture project', () => {
 });
 
 describe('degradation', () => {
-  test('every map a placeholder: a stated note and exit 2, from collect and from classify', async () => {
+  test('every map a placeholder: a stated note and exit 2, from collect and from classify, with no TMS read', async () => {
     buildMiniRepo(repo, { e2eMap: false });
-    expect(await cli(['collect'])).toBe(2);
+    const d = deps();
+    expect(await cli(['collect'], d)).toBe(2);
     expect(err).toContain(NO_BEHAVIOUR_SOURCE);
+    expect(d.transport.calls).toEqual([]);
+    expect(read<CollectResult>('collect.json').sources.tms.reason).toBe('not read: no business map is generated, so there is nothing to cross the tests with');
     err = '';
     expect(await cli(['classify'])).toBe(2);
     expect(err).toContain(NO_BEHAVIOUR_SOURCE);

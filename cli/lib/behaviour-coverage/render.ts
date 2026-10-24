@@ -19,17 +19,39 @@ export function unmeasured(list: GapList): Set<Bucket> {
 }
 
 function bucketCell(list: GapList, bucket: Bucket): string {
-  const n = list.denominators.buckets[bucket];
-  return unmeasured(list).has(bucket) ? `unknown (${n} judged, unverified)` : String(n);
+  if (!unmeasured(list).has(bucket)) { return String(list.denominators.buckets[bucket]); }
+  return bucket === 'automated' ? 'unknown (not measured: no KATA manifest)' : 'unknown (not measured: TMS not read)';
 }
+
+/** `1 behaviour`, `2 behaviours`. */
+export const count = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+/** The warnings `classify` adds for unjudged seed rows; the Gaps section already opens with the same note. */
+export const PENDING_WARNING = 'not judged yet';
 
 function coveredCell(b: ClassifiedBehaviour): string {
   if (b.covered_by.length === 0) { return 'none'; }
   return b.covered_by.map((r) => {
-    const flags = [r.verdict === 'weak' ? 'weak' : null, r.counted ? null : 'not counted', r.stale ? 'stale' : null, r.outside_regression ? 'outside regression' : null]
+    const notCounted = r.verified ? 'not counted' : 'unverified, not counted';
+    const flags = [r.verdict === 'weak' ? 'weak' : null, r.counted ? null : notCounted, r.stale ? 'stale' : null, r.outside_regression ? 'outside regression' : null]
       .filter(Boolean);
     return `\`${r.test}\`${flags.length > 0 ? ` (${flags.join(', ')})` : ''}`;
   }).join(', ');
+}
+
+/** The gap total, with the reason when it is only an upper bound. */
+export function gapsCell(list: GapList): string {
+  return list.denominators.gaps_upper_bound
+    ? `${list.denominators.gaps}, upper bound: manual coverage not verified (TMS not read)`
+    : String(list.denominators.gaps);
+}
+
+/** The line that keeps an incomplete judgment from reading as a clean slate; null when every seed row is judged. */
+export function pendingNote(list: GapList): string | null {
+  const d = list.denominators;
+  if (d.behaviours === 0 && d.seed > 0) { return `**${count(d.seed, 'behaviour')} not judged yet: nothing is classified, this is not a clean slate.**`; }
+  if (d.seed_unjudged > 0) { return `**${count(d.seed_unjudged, 'behaviour')} not judged yet (structured rule ids): this list is incomplete.**`; }
+  return null;
 }
 
 export function renderGapList(list: GapList): string {
@@ -52,17 +74,19 @@ export function renderGapList(list: GapList): string {
     '',
     '## Totals',
     '',
-    `${d.behaviours} behaviours judged (from a seed of ${d.seed}; ${d.seed_unjudged} structured rule ids still unjudged). ${d.tests.inventory} tests in the inventory (${d.tests.automated} automated, ${d.tests.manual} manual).`,
+    `${count(d.behaviours, 'behaviour')} judged (from a seed of ${d.seed}; ${count(d.seed_unjudged, 'structured rule id')} still unjudged). ${count(d.tests.inventory, 'test')} in the inventory (${d.tests.automated} automated, ${d.tests.manual} manual).`,
     '',
     '| Bucket | Behaviours |',
     '|---|---|',
     ...BUCKETS.map(b => `| ${b} | ${bucketCell(list, b)} |`),
-    `| **gaps** (weak + uncovered) | ${d.gaps} |`,
+    `| **gaps** (weak + uncovered) | ${gapsCell(list)} |`,
     '',
     '## Gaps, by MTP risk',
     '',
   ];
-  if (list.gaps.length === 0) { out.push('No gaps among the judged behaviours.'); }
+  const pending = pendingNote(list);
+  if (pending) { out.push(pending, ''); }
+  if (list.gaps.length === 0) { out.push(pending ? 'No gap among the behaviours judged so far.' : 'No gaps among the judged behaviours.'); }
   else {
     out.push('| # | Risk | Bucket | Module | Behaviour | Covered by | Tech Story |', '|---|---|---|---|---|---|---|');
     list.gaps.forEach((id, i) => {
@@ -101,8 +125,8 @@ export function renderGapList(list: GapList): string {
     if (m.state !== 'generated') { gapsSection.push(`- The ${m.skill} map is ${m.state}: its behaviours are not in this list. Run \`project-context ${m.map}\`.`); }
   }
   for (const bucket of unmeasured(list)) { gapsSection.push(`- \`${bucket}\` was not measured: ${bucket === 'automated' ? 'no KATA manifest' : `TMS not read${s.tms.reason ? ` (${esc(s.tms.reason)})` : ''}`}.`); }
-  if (d.seed_unjudged > 0) { gapsSection.push(`- ${d.seed_unjudged} structured rule ids are not judged yet: ${list.unjudged_seed.slice(0, 20).map(id => `\`${id}\``).join(', ')}${d.seed_unjudged > 20 ? ', ...' : ''}`); }
-  for (const w of list.warnings) { gapsSection.push(`- ${w}`); }
+  if (d.seed_unjudged > 0) { gapsSection.push(`- Not judged yet (the full list is \`unjudged_seed\` in gap-list.json): ${list.unjudged_seed.slice(0, 20).map(id => `\`${id}\``).join(', ')}${d.seed_unjudged > 20 ? ', ...' : ''}`); }
+  for (const w of list.warnings) { if (!w.includes(PENDING_WARNING)) { gapsSection.push(`- ${w}`); } }
   out.push('', '## Discovery Gaps', '', ...(gapsSection.length > 0 ? gapsSection : ['None recorded.']));
   return `${out.join('\n')}\n`;
 }

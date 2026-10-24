@@ -6,14 +6,31 @@
       "key": "DEMO-11",
       "fields": {
         "summary": "Order total subtracts the discount",
-        "status": { "name": "AUTOMATED" },
-        "issuetype": { "name": "Test" },
+        "status": {
+          "name": "AUTOMATED"
+        },
+        "issuetype": {
+          "name": "Test"
+        },
         "labels": ["regression"],
-        "components": [{ "name": "Billing" }],
+        "components": [
+          {
+            "name": "Billing"
+          }
+        ],
         "issuelinks": [
           {
-            "type": { "name": "Test" },
-            "outwardIssue": { "key": "DEMO-1", "fields": { "issuetype": { "name": "Story" } } }
+            "type": {
+              "name": "Test"
+            },
+            "outwardIssue": {
+              "key": "DEMO-1",
+              "fields": {
+                "issuetype": {
+                  "name": "Story"
+                }
+              }
+            }
           }
         ],
         "updated": "2026-01-12T10:00:00.000+0000"
@@ -24,14 +41,31 @@
       "key": "DEMO-12",
       "fields": {
         "summary": "Checkout confirms the paid total",
-        "status": { "name": "MANUAL" },
-        "issuetype": { "name": "Test" },
+        "status": {
+          "name": "MANUAL"
+        },
+        "issuetype": {
+          "name": "Test"
+        },
         "labels": [],
-        "components": [{ "name": "Billing" }],
+        "components": [
+          {
+            "name": "Billing"
+          }
+        ],
         "issuelinks": [
           {
-            "type": { "name": "Test" },
-            "outwardIssue": { "key": "DEMO-31", "fields": { "issuetype": { "name": "Test Set" } } }
+            "type": {
+              "name": "Test"
+            },
+            "outwardIssue": {
+              "key": "DEMO-31",
+              "fields": {
+                "issuetype": {
+                  "name": "Test Set"
+                }
+              }
+            }
           }
         ],
         "updated": "2026-01-12T11:00:00.000+0000"
@@ -42,10 +76,18 @@
       "key": "DEMO-13",
       "fields": {
         "summary": "Apply a coupon at checkout",
-        "status": { "name": "READY" },
-        "issuetype": { "name": "Test" },
+        "status": {
+          "name": "READY"
+        },
+        "issuetype": {
+          "name": "Test"
+        },
         "labels": [],
-        "components": [{ "name": "Billing" }],
+        "components": [
+          {
+            "name": "Billing"
+          }
+        ],
         "issuelinks": [],
         "updated": "2026-01-12T12:00:00.000+0000"
       }
@@ -55,10 +97,18 @@
       "key": "DEMO-14",
       "fields": {
         "summary": "Out-of-stock products are hidden",
-        "status": { "name": "DEPRECATED" },
-        "issuetype": { "name": "Test" },
+        "status": {
+          "name": "DEPRECATED"
+        },
+        "issuetype": {
+          "name": "Test"
+        },
         "labels": ["regression"],
-        "components": [{ "name": "Catalog" }],
+        "components": [
+          {
+            "name": "Catalog"
+          }
+        ],
         "issuelinks": [],
         "updated": "2026-01-11T09:00:00.000+0000"
       }
@@ -68,12 +118,41 @@
       "key": "DEMO-16",
       "fields": {
         "summary": "Saved search survives a sign-out",
-        "status": { "name": "AUTOMATED" },
-        "issuetype": { "name": "Test" },
+        "status": {
+          "name": "AUTOMATED"
+        },
+        "issuetype": {
+          "name": "Test"
+        },
         "labels": [],
-        "components": [{ "name": "Catalog" }],
+        "components": [
+          {
+            "name": "Catalog"
+          }
+        ],
         "issuelinks": [],
         "updated": "2026-01-11T10:00:00.000+0000"
+      }
+    },
+    {
+      "id": "2017",
+      "key": "DEMO-17",
+      "fields": {
+        "summary": "Saving a search needs a signed-in buyer",
+        "status": {
+          "name": "In Design"
+        },
+        "issuetype": {
+          "name": "Test"
+        },
+        "labels": [],
+        "components": [
+          {
+            "name": "Catalog"
+          }
+        ],
+        "issuelinks": [],
+        "updated": "2026-01-13T08:00:00.000+0000"
       }
     }
   ]
