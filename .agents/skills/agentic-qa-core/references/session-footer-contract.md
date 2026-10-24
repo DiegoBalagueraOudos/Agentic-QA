@@ -66,7 +66,7 @@ Refinements proposed: 1 → .session/sprint-testing/PROJ-277/refinements.md
 
 | Skill | Framing | "Testing levels touched" means |
 |---|---|---|
-| `sprint-testing`, `shift-left-testing`, `regression-testing` | **Execution** | Which pyramid levels were manually/exploratorily (or via CI suite) exercised: Unit, API/Integration, Database, UI/E2E, Cross-browser, Accessibility, Security, Performance. |
+| `sprint-testing`, `exploratory-testing`, `shift-left-testing`, `regression-testing` | **Execution** | Which pyramid levels were manually/exploratorily (or via CI suite) exercised: Unit, API/Integration, Database, UI/E2E, Cross-browser, Accessibility, Security, Performance. |
 | `test-automation` | **Authoring** | Which levels got NEW automated coverage written (Unit, API, E2E/UI) + which KATA layer the code landed in (L2 base / L3 component / Steps / fixture / spec). |
 | `test-documentation` | **Curation** | How the TCs processed this session break down by level — e.g. "6 API-level Candidates, 2 UI-level Candidates, 1 Manual". |
 | `framework-development` | **Meta** | Which verify surfaces ran (types / lint / skills-lint / test suite) + which framework layers were touched; product-testing levels are usually all "none (meta-work)". |

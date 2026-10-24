@@ -6,6 +6,18 @@
   },
   "prompts": [
     {
+      "prompt": "run exploratory testing on the orders module, no ticket, and tell me what is worth a regression test",
+      "expect": ["context-map"]
+    },
+    {
+      "prompt": "hagamos testing exploratorio del módulo de reportes sin ticket",
+      "expect": ["context-map"]
+    },
+    {
+      "prompt": "explore the checkout flow and hunt for bugs",
+      "expect": ["context-map"]
+    },
+    {
       "prompt": "commit and push these changes",
       "expect": ["git"]
     },

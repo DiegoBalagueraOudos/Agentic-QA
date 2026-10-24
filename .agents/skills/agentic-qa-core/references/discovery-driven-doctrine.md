@@ -1,6 +1,7 @@
 # Discovery-driven doctrine: scopes, the anchor of a Test with no Story, the oracle, and what PASSED means
 
-> Cited by: `sprint-testing` (the observation rule and the blocking ladder, §5), `test-documentation`
+> Cited by: `sprint-testing` (the observation rule and the blocking ladder, §5), `exploratory-testing`
+> (the oracle rule, the outcomes, the coverage anchor), `test-documentation`
 > (scopes, the coverage anchor, the oracle rule, risk vs ROI), `test-automation` (scopes, `automated`
 > on the production branch), `stage-gates.md`, `artifact-lifecycle.md`, `traceability-linking.md`,
 > `session-management.md`. Companions: `./decision-protocol.md` (who decides an expected result),
@@ -44,10 +45,10 @@ automate       a discovery-driven work package (`test-automation`)
 regression     the RTP grows; recompute the inventory and compare it with the first one
 ```
 
-The exploration slot is declared in `./stage-gates.md` §"The stages, by name" and is not implemented
-yet: no skill owns it, so no checklist is written for it. Until one does, the steps above run through
-the skills that exist (`test-documentation` and `test-automation`, both in their `discovery-driven` scope, §2).
-The `inventory` step is owned by `project-context` mode `coverage` (`../../project-context/references/coverage.md`).
+The `explore` and `confirm` steps are owned by `exploratory-testing`, the ticket-free entry into the
+Execution stage (`./stage-gates.md` §"The stages, by name"); `document` and `automate` run through
+`test-documentation` and `test-automation` in their `discovery-driven` scope (§2). The `inventory` step
+is owned by `project-context` mode `coverage` (`../../project-context/references/coverage.md`).
 
 ---
 
