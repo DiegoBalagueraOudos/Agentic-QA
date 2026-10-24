@@ -22,7 +22,9 @@ import { buildUpFixture } from './ui-up-fixture.ts';
 
 const REPO = resolve(import.meta.dir, '..');
 const deep = spawnSync('git', ['-C', REPO, 'rev-parse', '--verify', '-q', 'HEAD~30']).status === 0;
-const SECRET = 'fixture-secret-value-9f3a';
+// Built at runtime so this file never holds the literal: the fixture syncs
+// `scripts/`, and a hunk of this very file in the summary would read as a leak.
+const SECRET = ['fixture', 'secret', 'value-9f3a'].join('-');
 
 interface Run { exit: number, out: string, events: JournalEntry[] }
 
