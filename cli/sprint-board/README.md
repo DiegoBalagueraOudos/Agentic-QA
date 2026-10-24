@@ -404,11 +404,12 @@ with `--discover` (as `board:up` does) for the UNTRACKED part to move between pa
 ## Bug evidence reminder
 
 `bug <ticket> <bug>` records the link, then looks in the evidence folder of both tickets (their PBI
-story folders). If it holds images, it prints one reminder line to embed the bug's thumbnail in the
-bug's Description (the bug report template of `sprint-testing/references/reporting-templates.md`). It
-is a reminder, never an error: the link is already saved. Pass `--evidence-embedded` once the image is
-in the Description (it reads back from the tracker), and the line goes away. Measured on the source
-board: three conductor-filed bugs went out with no image.
+story folders). If it holds images, it prints one reminder line to embed the bug's thumbnail (rendered
+by the `evidence-artifact` skill, `bun run evidence build --thumb`) in the bug's Description with
+`bun run evidence attach` (`evidence-artifact/references/workflow.md` §4). It is a reminder, never an
+error: the link is already saved. Pass `--evidence-embedded` once the image is in the Description (the
+`attach` read-back passed), and the line goes away. Measured on the source board: three
+conductor-filed bugs went out with no image.
 
 ## Layout
 

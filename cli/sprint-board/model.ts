@@ -1830,6 +1830,6 @@ export function listenLine(slug: string, e: BoardEvent): string {
  */
 export function bugEvidenceReminder(o: { ticket: string, bug: string, images: string[], embedded: boolean }): string | null {
   if (o.embedded || !o.images.length) { return null; }
-  return `reminder: ${o.images.length} evidence image(s) on disk for ${o.ticket}; embed the bug's thumbnail in ${o.bug}'s Description `
-    + '(sprint-testing reporting-templates.md, bug report), then pass --evidence-embedded once the image reads back from the tracker.';
+  return `reminder: ${o.images.length} evidence image(s) on disk for ${o.ticket}; embed the bug's thumbnail (bun run evidence build --thumb, then bun run evidence attach) in ${o.bug}'s Description `
+    + '(evidence-artifact workflow.md §4), then pass --evidence-embedded once its read-back passes.';
 }
