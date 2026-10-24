@@ -16,6 +16,19 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Added (evidence page)
+- **`bun run evidence build --pack <pack.json>`** builds one self-contained, offline HTML evidence
+  page per ticket and per bug from an `evidence-pack/1.0` JSON pack (ADR-0021): verdict, build
+  under test, a board of cases and bugs, annotated screenshots with marks kept as data, API calls,
+  SQL results, timelines, and earlier retest rounds as BEFORE FIX history. The build refuses
+  secrets, `.auth` files, HAR and traces, burns redactions into the pixels, and stops over the
+  size limit. `--thumb` writes a bug thumbnail. No new dependency.
+- **Publishing goes through a host seam**: by default the agent publishes the page as a private
+  Claude artifact and runs `bun run evidence record --pack <pack> --url <url>` (only hosts in
+  `board.evidence.allowed_hosts`); `--host local` links the file on disk instead.
+  `bun run evidence demo` builds a synthetic example. Agent workflow:
+  `agentic-qa-core/references/evidence-page.md`.
+
 ### Added (test outcome classes)
 - **Every automated test now gets one outcome class** (`passed`, `failed`, `known-defect`,
   `unexpected-pass`, `skipped`), written by `KataReporter` to `reports/test-outcomes.json`

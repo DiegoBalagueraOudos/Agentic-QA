@@ -83,6 +83,7 @@ Who authors: a human QA architect / lead directly, **or** an AI workflow that de
 | [ADR-0018](./ADR-0018-sweep-pending-decisions.md) | Sweep Pending Decisions (SPD): the human-facing session asks everything that waits in one structured call, with a prose fallback | Accepted | — | — |
 | [ADR-0019](./ADR-0019-board-config-and-source-adapter.md) | The sprint modules read one `board:` block and one `Source` interface; every status passes through the config or the snapshot fails | Accepted | — | — |
 | [ADR-0020](./ADR-0020-test-outcome-classes.md) | Every automated test gets one outcome class (`passed`, `failed`, `known-defect`, `unexpected-pass`, `skipped`) in `reports/test-outcomes.json`, and the run headline comes from those records | Accepted | — | — |
+| [ADR-0021](./ADR-0021-evidence-pack-and-host-seam.md) | Evidence is a versioned pack (`evidence-pack/1.0`) built into one offline HTML page per ticket and per bug, with burned redactions, refused secrets and a host seam (default: the agent publishes a private Claude artifact; `local` fallback) | Accepted | — | — |
 
 > Keep this table in sync whenever an ADR is added or its status changes. It is the fast index every session reads first.
 
