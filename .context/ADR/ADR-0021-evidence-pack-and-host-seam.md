@@ -5,7 +5,7 @@
 - **Deciders:** framework owner (boilerplate maintainer), through the fleet conductor's plan approval for the `e2-outcomes-evidence` delivery
 - **Tags:** evidence, reporting, privacy, hosting, sprint-board
 - **Supersedes:** —
-- **Superseded by:** —
+- **Superseded by:** ADR-0022 in part (points 1, 4, 5, 6 and 9: the page design, the pack format, the builder; points 2, 3, 7 and 8 stand)
 
 ---
 

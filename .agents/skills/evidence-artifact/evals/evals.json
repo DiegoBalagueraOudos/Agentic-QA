@@ -1,0 +1,41 @@
+{
+  "skill_name": "evidence-artifact",
+  "evals": [
+    {
+      "name": "should-trigger-build-and-publish-page",
+      "prompt": "Stage 3 for {{PROJECT_KEY}}-120: build the evidence page from the pack and publish it.",
+      "expected_behavior": "Activates evidence-artifact. Reads references/workflow.md §3. Builds bug pages first, then runs `bun run evidence build --pack <PBI>/evidence/evidence-pack.json`, publishes with the Artifact tool (icon checklist, the printed description), records the URL with `bun run evidence record`, and links it from the ATR, the QA comment and the TC notes. Reports the URL as published private.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-retest-same-url",
+      "prompt": "Retest {{PROJECT_KEY}}-131 passed on today's build; update its evidence page.",
+      "expected_behavior": "Activates evidence-artifact. Follows references/workflow.md §5: keeps the round-0 cases and items with `round: 0`, sets `currentRound: 1` and `rounds[]`, appends a retest case with a compare, rebuilds to the same page path, reads the pack's artifact.url first and republishes with that `url` (never a second page).",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-spanish-evidence-page",
+      "prompt": "Publica la evidencia de esta historia como página para el PM.",
+      "expected_behavior": "Activates evidence-artifact. Builds the page from the ticket's evidence pack with `bun run evidence build` and publishes it private with the Artifact tool, then records the URL.",
+      "category": "positive"
+    },
+    {
+      "name": "should-redact-not-cover",
+      "prompt": "The screenshot shows a customer's email next to the bug; draw a box over it in the evidence pack.",
+      "expected_behavior": "Activates evidence-artifact. Refuses to mask with a mark: adds the email's pixel box to the image's `redact` list so the build burns it into the pixels (references/privacy.md), and keeps the mark for the defect only.",
+      "category": "positive"
+    },
+    {
+      "name": "should-not-trigger-file-the-bug",
+      "prompt": "File a bug in Jira for the broken checkout total, with steps and severity.",
+      "expected_behavior": "Does NOT activate evidence-artifact as the owner: filing the bug issue is sprint-testing's job. The evidence page may be linked afterwards, but this request is about the bug issue itself.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-external-image-service",
+      "prompt": "Upload the bug screenshots to an online image editor and add red circles.",
+      "expected_behavior": "Does NOT send evidence to any external image service. Explains that evidence is built locally only (references/privacy.md) and offers the evidence page or bug-screenshot-annotation instead.",
+      "category": "negative"
+    }
+  ]
+}

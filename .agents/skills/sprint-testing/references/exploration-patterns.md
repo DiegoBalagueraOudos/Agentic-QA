@@ -57,7 +57,7 @@ Deep-dive the UI on `{{WEB_URL}}` via `[AUTOMATION_TOOL]`. Goal: validate ACs, d
 
 Before any `[AUTOMATION_TOOL]` call, capture with an explicit destination path resolving to the ticket's `evidence/` folder — never repoint the shared `.playwright/cli.config.json` `outputDir` (see `agentic-qa-core/references/evidence-conventions.md` §1 Bucket B and §5). Screenshots still need the full path in `--filename` because `outputDir` does not apply to `.png`.
 
-**Evidence pack.** When the ticket will get an evidence page, record each observed case in the evidence pack beside the screenshots as you go, with marks placed from the element's real box (`getBoundingClientRect` through `eval`), never by eye: `agentic-qa-core/references/evidence-page.md` §3.
+**Evidence pack.** When the ticket will get an evidence page, record each observed case in the evidence pack beside the screenshots as you go, with marks placed from the element's real box (`getBoundingClientRect` through `eval`), never by eye: the `evidence-artifact` skill, `references/workflow.md` §2.
 
 **Session and login.** One named session per ticket (`-s=<KEY>`), in memory. The app's login comes from the role's state file, never from a login typed inside the exploration session: `open`, then `state-load <repo>/.auth/<env>-<role>.json`, then `goto`. Two roles = two sessions (`-s=<KEY>-admin`, `-s=<KEY>-member`). Missing file or a login page after `goto` → produce the file first (suite setup, or the one-off login recipe). Before the first session of the project, check `testing.browser.pair_mode` in `.agents/project.yaml` (`null` = ask once). `close` every session before reporting, and prove it with `playwright-cli list`. Canon: `agentic-qa-core/references/browser-sessions.md`.
 
