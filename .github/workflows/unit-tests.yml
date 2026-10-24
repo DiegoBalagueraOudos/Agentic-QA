@@ -1,0 +1,96 @@
+# ============================================
+# KATA Architecture - Unit Test Pipeline
+# ============================================
+# Purpose: Run the boilerplate's own unit tests (`bun test`: cli/, scripts/,
+# tests/utils/, packages/, .agents/skills/) and the repo:check gates that
+# build.yml does not run, on every push. Before this workflow those tests gated
+# only on a laptop. The Playwright suites are not here: bunfig.toml keeps
+# `bun test` off tests/e2e/ and tests/integration/.
+
+name: Unit Tests
+run-name: ${{ github.actor }} triggered Unit Tests on ${{ github.ref_name }}
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: unit-tests-${{ github.ref }}
+  # A superseded run on a branch is cancelled, it publishes nothing. Never on
+  # main: work lands there by direct push, and a cancelled run would leave a
+  # landed commit without a run of its own.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  CI: true
+
+jobs:
+  UnitTests:
+    name: bun test + repo gates
+    # A PR from this repository already got the push run on the same commit,
+    # and GitHub shows that run on the PR. Only a fork PR (no push run here)
+    # needs its own.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Full history: scripts/ui-up-e2e.test.ts builds its bun sync fixture
+          # from HEAD~30 and SKIPS on a shallow clone, which would leave the
+          # updater's end-to-end test out of the gate without a word.
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Boilerplate checkout?
+        id: upstream
+        run: |
+          enforced=$(bun -e "import { contractsEnforced } from './scripts/lib/doc-contracts.ts'; console.log(contractsEnforced(process.cwd()))")
+          echo "enforced=$enforced" >> "$GITHUB_OUTPUT"
+          if [ "$enforced" != "true" ]; then
+            echo "unit-tests: inert outside the boilerplate's own checkout (contractsEnforced, scripts/lib/doc-contracts.ts)"
+          fi
+        # Several unit tests assert the boilerplate's own files (the maintainer
+        # project.yaml, the scaffolder under packages/), so a project created
+        # from the template would go red on day one. Same test as the
+        # documentation contracts (ADR-0016): upstream package name AND the
+        # maintainer sentinel. Every later step runs only when it holds.
+
+      - name: Install Chromium
+        if: steps.upstream.outputs.enforced == 'true'
+        run: bun run pw:install
+        # scripts/ui-page.test.ts drives the installer page in a real browser
+        # and skips when Chromium is missing.
+
+      - name: Repo Gates
+        if: steps.upstream.outputs.enforced == 'true'
+        run: |
+          bun run format:check
+          bun run vars:check
+          bun run vars:schema:check
+          bun run skills:registry:check
+          bun run shared:check
+          bun run agents:schema:check
+          bun run kata:manifest:check
+          bun run vars:env:check
+          bun run board:check
+        # The repo:check pieces no other workflow runs. Left out on purpose:
+        # types, lint, docs and skills (build.yml runs them), agents:compat:check
+        # (it checks the gitignored .claude/skills alias a workstation
+        # generates) and git:policy verify (needs a host session; without one it
+        # warns and exits 0, so it would gate nothing).
+
+      - name: Unit Tests
+        if: steps.upstream.outputs.enforced == 'true'
+        run: bun test
