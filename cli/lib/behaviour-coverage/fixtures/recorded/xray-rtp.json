@@ -1,0 +1,17 @@
+{
+  "getTestPlan": {
+    "tests": {
+      "total": 2,
+      "results": [
+        {
+          "issueId": "2012",
+          "jira": { "key": "DEMO-12", "summary": "Checkout confirms the paid total" }
+        },
+        {
+          "issueId": "2014",
+          "jira": { "key": "DEMO-14", "summary": "Out-of-stock products are hidden" }
+        }
+      ]
+    }
+  }
+}

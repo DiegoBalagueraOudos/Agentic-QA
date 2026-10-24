@@ -1,6 +1,6 @@
 ---
 name: project-context
-description: "Generate or refresh the business context maps (the HTML maps inside business-data-context, business-api-context and business-e2e-context) and the master test plan. Use for business-data-map, business-api-map, business-e2e-map, business-feature-map, user journeys map, master-test-plan, refresh project context, refresh all context, entity map, feature inventory, API business map, or risk-ranked test roadmap. Also scaffolds a project-owned <aspect>-context skill for any other aspect (context-skill mode). Routes exactly one mode at a time unless refresh-all is explicit. UPDATE regenerates only stale sections and always shows a diff and waits for approval before writing."
+description: "Generate or refresh the business context maps (the HTML maps inside business-data-context, business-api-context and business-e2e-context) and the master test plan. Use for business-data-map, business-api-map, business-e2e-map, business-feature-map, user journeys map, master-test-plan, refresh project context, refresh all context, entity map, feature inventory, API business map, or risk-ranked test roadmap. Also scaffolds a project-owned <aspect>-context skill for any other aspect (context-skill mode), and builds the coverage inventory (coverage mode: coverage gaps, gap list, weak tests, what is not tested, behaviours vs tests). Routes exactly one mode at a time unless refresh-all is explicit. UPDATE regenerates only stale sections and always shows a diff and waits for approval before writing."
 license: MIT
 compatibility: [claude-code, copilot, cursor, codex, opencode]
 complementary_categories: [testing-e2e, testing-api, meta-skill]
@@ -15,8 +15,9 @@ Own the regenerative project-context artifacts without duplicating their workflo
 
 ## Compact Rules
 
-- Exactly ONE mode per run: `data` · `e2e` (synonym `features`) · `api` · `test-plan` · `refresh-all` · `context-skill`. Load only that mode's reference; never open a second one in the same pass.
+- Exactly ONE mode per run: `data` · `e2e` (synonym `features`) · `api` · `test-plan` · `refresh-all` · `context-skill` · `coverage`. Load only that mode's reference; never open a second one in the same pass.
 - `context-skill` scaffolds a project-owned `<aspect>-context` for an aspect the shipped context map skills (`CONTEXT_MAP_SKILLS`) do not cover (`../agentic-qa-core/references/skill-scaffold.md` §3): it cites its sources and never copies them. `refresh-all` never includes it. Its router row goes in the `## Project context skills` table of `.agents/instructions/agent-project.md`, its trigger phrases in that file's `triggers:`; NEVER in `agent-skills-and-mcps.md`, which `bun sync` overwrites.
+- `coverage` reads the maps, the KATA manifest and the TMS and buckets every behaviour (`automated` · `manual-only` · `weak` · `uncovered`); `refresh-all` never includes it. It writes only `<<PRIMARY_ROOT>>/.session/project-context/coverage/` (companion files: this skill opts out of the session Phase 0) and never edits a test or a map. The `weak` verdict and the risk level are agent judgments with one evidence line per row; the buckets, order and diff are `bun run context:coverage classify`. Coverage Tech Stories are created only after a person approves the gap list, picked by weight (`mkd` deck for per-item choices, the question tool for one yes/no).
 - Mode → reference → output: see the Mode routing table. A map mode writes ONLY its own skill's `references/<map>.html`; the legacy markdown files a project may hold (the skill's `legacy` list in `CONTEXT_MAP_SKILLS`, `cli/lib/context-maps.ts`) are read as input and never deleted. Domain vocabulary and architecture come from the maps `project-discovery` generates: `bun run context:map business-domain-context` and `bun run context:map infra-context`, never a `.context/` file. `test-plan` → `references/test-plan.md` → the `## Master Test Plan` section of the `QA Master Test Plan` Epic description in Jira (cached by the sync at `.context/PBI/qa-artifacts/master-test-plan.md`; never a local file).
 - User did not name a mode → ASK. NEVER infer `refresh-all` from a generic "refresh the context" request.
 - `refresh-all` runs strictly `data` → `e2e` → `api` → `test-plan`, one at a time. Each reference's own validation and approval gate must close before the next is loaded. Never skip ahead.
@@ -41,6 +42,7 @@ Resolve one mode from the invocation: the first token of `$ARGUMENTS` when it na
 | `test-plan` | `master-test-plan`, risk-ranked test roadmap | `references/test-plan.md` | MTP Epic description in Jira (cache: `.context/PBI/qa-artifacts/master-test-plan.md`) |
 | `refresh-all` | refresh all project context | all four references, one at a time | all four outputs |
 | `context-skill` | `context skill`, scaffold `<aspect>-context` for another aspect | `references/context-skill.md` | `.agents/skills/<aspect>-context/` (project-owned, never shipped upstream) |
+| `coverage` | coverage inventory, coverage gaps, gap list, weak tests, what is not tested, behaviours vs tests | `references/coverage.md` | `<<PRIMARY_ROOT>>/.session/project-context/coverage/gap-list.{json,md}`; coverage Tech Stories in Jira only after approval |
 
 If the user does not identify a mode, ask which artifact to refresh. Do not infer `refresh-all` from a generic request.
 
@@ -59,7 +61,7 @@ Stop on a hard dependency failure or rejected overwrite. Do not skip ahead. Miss
 
 - Read every available source required by the selected reference. Never invent business facts.
 - CREATE mode may write the missing artifact after analysis.
-- UPDATE mode must generate a candidate, show the diff summary, and wait for explicit approval before overwriting.
+- UPDATE mode must generate a candidate, show the diff summary, and wait for explicit approval before overwriting. In `coverage` the gap list is a recomputed session file, not an artifact: the approval gate applies to the tracker write it proposes.
 - Each output includes `## Discovery Gaps` for unverified facts.
 - After a successful artifact write, update the context pointers in `.agents/instructions/agent-project.md` (the project-owned overlay) only when a pointer is missing. `AGENTS.md` is boilerplate-owned and size-budgeted, so it never receives them. Never add operational prose to `CLAUDE.md`.
 - A map mode writes into a business context skill that already exists (delivered by `bun sync`, never scaffolded here). After it writes, the mode reviews that skill's `## Rules` and gotchas against the new map and PROPOSES any change; it never rewrites a rule.

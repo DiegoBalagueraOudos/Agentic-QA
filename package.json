@@ -51,6 +51,7 @@
     "browser:profiles": "bun scripts/browser-profiles.ts",
     "context:hydrate": "bun scripts/sync-jira-issues.ts pull --include-comments",
     "context:map": "bun scripts/context-map.ts",
+    "context:coverage": "bun scripts/context-coverage.ts",
     "docs": "bun scripts/docs-serve.ts",
     "docs:build": "bun scripts/docs-manifest.ts",
     "docs:check": "bun scripts/lint-docs.ts",

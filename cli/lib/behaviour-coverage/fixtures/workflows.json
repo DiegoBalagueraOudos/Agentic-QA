@@ -1,0 +1,92 @@
+{
+  "story": {
+    "jira_issue_type": {
+      "id": "100",
+      "name": "Story"
+    },
+    "statuses": {
+      "to_do": {
+        "id": "1",
+        "name": "To Do"
+      }
+    }
+  },
+  "tech_story": {
+    "jira_issue_type": {
+      "id": "103",
+      "name": "Tech Story"
+    },
+    "statuses": {
+      "to_do": {
+        "id": "1",
+        "name": "To Do"
+      }
+    }
+  },
+  "test_case": {
+    "jira_issue_type": {
+      "id": "102",
+      "name": "Test"
+    },
+    "statuses": {
+      "draft": {
+        "id": "21",
+        "name": "Draft"
+      },
+      "ready": {
+        "id": "22",
+        "name": "READY"
+      },
+      "manual": {
+        "id": "23",
+        "name": "MANUAL"
+      },
+      "automated": {
+        "id": "24",
+        "name": "AUTOMATED"
+      },
+      "deprecated": {
+        "id": "25",
+        "name": "DEPRECATED"
+      },
+      "in_design": {
+        "id": "26",
+        "name": "In Design"
+      }
+    },
+    "transitions": {
+      "create": {
+        "id": "1",
+        "name": "Create",
+        "from_canonical": null,
+        "to_canonical": "draft"
+      },
+      "start_design": {
+        "id": "221",
+        "name": "start design",
+        "from_canonical": "draft",
+        "to_canonical": "in_design"
+      },
+      "ready_to_run": {
+        "id": "241",
+        "name": "ready to run",
+        "from_canonical": "in_design",
+        "to_canonical": "ready"
+      }
+    }
+  },
+  "test_set": {
+    "jira_issue_type": {
+      "id": "104",
+      "name": "Test Set"
+    },
+    "statuses": {}
+  },
+  "test_plan": {
+    "jira_issue_type": {
+      "id": "105",
+      "name": "Test Plan"
+    },
+    "statuses": {}
+  }
+}

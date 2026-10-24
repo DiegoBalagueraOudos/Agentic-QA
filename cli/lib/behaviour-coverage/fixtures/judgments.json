@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "behaviours": [
+    {
+      "id": "e2e#feature-billing/BR-001",
+      "title": "An order total is the sum of its lines minus the discount",
+      "module": "Billing",
+      "seed_hash": "95163c6cda744661",
+      "risk": {
+        "level": "CRITICAL",
+        "flow": "Checkout and payment"
+      },
+      "covered_by": [
+        {
+          "test": "DEMO-11",
+          "verdict": "exercises",
+          "evidence": "OrdersApi.totalSubtractsDiscount asserts total == sum(lines) - discount",
+          "test_fingerprint": "e2981d0317a4c45d"
+        }
+      ]
+    },
+    {
+      "id": "e2e#feature-billing/BR-002",
+      "title": "A coupon code is rejected once it has expired",
+      "module": "Billing",
+      "seed_hash": "745ea991fca89d71",
+      "risk": {
+        "level": "CRITICAL",
+        "flow": "Checkout and payment"
+      },
+      "covered_by": [
+        {
+          "test": "DEMO-13",
+          "verdict": "weak",
+          "evidence": "Step 3 applies a valid coupon only; no step uses an expired one",
+          "test_fingerprint": "085134cfca7fe147"
+        }
+      ]
+    },
+    {
+      "id": "e2e#feature-billing/FEAT-001",
+      "title": "Checkout",
+      "module": "Billing",
+      "seed_hash": "e83e5c58f9acfb90",
+      "risk": {
+        "level": "CRITICAL",
+        "flow": "Checkout and payment"
+      },
+      "covered_by": [
+        {
+          "test": "DEMO-12",
+          "verdict": "exercises",
+          "evidence": "Expected result of step 5: the order confirmation shows the paid total",
+          "test_fingerprint": "d5e1f8507b6f2fb0"
+        }
+      ]
+    },
+    {
+      "id": "e2e#feature-catalog/BR-003",
+      "title": "Search results hide products that are out of stock",
+      "module": "Catalog",
+      "seed_hash": "65cc4c27ed4a72be",
+      "risk": {
+        "level": "HIGH",
+        "flow": "Catalog browsing"
+      },
+      "covered_by": [
+        {
+          "test": "DEMO-14",
+          "verdict": "exercises",
+          "evidence": "Step 2 searches for a product with stock 0 and expects no result",
+          "test_fingerprint": "60ea4ee2523ebbd0"
+        }
+      ]
+    },
+    {
+      "id": "e2e#feature-catalog/BR-004",
+      "title": "Only a signed-in buyer can save a search",
+      "module": "Catalog",
+      "seed_hash": "0bf67aecf8c128cf",
+      "risk": {
+        "level": "LOW",
+        "flow": "Saved searches"
+      },
+      "covered_by": [
+        {
+          "test": "DEMO-17",
+          "verdict": "exercises",
+          "evidence": "Step 1 saves a search while signed out and expects the sign-in prompt",
+          "test_fingerprint": "fd820c963a8facd3"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "getTestPlan": {
+    "tests": {
+      "total": 1,
+      "results": [
+        {
+          "issueId": "2013",
+          "jira": {
+            "key": "DEMO-13",
+            "summary": "Apply a coupon at checkout"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "isLast": true,
+  "issues": [
+    {
+      "id": "2051",
+      "key": "DEMO-51",
+      "fields": {
+        "summary": "Coverage: Catalog: Search results hide products that are out of stock",
+        "description": {
+          "type": "doc",
+          "version": 1,
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [{ "type": "text", "text": "Anchors regression coverage." }]
+            },
+            {
+              "type": "paragraph",
+              "content": [{ "type": "text", "text": "coverage-gap-id: e2e#feature-catalog/BR-003" }]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

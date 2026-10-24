@@ -252,6 +252,14 @@
     {
       "prompt": "the router keeps missing these prompts, tune the triggers of that instruction section",
       "expect": ["harnesses"]
+    },
+    {
+      "prompt": "build the coverage gap list: which behaviours have no test that exercises them?",
+      "expect": ["context-map"]
+    },
+    {
+      "prompt": "armá el inventario de cobertura y decime qué comportamientos no tienen tests",
+      "expect": ["context-map"]
     }
   ]
 }
