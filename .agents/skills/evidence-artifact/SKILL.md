@@ -38,7 +38,7 @@ spawns no agents, and is not a stage owner.
 - DO: take marks from the element's box via `playwright-cli eval` (`coords: "px"`); do NOT read a screenshot back to place a mark unless no element reaches it.
 - DO NOT: mask with a mark. Personal data on screen goes in the image's `redact` boxes, which the build burns into the pixels.
 - DO NOT: put a trace, a HAR, a token, a cookie or an `.auth` file in a pack. Credentials in API/SQL text are written as `<redacted>`; the build refuses the rest and names the field.
-- DO: give a bug its own pack (`evidence-pack-<BUG>.json`, `kind: "bug"`, a `repro` case) once the bug issue exists, and build and publish bug pages BEFORE the story page.
+- DO: give a bug its own pack (`evidence-pack-<BUG>.json`, `kind: "bug"`, a `repro` case) once the bug issue exists, and build and publish bug pages BEFORE the story page: a story's `RETEST PASSED` / `RETEST FAILED` bug card is refused unless the bug's own pack confirms it.
 - DO: build with `bun run evidence build --pack <pack>`; it needs Python 3.9+ and Pillow and names the one thing to install when either is missing.
 - DO: publish with the Artifact tool; when the pack already has `artifact.url`, run `Artifact action: "read"` on it first and publish with that `url`. Omitting `url` mints a second page and orphans every link.
 - DO: record the URL with `bun run evidence record --pack <pack> --url <url>` and on the board (`bun run board evidence-artifact <KEY> <url> [--bug <BUG>] --by worker`), then link it from the ATR, the bug description, the QA comment footer and each TC's notes.
@@ -78,7 +78,10 @@ The builder is `scripts/build.py` (Python 3.9+ and Pillow: `python3 -m pip insta
 It runs locally and makes no network call. It validates the pack and names the field when something
 is wrong, refuses credentials in any text, warns on email addresses, burns `redact` boxes into the
 pixels, and inlines every screenshot at native size (JPEG q88). `--host local` writes a standalone
-document to open from disk, for a harness with no Artifact tool. Its regression tests:
+document to open from disk, for a harness with no Artifact tool. Relative image paths resolve against
+the PRIMARY checkout, also when the build runs in a worktree (`--repo <root>` to point elsewhere), and a
+story's `RETEST` bug pill is checked against the bug's own pack (`--bug-pack <BUG>=<pack.json>` when it
+is neither beside the story pack nor in the bug's PBI folder). Its regression tests:
 `python3 -m unittest discover -s .agents/skills/evidence-artifact/scripts` (also run by `bun test`).
 
 ## References

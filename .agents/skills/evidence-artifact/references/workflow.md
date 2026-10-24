@@ -78,9 +78,17 @@ Order, so every link exists before the text that carries it is written:
    It prints the size; over the guard (14 MB by default, `--max-mb` up to the 16 MB artifact limit)
    it stops and names the largest images. Drop screenshots that prove nothing new or crop very tall
    ones. It also prints the exact publish step below.
+
+   A bug card that reads `RETEST PASSED` or `RETEST FAILED` is checked against that bug's own pack:
+   `evidence-pack-<BUG>.json` beside the story pack, else `<bug PBI>/evidence/evidence-pack.json` (a
+   pack recovered with `extract`), else the one passed with `--bug-pack <BUG>=<pack.json>`. A pill
+   none of them confirms is refused, so build the bug pages first.
+
+   From a worktree (a fleet worker), relative image paths still resolve against the PRIMARY
+   checkout, where `<PBI>` lives; `--repo <root>` points them elsewhere.
 3. **Publish with the Artifact tool** (static page, no `capabilities`):
    - First publish: `file_path` = the absolute page path, `icon: "checklist"` for a story page or
-     `"bug"` for a bug page, `description` = one sentence (`PROJ-379 staging evidence: 7 of 7 TCs
+     `"bug"` for a bug page, `description` = one sentence (`PROJ-7420 staging evidence: 5 of 5 TCs
      passed, 1 bug filed`; the build prints it). The page's `<title>` is `<KEY> Evidence`.
    - Same session, later change: same `file_path`, no `icon`; the URL stays.
    - **Any other session** (a retest, the conductor fixing a worker's page): the pack's

@@ -325,7 +325,7 @@ function itemsOf(pack) {
 }
 const statusOf = c => c.hist ? "History" : c.status;
 const stOf = c => c.hist ? "HIST" : stKey(c.status);
-function findCase(token) {               /* "TC-381" in the current pack, or "DEMO-423.TC-454" anywhere */
+function findCase(token) {               /* "TC-7005" in the current pack, or "DEMO-7010.TC-7011" anywhere */
   let [pid, cid] = token.includes(".") ? token.split(".") : [null, token];
   const packs = pid ? PACKS.filter(p => p.ticket.id === pid) : [P, ...PACKS.filter(p => p !== P)];
   for (const p of packs) { const i = itemsOf(p).findIndex(c => c.id === cid); if (i >= 0) return { pack: p, index: i }; }

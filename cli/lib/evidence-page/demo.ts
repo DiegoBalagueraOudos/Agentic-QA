@@ -32,26 +32,26 @@ export function demoStoryPack(files: { ok: string, error: string }): Pack {
     schema: PACK_SCHEMA,
     kind: 'story',
     ticket: {
-      id: 'DEMO-101',
+      id: 'DEMO-7101',
       title: 'Checkout keeps the cart after a failed payment',
       module: 'checkout',
       verdict: 'FAILED',
-      bugs: ['DEMO-120 Major'],
+      bugs: ['DEMO-7120 Major'],
       assignee: 'Dev (demo)',
       qa: 'QA (demo)',
       date: '2026-10-24',
-      atp: 'DEMO-140',
-      atr: 'DEMO-141',
+      atp: 'DEMO-7140',
+      atr: 'DEMO-7141',
     },
     env: { 'Environment': 'staging', 'Web build': '2026.10.24-3 (a1b2c3d)', 'API build': '2026.10.24-2 (9f8e7d6)', 'Database': 'staging, seeded demo data' },
-    summary: 'A valid card completes the order. A declined card empties the cart, filed as DEMO-120. Saved cards wait for a flag that is off in staging, and the receipt email could not be checked.',
+    summary: 'A valid card completes the order. A declined card empties the cart, filed as DEMO-7120. Saved cards wait for a flag that is off in staging, and the receipt email could not be checked.',
     images: {
       form: { file: files.ok },
       error: { file: files.error, redact: [DEMO_REDACT] },
     },
     tcs: [
       {
-        id: 'DEMO-101-TC1',
+        id: 'DEMO-7101-TC1',
         title: 'A valid card completes the order',
         status: 'PASSED',
         note: 'The order is created and the confirmation shows the cart total.',
@@ -82,10 +82,10 @@ export function demoStoryPack(files: { ok: string, error: string }): Pack {
         ],
       },
       {
-        id: 'DEMO-101-TC2',
+        id: 'DEMO-7101-TC2',
         title: 'A declined card keeps the cart',
         status: 'FAILED',
-        note: 'The error banner shows, but the cart is emptied: DEMO-120.',
+        note: 'The error banner shows, but the cart is emptied: DEMO-7120.',
         evidence: [
           {
             type: 'image',
@@ -132,14 +132,14 @@ export function demoStoryPack(files: { ok: string, error: string }): Pack {
         },
       },
       {
-        id: 'DEMO-101-TC3',
+        id: 'DEMO-7101-TC3',
         title: 'Saved cards are listed',
         status: 'DEFERRED',
-        note: 'Saved cards are behind a flag that is off in staging; deferred to DEMO-130.',
-        evidence: [{ type: 'note', label: 'Deferral', title: 'Why it was not run', body: 'The saved-cards flag is off in staging. DEMO-130 records the deferral and runs this case once the flag is on.' }],
+        note: 'Saved cards are behind a flag that is off in staging; deferred to DEMO-7130.',
+        evidence: [{ type: 'note', label: 'Deferral', title: 'Why it was not run', body: 'The saved-cards flag is off in staging. DEMO-7130 records the deferral and runs this case once the flag is on.' }],
       },
       {
-        id: 'DEMO-101-TC4',
+        id: 'DEMO-7101-TC4',
         title: 'The receipt email is sent',
         status: 'BLOCKED',
         note: 'The staging mail sink was down for the whole session.',
@@ -147,7 +147,7 @@ export function demoStoryPack(files: { ok: string, error: string }): Pack {
       },
     ],
     bugs: [
-      { id: 'DEMO-120', title: 'Declined payment empties the cart', status: 'RETEST PASSED', severity: 'Major', priority: 'High', from: 'DEMO-101-TC2', url: '#DEMO-120', evidence: [] },
+      { id: 'DEMO-7120', title: 'Declined payment empties the cart', status: 'RETEST PASSED', severity: 'Major', priority: 'High', from: 'DEMO-7101-TC2', url: '#DEMO-7120', evidence: [] },
     ],
   };
 }
@@ -157,14 +157,14 @@ export function demoBugPack(files: { error: string, fixed: string }): Pack {
     schema: PACK_SCHEMA,
     kind: 'bug',
     ticket: {
-      id: 'DEMO-120',
+      id: 'DEMO-7120',
       title: 'Declined payment empties the cart',
       module: 'checkout',
       verdict: 'PASSED',
       verdictNote: 'Fixed: verified in retest 1 on 2026-10-25',
       severity: 'Major',
       priority: 'High',
-      parent: 'DEMO-101',
+      parent: 'DEMO-7101',
       parentTitle: 'Checkout keeps the cart after a failed payment',
       date: '2026-10-25',
     },
@@ -187,7 +187,7 @@ export function demoBugPack(files: { error: string, fixed: string }): Pack {
     ],
     tcs: [
       {
-        id: 'DEMO-120-retest-1',
+        id: 'DEMO-7120-retest-1',
         kind: 'retest',
         round: 1,
         date: '2026-10-25',
@@ -208,7 +208,7 @@ export function demoBugPack(files: { error: string, fixed: string }): Pack {
         compare: { left: { image: 'error' }, right: { image: 'fixed' }, caption: 'Same steps, before and after the fix' },
       },
       {
-        id: 'DEMO-120-repro',
+        id: 'DEMO-7120-repro',
         kind: 'repro',
         round: 0,
         title: 'A declined card empties the cart',
@@ -244,8 +244,8 @@ export function writeDemo(outDir: string, root: string): { story: string, bug: s
     return relative(root, path);
   };
   const story = join(storyDir, 'evidence-pack.json');
-  const bug = join(storyDir, 'evidence-pack-DEMO-120.json');
-  writeFileSync(story, `${JSON.stringify(demoStoryPack({ ok: shot(storyDir, 'DEMO-101-tc1-form.png', 'ok'), error: shot(storyDir, 'DEMO-101-tc2-decline.png', 'error') }), null, 2)}\n`);
-  writeFileSync(bug, `${JSON.stringify(demoBugPack({ error: shot(storyDir, 'DEMO-101-tc2-decline.png', 'error'), fixed: shot(bugDir, 'DEMO-120-retest-1-fixed.png', 'fixed') }), null, 2)}\n`);
+  const bug = join(storyDir, 'evidence-pack-DEMO-7120.json');
+  writeFileSync(story, `${JSON.stringify(demoStoryPack({ ok: shot(storyDir, 'DEMO-7101-tc1-form.png', 'ok'), error: shot(storyDir, 'DEMO-7101-tc2-decline.png', 'error') }), null, 2)}\n`);
+  writeFileSync(bug, `${JSON.stringify(demoBugPack({ error: shot(storyDir, 'DEMO-7101-tc2-decline.png', 'error'), fixed: shot(bugDir, 'DEMO-7120-retest-1-fixed.png', 'fixed') }), null, 2)}\n`);
   return { story, bug };
 }

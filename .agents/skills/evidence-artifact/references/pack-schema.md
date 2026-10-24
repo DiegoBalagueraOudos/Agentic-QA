@@ -32,16 +32,16 @@ accepted, so a pack recovered with `extract` builds again unchanged.
 
 ## `ticket`
 
-`id` (`PROJ-374`), `title`, `module`, `verdict` (`PASSED` / `FAILED` / `PENDING`, the big stamp),
+`id` (`PROJ-7410`), `title`, `module`, `verdict` (`PASSED` / `FAILED` / `PENDING`, the big stamp),
 optional `verdictNote` (one line under the stamp), `severity`, `priority` (chips on a bug page),
-`bugs: ["PROJ-374 Low"]` (chips on a story page), `parent`, `parentTitle`, `case`, `assignee`, `qa`,
+`bugs: ["PROJ-7410 Low"]` (chips on a story page), `parent`, `parentTitle`, `case`, `assignee`, `qa`,
 `date`, `atp`, `atr`.
 
 ## Cases: `tcs[]` and `bugs[]`
 
 | Key | Meaning |
 |---|---|
-| `id` | `PROJ-381`, or a local id such as `PROJ-375-repro`, `PROJ-374-retest-1`; also the deep link `#PROJ-379.PROJ-381`. Ids are unique in the pack; a `bugs[]` id is a ticket key |
+| `id` | `PROJ-7421`, or a local id such as `PROJ-7411-repro`, `PROJ-7410-retest-1`; also the deep link `#PROJ-7420.PROJ-7421`. Ids are unique in the pack; a `bugs[]` id is a ticket key |
 | `title`, `note` | card title, required on every case (the build refuses a case without one); the note is the first thing in the viewer's side panel (the TC's result line) |
 | `status` | `tcs[]`: `PASSED` `FAILED` `DEFERRED` `BLOCKED` `NOT RUN`. `bugs[]`: `DEFECT` `OPEN` `FIXED` `RETEST PASSED` `RETEST FAILED`. Use `RETEST PASSED` (green) once QA has re-run the fix and it works, `RETEST FAILED` (red) when the fix did not hold; the header pill then reads the same instead of a plain red bug pill. One list for both: `cli/lib/evidence-page/statuses.json` |
 | `kind` | `"repro"`: the bug's reproduction, first on a bug page. `"retest"`: one retest round (`round`, `date`), right after it. Absent: a TC. `tcs[]` only |
@@ -70,12 +70,12 @@ wins. `caption` overrides the filmstrip caption.
 
 | The build refuses | Why |
 |---|---|
-| A current PASSED or FAILED case with no evidence item of its round and no compare | PASSED and FAILED only on observation (`agentic-qa-core/references/discovery-driven-doctrine.md` §5) |
+| A current PASSED or FAILED case with no evidence item of its round, no compare and no http(s) `url` (the page then offers "Open where its evidence lives") | PASSED and FAILED only on observation (`agentic-qa-core/references/discovery-driven-doctrine.md` §5) |
 | A current BLOCKED or DEFERRED case with no reason (its `note`, or a `note` item) | a NOT RUN reason is a recorded decision |
 | A DEFERRED reason that names no follow-up ticket key | the deferral is recorded where someone will pick it up |
 | A `ticket.verdict` the current cases contradict (any FAILED: FAILED; any BLOCKED or NOT RUN, or only deferrals: PENDING) | a verdict is derived, never asserted; earlier rounds never count |
 | A bug pack judged on a retest round (`currentRound > 0`) that reads PASSED with a current DEFERRED case | a retest never passes on a deferral |
-| A story's bug card `RETEST PASSED` / `RETEST FAILED` that disagrees with that bug's own pack, when both are built together | one truth per bug |
+| A story's bug card `RETEST PASSED` / `RETEST FAILED` that disagrees with that bug's own pack, or whose pack cannot be found (built together, beside the story pack, in the bug's PBI folder, or `--bug-pack`) | the pill is what readers see; one truth per bug |
 | A mark or a redaction outside its image | it would point at nothing |
 
 A DEFERRED case under a PASSED story verdict only warns: list it in the report.
@@ -100,16 +100,16 @@ A pack with no `round` anywhere renders with everything current.
 ```json
 {
   "kind": "bug", "currentRound": 1,
-  "rounds": [{"round": 0, "date": "2026-10-16", "build": "v2.4.0-20261016.1 / web a1b2c3d4"},
-             {"round": 1, "date": "2026-10-19", "build": "v2.4.0-20261019.1 / web b2c3d4e5"}],
+  "rounds": [{"round": 0, "date": "2026-11-03", "build": "v2.4.0-20261103.1 / web a1b2c3d4"},
+             {"round": 1, "date": "2026-11-05", "build": "v2.4.0-20261105.1 / web b2c3d4e5"}],
   "tcs": [
-    {"id": "PROJ-372-retest-1", "kind": "retest", "round": 1, "date": "2026-10-19", "status": "PASSED",
+    {"id": "PROJ-7430-retest-1", "kind": "retest", "round": 1, "date": "2026-11-05", "status": "PASSED",
      "title": "The list keeps its rows after a late answer",
      "evidence": [
        {"type": "image", "ref": "after", "label": "After the late answer", "result": "pass"},
        {"type": "image", "ref": "bug", "label": "Actual: 81 rows", "round": 0, "result": "defect"}],
      "compare": {"left": {"image": "bug"}, "right": {"image": "after"}, "caption": "Same steps, before and after the fix"}},
-    {"id": "PROJ-372-repro", "kind": "repro", "round": 0, "status": "FAILED", "title": "A late answer duplicates rows", "evidence": []}
+    {"id": "PROJ-7430-repro", "kind": "repro", "round": 0, "status": "FAILED", "title": "A late answer duplicates rows", "evidence": []}
   ]
 }
 ```
@@ -156,14 +156,14 @@ fractions of the image:
 {
   "schema": "evidence-pack/2.0",
   "kind": "bug",
-  "ticket": {"id": "PROJ-374", "title": "The cart badge keeps its old count after a declined payment",
-             "module": "checkout", "verdict": "FAILED", "severity": "Low", "priority": "Later", "parent": "PROJ-379", "date": "2026-10-19"},
+  "ticket": {"id": "PROJ-7410", "title": "The cart badge keeps its old count after a declined payment",
+             "module": "checkout", "verdict": "FAILED", "severity": "Minor", "priority": "Medium", "parent": "PROJ-7420", "date": "2026-11-05"},
   "env": {"Environment": "staging", "Web build": "a1b2c3d4 (run 421)"},
   "summary": "After a declined card the cart is empty, but its badge still shows three items.",
   "repro": {"steps": ["Add three items to the cart", "Pay with the always-declined test card", "Open the cart"], "frequency": "3 of 3",
             "expected": "The badge shows the cart's real count.", "actual": "The badge shows 3 while the cart is empty."},
-  "images": {"cart": {"file": ".context/PBI/epics/EPIC-PROJ-310-checkout/stories/STORY-PROJ-379-keep-the-cart/evidence/PROJ-379-ac2-declined.png"}},
-  "tcs": [{"id": "PROJ-374-repro", "kind": "repro", "title": "A declined payment leaves a stale cart badge", "status": "FAILED",
+  "images": {"cart": {"file": ".context/PBI/epics/EPIC-PROJ-7400-checkout/stories/STORY-PROJ-7420-keep-the-cart/evidence/PROJ-7420-ac2-declined.png"}},
+  "tcs": [{"id": "PROJ-7410-repro", "kind": "repro", "title": "A declined payment leaves a stale cart badge", "status": "FAILED",
            "evidence": [
              {"type": "image", "ref": "cart", "label": "Cart after the decline", "result": "defect", "coords": "px",
               "annotations": [{"n": 1, "shape": "ellipse", "cx": 896, "cy": 32, "rx": 48, "ry": 24, "tone": "defect",

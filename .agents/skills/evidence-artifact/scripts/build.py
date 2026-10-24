@@ -107,11 +107,27 @@ def fail(msg):
     sys.exit(f"build.py: {msg}")
 
 
-def repo_root():
+ALSO_ALLOWED = []    # roots an absolute image path may also sit in (the worktree a fleet worker runs in)
+
+
+def git_line(*args):
     try:
-        return subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True, stderr=subprocess.DEVNULL).strip()
+        return subprocess.check_output(["git", *args], text=True, stderr=subprocess.DEVNULL).strip()
     except Exception:
+        return ""
+
+
+def repo_root():
+    """The PRIMARY checkout, also from a linked worktree: the evidence lives in the primary's .context/PBI
+    (the same resolution as cli/lib/worktree.ts checkoutRoots()). The worktree itself stays allowed for absolute paths."""
+    top = git_line("rev-parse", "--show-toplevel")
+    if not top:
         return os.getcwd()
+    git_dir, common = git_line("rev-parse", "--path-format=absolute", "--git-dir"), git_line("rev-parse", "--path-format=absolute", "--git-common-dir")
+    if git_dir and common and os.path.realpath(git_dir) != os.path.realpath(common):
+        ALSO_ALLOWED.append(os.path.realpath(top))
+        return os.path.realpath(os.path.dirname(common))
+    return os.path.realpath(top)
 
 
 def is_secret_key(key):
@@ -119,13 +135,22 @@ def is_secret_key(key):
     return k in SECRET_KEY_EXACT or bool(SECRET_KEY_WORDS.search(k))
 
 
+COUNT_KEY = re.compile(r"(?:count|total|length|len|size|ttl|expiresin|expiresat|expiry|maxage)$")
+
+
+def is_count_key(key):
+    """`token_count`, `session_ttl`: a number under such a key is a measure, not a secret."""
+    return bool(COUNT_KEY.search(re.sub(r"[\s._-]", "", str(key).lower())))
+
+
 def is_masked(v):
-    """Masked = empty, a mask word, an env reference, or at most MAX_CLEAR characters besides mask symbols."""
+    """Masked = empty, a mask word, an env reference, or at most MAX_CLEAR characters besides mask symbols.
+    One leading auth scheme is ignored: `Bearer <redacted>` is the placeholder the skill prescribes."""
     if v is None or isinstance(v, bool):
         return True
     if not isinstance(v, (str, int, float)):
         return False
-    text = str(v).strip()
+    text = re.sub(r"^(?:bearer|basic|token|digest|apikey|negotiate)\s+", "", str(v).strip(), flags=re.I)
     if text == "" or MASK_WORDS.match(text) or ENV_REF.match(text):
         return True
     clear = re.sub(r"[*•·]", "", text)
@@ -163,7 +188,7 @@ def secret_scan(value, path=""):
         if isinstance(v, str):
             text(v, path)
         elif isinstance(v, list):
-            if len(v) == 2 and isinstance(v[0], str) and re.fullmatch(r"[\w.-]+", v[0], re.ASCII) and is_secret_key(v[0]) and not is_masked(v[1]):
+            if len(v) == 2 and not path.endswith(".columns") and isinstance(v[0], str) and re.fullmatch(r"[\w.-]+", v[0], re.ASCII) and is_secret_key(v[0]) and not is_masked(v[1]):
                 refusals.append((path, "a value under a secret-named key"))      # a header kept as [name, value]
             for i, x in enumerate(v):
                 walk(x, join_path(path, i))
@@ -176,11 +201,11 @@ def secret_scan(value, path=""):
                 for r, row in enumerate(rows):
                     if isinstance(row, list):
                         for i in secret_cols:
-                            if i < len(row) and not is_masked(row[i]):
+                            if i < len(row) and not is_masked(row[i]) and not (is_count_key(cols[i]) and num(row[i])):
                                 refusals.append((f"{join_path(join_path(path, 'rows'), r)}[{i}]", "a value in a secret-named SQL column"))
             for k, x in v.items():
                 cp = join_path(path, k)
-                if is_secret_key(k) and isinstance(x, (str, int, float)) and not isinstance(x, bool) and not is_masked(x):
+                if is_secret_key(k) and isinstance(x, (str, int, float)) and not isinstance(x, bool) and not is_masked(x) and not (is_count_key(k) and num(x)):
                     refusals.append((cp, "a value under a secret-named key"))
                 walk(x, cp)
 
@@ -227,7 +252,7 @@ def validate(p, where, key_rx):
     if p.get("kind") not in KINDS: fail(f"{where}: kind must be \"story\" or \"bug\"")
     t = p.get("ticket") or fail(f"{where}: ticket{{}} is required")
     unknown(t, TICKET_FIELDS, f"{where}: ticket")
-    if not key_rx.search(str(t.get("id", ""))): fail(f"{where}: ticket.id {t.get('id')!r} must match the ticket key pattern {key_rx.pattern} (board.ticket_key_pattern)")
+    if not key_rx.fullmatch(str(t.get("id", ""))): fail(f"{where}: ticket.id {t.get('id')!r} must match the ticket key pattern {key_rx.pattern} (board.ticket_key_pattern)")
     check_str(t, "title", f"{where}: ticket", required=True)
     if t.get("verdict") not in VERDICTS: fail(f"{where}: ticket.verdict must be PASSED, FAILED or PENDING")
     for k in TICKET_FIELDS - {"id", "title", "verdict", "bugs"}: check_str(t, k, f"{where}: ticket")
@@ -254,7 +279,7 @@ def validate(p, where, key_rx):
         allowed = BUG_STATUSES if bug else CASE_STATUSES
         if c.get("status") not in allowed: fail(f"{where} {cid}: status {c.get('status')!r} not in {allowed} ({'bugs[]' if bug else 'tcs[]'} statuses)")
         if not isinstance(c.get("title"), str) or not c["title"].strip(): fail(f"{where} {cid}: title is required (the board card and the viewer show it)")
-        if bug and not key_rx.search(cid): fail(f"{where} {cid}: a bug card id must match the ticket key pattern {key_rx.pattern}")
+        if bug and not key_rx.fullmatch(cid): fail(f"{where} {cid}: a bug card id must match the ticket key pattern {key_rx.pattern}")
         if bug and c.get("kind") is not None: fail(f"{where} {cid}: kind belongs to tcs[] (repro, retest); a bug card has none")
         if c.get("kind") not in CASE_KINDS: fail(f"{where} {cid}: kind {c.get('kind')!r} must be repro, retest or absent")
         for k in ("note", "date", "severity", "priority", "from"): check_str(c, k, f"{where} {cid}")
@@ -364,8 +389,9 @@ def cross_check(p, where, key_rx):
     live = [c for c in p["tcs"] if case_round(c, cur) >= cur]
     for c in live:
         items = [e for e in c.get("evidence", []) if (e.get("round") if e.get("round") is not None else case_round(c, cur)) >= cur]
-        if c["status"] in ("PASSED", "FAILED") and not items and not c.get("compare"):
-            fail(f"{where} {c['id']}: a current {c['status']} case needs at least one evidence item of this round or a compare (PASSED and FAILED only on observation)")
+        # an http(s) `url` is where the case's evidence lives: the page offers "Open where its evidence lives"
+        if c["status"] in ("PASSED", "FAILED") and not items and not c.get("compare") and not str(c.get("url", "")).lower().startswith(("http://", "https://")):
+            fail(f"{where} {c['id']}: a current {c['status']} case needs at least one evidence item of this round, a compare, or the url where its evidence lives (PASSED and FAILED only on observation)")
         if c["status"] in ("BLOCKED", "DEFERRED"):
             reasons = [r for r in [c.get("note") or ""] + [e.get("body", "") for e in items if e["type"] == "note"] if r.strip()]
             if not reasons: fail(f"{where} {c['id']}: a {c['status']} case needs the reason it was not run (its note, or a note item)")
@@ -382,19 +408,56 @@ def cross_check(p, where, key_rx):
         print(f"warning: {where}: {deferred['id']} is DEFERRED, outside this PASSED verdict; list it in the report.", file=sys.stderr)
 
 
-def cross_check_packs(packs):
-    """Packs built together: a story's bug card that reports a retest agrees with the bug's own pack."""
+def find_bug_pack(bug_id, story_path, root, given):
+    """The bug's own live pack: --bug-pack, else beside the story pack (workflow.md §1), else the bug's own PBI folder
+    (a pack recovered with extract, workflow.md §5). Several found: the one judged on the latest round. None: (None, places)."""
+    beside = os.path.join(os.path.dirname(os.path.abspath(story_path)), f"evidence-pack-{bug_id}.json")
+    places = [beside, f"<bug PBI under {os.path.join(root, '.context', 'PBI')}>/evidence/evidence-pack.json"]
+    if bug_id in given:
+        return given[bug_id], places
+    cands = [beside] if os.path.isfile(beside) else []
+    pbi = os.path.join(root, ".context", "PBI")
+    own = re.compile(rf"(?:^|-){re.escape(bug_id)}(?:-|$)")
+    for dirpath, dirs, files in os.walk(pbi):
+        dirs[:] = [d for d in dirs if d != "evidence"]
+        if own.search(os.path.basename(dirpath)) and os.path.isfile(os.path.join(dirpath, "evidence", "evidence-pack.json")):
+            cands.append(os.path.join(dirpath, "evidence", "evidence-pack.json"))
+    best = None
+    for c in cands:
+        try:
+            p = json.load(open(c))
+            if p.get("kind") != "bug" or (p.get("ticket") or {}).get("id") != bug_id: continue
+            r = current_round(p)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            continue
+        if best is None or r > best[0]: best = (r, c)
+    return (best[1] if best else None), places
+
+
+def cross_check_packs(packs, paths, root, given):
+    """A story's bug card that reports a retest (the pill readers see) agrees with the bug's own pack: the one built
+    together with it, else the live pack find_bug_pack locates. A pill nothing can check is refused (ADR-0021 M5)."""
     own = {p["ticket"]["id"]: p for p in packs if p["kind"] == "bug"}
-    for p in packs:
+    for p, path in zip(packs, paths):
         for b in p.get("bugs", []):
-            bp = own.get(b["id"])
-            if bp is None: continue
-            if b["status"] == "RETEST PASSED" and bp["ticket"]["verdict"] != "PASSED": fail(f"{p['ticket']['id']} bug {b['id']}: RETEST PASSED contradicts its own pack (verdict {bp['ticket']['verdict']})")
-            if b["status"] == "RETEST FAILED" and bp["ticket"]["verdict"] != "FAILED": fail(f"{p['ticket']['id']} bug {b['id']}: RETEST FAILED contradicts its own pack (verdict {bp['ticket']['verdict']})")
+            if b["status"] not in ("RETEST PASSED", "RETEST FAILED"): continue
+            bp, where = own.get(b["id"]), "its own pack"
+            if bp is None:
+                found, places = find_bug_pack(b["id"], path, root, given)
+                if found is None:
+                    fail(f"{p['ticket']['id']} bug {b['id']}: {b['status']} cannot be checked: no pack for {b['id']} at {places[0]} or {places[1]}; build the bug page first, or pass --bug-pack {b['id']}=<pack.json>")
+                try:
+                    bp = json.load(open(found))
+                except (OSError, ValueError) as err:
+                    fail(f"{p['ticket']['id']} bug {b['id']}: cannot read {found} ({err})")
+                where = found
+            want = "PASSED" if b["status"] == "RETEST PASSED" else "FAILED"
+            got = (bp.get("ticket") or {}).get("verdict")
+            if got != want: fail(f"{p['ticket']['id']} bug {b['id']}: {b['status']} contradicts {where} (verdict {got})")
 
 
 def mark_rounds(p):
-    """Retest rounds (D10): items and cases from a round below the current one are history.
+    """Retest rounds: items and cases from a round below the current one are history.
     The page shows them as BEFORE FIX, never as a current DEFECT or PASS, and never counts them."""
     cur = current_round(p)
     p["currentRound"] = cur
@@ -437,12 +500,19 @@ def safe_path(f, root, where, k):
     if ext not in (".png", ".jpg", ".jpeg"): fail(f"{where}: image {k!r} must be a .png, .jpg or .jpeg screenshot")
     path = f if os.path.isabs(f) else os.path.join(root, f)
     if not os.path.exists(path): fail(f"{where}: image {k!r} -> missing file {f}")
-    real, top = os.path.realpath(path), os.path.realpath(root)
-    if real != top and not real.startswith(top + os.sep): fail(f"{where}: image {k!r} -> {f} resolves outside the repo root")
+    real = os.path.realpath(path)
+    if not any(real == top or real.startswith(top + os.sep) for top in [os.path.realpath(root)] + ALSO_ALLOWED):
+        fail(f"{where}: image {k!r} -> {f} resolves outside the repo root")
     with open(real, "rb") as fh:
         head = fh.read(4)
     if not (head.startswith(b"\x89PNG") or head.startswith(b"\xff\xd8\xff")): fail(f"{where}: image {k!r} -> {f} is not a PNG or JPEG file (checked by its first bytes)")
     return real
+
+
+def carries_metadata(raw):
+    """An inline image is kept as it came only when it is a clean JPEG (what this builder writes); anything else is re-encoded."""
+    im = Image.open(raw); raw.seek(0)
+    return im.format != "JPEG" or bool({"comment", "exif", "xmp", "XML:com.adobe.xmp"} & set(im.info))
 
 
 def load_image(path, redact):
@@ -497,7 +567,7 @@ def check_inside(anns, coords, w, h, what):
 
 
 def label(side, default):
-    """D15: compare labels default to EXPECTED (left) / ACTUAL (right); `detail` adds the per-case line.
+    """Compare labels default to EXPECTED (left) / ACTUAL (right); `detail` adds the per-case line.
     A retest's compare defaults to BEFORE FIX (round N, build ..) / AFTER FIX (retest R, build ..)."""
     base = side.get("label") or default
     return f"{base} · {side['detail']}" if side.get("detail") and "·" not in base else base
@@ -517,11 +587,11 @@ def compare_defaults(p, c, cur):
 
 def resolve(p, where, root):
     # Redactions are burned once per FILE: two keys on one screenshot burn the union of their boxes,
-    # so no key can inline an unredacted copy (ADR-0021)
+    # so no key can inline an unredacted copy (ADR-0021). Inline images (extracted from a page) group by their bytes.
     groups = {}
     for k, v in (p.get("images") or {}).items():
         if str(v.get("src", "")).startswith("data:"):                         # extracted from a page
-            ident = ("inline", k)
+            ident = ("inline", v["src"])
         else:
             ident = safe_path(v.get("file") or fail(f"{where}: image {k!r} has no file"), root, where, k)
         g = groups.setdefault(ident, {"keys": [], "redact": [], "decl": v})
@@ -539,7 +609,8 @@ def resolve(p, where, root):
             x, y, bw, bh = box
             if x < 0 or y < 0 or x + bw > w or y + bh > h: fail(f"{where}: redact box {box} of image {keys[0]!r} lies outside the {w}x{h} image")
         if isinstance(ident, tuple):
-            if g["redact"]:                                                   # burn the boxes in here too, never skip them
+            if g["redact"] or carries_metadata(raw):                          # burn the boxes in here too, never skip them
+                raw.seek(0)
                 enc = encode(load_image(raw, g["redact"]), v.get("file") or keys[0])
             else:
                 enc = dict(v, w=w, h=h); enc.pop("redact", None)
@@ -642,7 +713,9 @@ def thumbnail(pack_path, out, case_id, root, key_rx):
     if not pick: fail("no screenshot in the pack to make a thumbnail from (API/DB-only bug: the tracker gets the link only)")
     meta = p["images"].get(pick["ref"]) or fail(f"image ref {pick['ref']!r} not in images{{}}")
     if str(meta.get("src", "")).startswith("data:"):     # a pack recovered with --extract: the bytes are inline
-        f, redact = io.BytesIO(base64.b64decode(meta["src"].split(",", 1)[1])), meta.get("redact")
+        f = io.BytesIO(base64.b64decode(meta["src"].split(",", 1)[1]))
+        # the union of every key's boxes on the same bytes, as on the page
+        redact = [b for v in p["images"].values() if v.get("src") == meta["src"] for b in (v.get("redact") or [])]
     else:
         f = safe_path(meta["file"], root, os.path.basename(pack_path), pick["ref"])
         # the union of every key's boxes on this file, as on the page
@@ -733,12 +806,19 @@ if __name__ == "__main__":
     ap.add_argument("--case", help="with --thumb: the case to take the screenshot from (default: the reproduction or the first failing case)")
     ap.add_argument("--extract", metavar="HTML", help="recover the pack embedded in a page into --out")
     ap.add_argument("--check", action="store_true", help="validate the pack(s) only: no image read, nothing written")
-    ap.add_argument("--repo", help="root that relative image paths resolve against (default: the git top level)")
+    ap.add_argument("--repo", help="root that relative image paths resolve against (default: the primary checkout, also from a worktree)")
+    ap.add_argument("--bug-pack", action="append", default=[], metavar="BUG=PACK", help="the bug's own pack, to check a story's RETEST pill (default: beside the story pack, else the bug's PBI folder)")
     ap.add_argument("--key-pattern", default=GENERIC_KEY, help="the ticket key regex (board.ticket_key_pattern; default: the generic key shape)")
     ap.add_argument("--standalone", action="store_true", help="write a full document with a doctype (a page opened from disk)")
     ap.add_argument("--max-mb", type=float, default=14.0, help="fail when the page is larger (default 14; the artifact limit is 16)")
     a = ap.parse_args()
     root = os.path.abspath(a.repo) if a.repo else repo_root()
+    given = {}
+    for item in a.bug_pack:
+        if "=" not in item: fail(f"--bug-pack {item!r} must be <BUG>=<pack.json>")
+        k, v = item.split("=", 1); given[k] = v
+    top = git_line("rev-parse", "--show-toplevel")
+    if top and os.path.realpath(top) not in ALSO_ALLOWED: ALSO_ALLOWED.append(os.path.realpath(top))
     if not 0 < a.max_mb <= HARD_MAX_MB: fail(f"--max-mb must be between 0 and {HARD_MAX_MB} (the artifact limit)")
     try:
         key_rx = re.compile(a.key_pattern)
@@ -760,5 +840,5 @@ if __name__ == "__main__":
     else:
         if not a.pack or not a.out: fail("give --pack <pack.json> and --out <index.html>")
         packs = [load_pack(x, root, key_rx) for x in a.pack]
-        cross_check_packs(packs)
+        cross_check_packs(packs, a.pack, root, given)
         render(packs, a.out, a.max_mb, a.standalone)

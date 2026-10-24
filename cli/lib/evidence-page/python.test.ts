@@ -45,7 +45,7 @@ describe.skipIf(missing !== null)('build.py (Python 3.9+ and Pillow present)', (
       const page = join(dir, 'story.html');
       expect(runBuildPy(['--pack', story, '--out', page, ...common]).code).toBe(0);
       const html = readFileSync(page, 'utf8');
-      expect(html.startsWith('<title>DEMO-101 Evidence</title>')).toBe(true);
+      expect(html.startsWith('<title>DEMO-7101 Evidence</title>')).toBe(true);
       const bugPage = join(dir, 'bug.html');
       expect(runBuildPy(['--pack', bug, '--out', bugPage, '--standalone', ...common]).code).toBe(0);
       expect(readFileSync(bugPage, 'utf8')).toContain('BEFORE FIX (round 0, build 2026.10.24-3, 2026-10-24)');
@@ -55,6 +55,21 @@ describe.skipIf(missing !== null)('build.py (Python 3.9+ and Pillow present)', (
       const review = runBuildPy(['--pack', story, bug, '--out', join(dir, 'review.html'), ...common]);
       expect(review.code).toBe(0);
       expect(DEMO_REDACT).toHaveLength(4);
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it('bun run evidence demo --out builds into a folder outside the repo (VERIFY S2)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'evidence-demo-cli-'));
+    try {
+      const cli = join(dirname(BUILD_PY), '..', '..', '..', '..', 'cli', 'evidence-page', 'index.ts');
+      const result = Bun.spawnSync(['bun', cli, 'demo', '--out', dir], { stdout: 'pipe', stderr: 'pipe' });
+      expect(result.stderr.toString()).not.toContain('outside the repo root');
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(join(dir, 'review', 'index.html'))).toBe(true);
+      expect(existsSync(join(dir, 'story', 'evidence-artifact', 'DEMO-7120', 'DEMO-7120-thumbnail.png'))).toBe(true);
     }
     finally {
       rmSync(dir, { recursive: true, force: true });

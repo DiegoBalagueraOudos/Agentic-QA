@@ -3,7 +3,7 @@
  * evidence-page CLI — build, extract, record and demo the evidence page (ADR-0021, ADR-0022).
  *
  *   bun run evidence build   --pack <pack.json> [--pack <pack2.json>] [--out <index.html>] [--thumb <png>] [--case <id>]
- *                            [--repo <root>] [--max-mb N] [--host claude-artifact|local] [--json]
+ *                            [--repo <root>] [--bug-pack <BUG>=<pack.json>] [--max-mb N] [--host claude-artifact|local] [--json]
  *   bun run evidence extract --page <page.html> --out <pack.json>
  *   bun run evidence record  --pack <pack.json> --url <url>
  *   bun run evidence demo    [--out <dir>]
@@ -38,6 +38,7 @@ import { describePage, EVIDENCE_HOSTS, publishEvidence, recordPublication } from
 import { GENERIC_TICKET_KEY } from '../lib/evidence-page/pack.ts';
 import { buildError, buildWarnings, pythonPreflight, runBuildPy } from '../lib/evidence-page/python.ts';
 import { DEFAULT_EVIDENCE_HOSTS, loadBoardConfig } from '../lib/sprint-source/index.ts';
+import { checkoutRoots } from '../lib/worktree.ts';
 
 const USAGE = `Usage: bun run evidence <command> [options]
 
@@ -45,7 +46,8 @@ const USAGE = `Usage: bun run evidence <command> [options]
            [--out <index.html>] default: <pack dir>/evidence-artifact/index.html (a bug: .../evidence-artifact/<BUG>/index.html)
            [--thumb <png>]      bug pack: write its tracker thumbnail instead of the page
            [--case <id>]        with --thumb: the case to take the screenshot from
-           [--repo <root>]      relative image paths resolve against it (default: the git top level)
+           [--repo <root>]      relative image paths resolve against it (default: the primary checkout, also from a worktree)
+           [--bug-pack B=<pack>] the bug's own pack, to check a story's RETEST pill (default: beside the story pack, else the bug's PBI folder)
            [--max-mb N]         page size limit, default 14, at most 16
            [--host H]           claude-artifact (default) | local
            [--json]             one machine-readable line on stdout
@@ -82,6 +84,15 @@ function usage(message: string): never {
 function display(path: string): string {
   const rel = relative(process.cwd(), path);
   return rel.startsWith('..') ? path : rel;
+}
+
+/**
+ * Relative image paths resolve against the PRIMARY checkout: a fleet worker runs in a worktree, the evidence lives in
+ * the primary's `.context/PBI/` (`checkoutRoots`, `.agents/README.md` "Checkout roots"). build.py also accepts an
+ * absolute path inside the worktree it runs from.
+ */
+function defaultRepo(): string {
+  return checkoutRoots()?.primaryRoot ?? process.cwd();
 }
 
 /** The pack as JSON, unvalidated: build.py validates. `null` when it cannot be read. */
@@ -157,7 +168,13 @@ function runBuild(values: Record<string, string | string[] | boolean | undefined
     return fail(json, display(packPaths[0]), `${packPaths[0]}: cannot read the pack (not one JSON object)`, []);
   }
   const keyPattern = keyPatternFor(packPaths[0], config.ticketKeyPattern);
-  const common = ['--key-pattern', keyPattern.source, ...(values.repo === undefined ? [] : ['--repo', values.repo as string])];
+  const common = [
+    '--key-pattern',
+    keyPattern.source,
+    '--repo',
+    (values.repo as string | undefined) ?? defaultRepo(),
+    ...((values['bug-pack'] as string[] | undefined) ?? []).flatMap(b => ['--bug-pack', b]),
+  ];
 
   if (thumb !== undefined) {
     const result = runBuildPy(['--pack', packPaths[0], '--thumb', thumb, ...(values.case === undefined ? [] : ['--case', values.case as string]), ...common]);
@@ -258,7 +275,8 @@ function runRecord(values: Record<string, string | string[] | boolean | undefine
 function runDemo(values: Record<string, string | string[] | boolean | undefined>): number {
   preflightOrExit(false);
   const out = resolve((values.out as string | undefined) ?? DEMO_OUT);
-  const root = resolve(process.cwd());
+  // The demo folder is its own root: image paths are relative to it, wherever --out points
+  const root = out;
   const { story, bug } = writeDemo(out, root);
   // Synthetic DEMO- keys: validated with the generic shape, never the project's own pattern. Opened from disk: standalone documents
   const common = ['--key-pattern', GENERIC_TICKET_KEY.source, '--repo', root];
@@ -300,6 +318,7 @@ function main(argv: string[]): number {
         'thumb': { type: 'string' },
         'case': { type: 'string' },
         'repo': { type: 'string' },
+        'bug-pack': { type: 'string', multiple: true },
         'page': { type: 'string' },
         'max-mb': { type: 'string' },
         'host': { type: 'string' },

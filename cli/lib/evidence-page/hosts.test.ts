@@ -17,9 +17,9 @@ describe('publishEvidence', () => {
 
   it('claude-artifact, first publish: the reference icon per kind and a description, then record the URL', () => {
     const page = join('/tmp', 'evidence-artifact', 'index.html');
-    const { ref, agentStep } = publishEvidence(page, undefined, 'claude-artifact', { packPath: 'pack.json', kind: 'bug', description: 'DEMO-120 staging evidence' });
+    const { ref, agentStep } = publishEvidence(page, undefined, 'claude-artifact', { packPath: 'pack.json', kind: 'bug', description: 'DEMO-7120 staging evidence' });
     expect(ref).toEqual({ host: 'claude-artifact', location: page, state: 'agent-action' });
-    expect(agentStep?.publish).toEqual({ file_path: page, icon: 'bug', description: 'DEMO-120 staging evidence' });
+    expect(agentStep?.publish).toEqual({ file_path: page, icon: 'bug', description: 'DEMO-7120 staging evidence' });
     expect(agentStep?.readFirst).toBeNull();
     expect(agentStep?.record).toContain('bun run evidence record --pack pack.json --url');
     expect(iconOf('story')).toBe('checklist');
@@ -36,9 +36,9 @@ describe('publishEvidence', () => {
 
 describe('describePage', () => {
   it('counts the current round only', () => {
-    expect(describePage(story())).toBe('DEMO-101 staging evidence: 1 of 4 TCs passed, 1 bug filed');
+    expect(describePage(story())).toBe('DEMO-7101 staging evidence: 1 of 4 TCs passed, 1 bug filed');
     // The bug pack: the round-0 reproduction is history, the retest is current
-    expect(describePage(demoBugPack({ error: 'b.png', fixed: 'c.png' }))).toBe('DEMO-120 staging evidence: 1 of 1 cases passed');
+    expect(describePage(demoBugPack({ error: 'b.png', fixed: 'c.png' }))).toBe('DEMO-7120 staging evidence: 1 of 1 cases passed');
   });
 });
 

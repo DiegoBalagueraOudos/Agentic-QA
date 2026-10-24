@@ -29,10 +29,10 @@ def shot(path, size=(400, 300), fmt="PNG"):
 def base_pack(**over):
     p = {
         "schema": "evidence-pack/2.0", "kind": "story",
-        "ticket": {"id": "DEMO-1", "title": "Checkout keeps the cart", "verdict": "PASSED"},
+        "ticket": {"id": "DEMO-7001", "title": "Checkout keeps the cart", "verdict": "PASSED"},
         "env": {"Environment": "staging"}, "summary": "One case passed.",
         "images": {"a": {"file": "a.png"}},
-        "tcs": [{"id": "DEMO-1-TC1", "title": "Pay with a valid card", "status": "PASSED",
+        "tcs": [{"id": "DEMO-7001-TC1", "title": "Pay with a valid card", "status": "PASSED",
                  "evidence": [{"type": "image", "ref": "a", "label": "Form", "coords": "px",
                                "annotations": [{"n": 1, "shape": "rect", "x": 40, "y": 100, "w": 220, "h": 20, "tone": "ok", "title": "Field", "explain": "x"}]}]}],
     }
@@ -166,12 +166,12 @@ class TestValidation(BuildCase):
     def test_statuses_per_field(self):
         p = base_pack(); p["tcs"][0]["status"] = "RETEST PASSED"
         self.refused(p, "(tcs[] statuses)")
-        p = base_pack(bugs=[{"id": "DEMO-9", "title": "bug", "status": "PASSED"}])
+        p = base_pack(bugs=[{"id": "DEMO-7009", "title": "bug", "status": "PASSED"}])
         self.refused(p, "(bugs[] statuses)")
 
     def test_ticket_keys_follow_the_board_pattern(self):
         self.refused(base_pack(), "must match the ticket key pattern ^BK-\\d+$", key=r"^BK-\d+$")
-        p = base_pack(); p["ticket"]["id"] = "BK-12"
+        p = base_pack(); p["ticket"]["id"] = "BK-7012"
         r, _ = self.run_build(p, key=r"^BK-\d+$")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.refused(base_pack(bugs=[{"id": "nope", "title": "bug", "status": "OPEN"}]), "a bug card id must match the ticket key pattern")
@@ -180,11 +180,11 @@ class TestValidation(BuildCase):
         p = base_pack(); p["tcs"][0]["evidence"] = []
         self.refused(p, "PASSED and FAILED only on observation")
         p = base_pack(); p["ticket"]["verdict"] = "PENDING"
-        p["tcs"].append({"id": "DEMO-1-TC2", "title": "Receipt", "status": "BLOCKED"})
+        p["tcs"].append({"id": "DEMO-7001-TC2", "title": "Receipt", "status": "BLOCKED"})
         self.refused(p, "a BLOCKED case needs the reason")
-        p = base_pack(); p["tcs"].append({"id": "DEMO-1-TC3", "title": "Saved cards", "status": "DEFERRED", "note": "flag off in staging"})
+        p = base_pack(); p["tcs"].append({"id": "DEMO-7001-TC3", "title": "Saved cards", "status": "DEFERRED", "note": "flag off in staging"})
         self.refused(p, "a DEFERRED reason names the follow-up ticket")
-        p["tcs"][1]["note"] = "flag off in staging; deferred to DEMO-130"
+        p["tcs"][1]["note"] = "flag off in staging; deferred to DEMO-7130"
         r, _ = self.run_build(p)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("DEFERRED, outside this PASSED verdict", r.stderr)
@@ -197,30 +197,30 @@ class TestValidation(BuildCase):
         self.assertEqual(r.returncode, 0, r.stderr)
 
     def retest_pack(self, status, verdict=None):
-        return base_pack(kind="bug", ticket={"id": "DEMO-9", "title": "Bug", "verdict": verdict or status},
+        return base_pack(kind="bug", ticket={"id": "DEMO-7009", "title": "Bug", "verdict": verdict or status},
                          images={"a": {"file": "a.png"}, "b": {"file": "b.png"}}, currentRound=1,
                          rounds=[{"round": 0, "date": "2026-10-24", "build": "v1"}, {"round": 1, "date": "2026-10-25", "build": "v2"}],
-                         tcs=[{"id": "DEMO-9-retest-1", "kind": "retest", "round": 1, "title": "Retest", "status": status,
+                         tcs=[{"id": "DEMO-7009-retest-1", "kind": "retest", "round": 1, "title": "Retest", "status": status,
                                "evidence": [{"type": "image", "ref": "b", "result": "pass"}, {"type": "image", "ref": "a", "round": 0, "result": "defect"}],
                                "compare": {"left": {"image": "a"}, "right": {"image": "b"}}},
-                              {"id": "DEMO-9-repro", "kind": "repro", "title": "Repro", "status": "FAILED", "evidence": []}])
+                              {"id": "DEMO-7009-repro", "kind": "repro", "title": "Repro", "status": "FAILED", "evidence": []}])
 
     def test_a_retest_never_passes_on_a_deferral(self):
         p = self.retest_pack("PASSED")
-        p["tcs"].append({"id": "DEMO-9-TC2", "round": 1, "title": "Other", "status": "DEFERRED", "note": "later, DEMO-31"})
+        p["tcs"].append({"id": "DEMO-7009-TC2", "round": 1, "title": "Other", "status": "DEFERRED", "note": "later, DEMO-7031"})
         self.refused(p, "a retest cannot pass on a deferral")
 
     def test_retest_passed_card_agrees_with_the_bug_pack(self):
-        story = base_pack(bugs=[{"id": "DEMO-9", "title": "Bug", "status": "RETEST PASSED"}])
+        story = base_pack(bugs=[{"id": "DEMO-7009", "title": "Bug", "status": "RETEST PASSED"}])
         self.refused([story, self.retest_pack("FAILED")], "RETEST PASSED contradicts its own pack (verdict FAILED)")
         r, _ = self.run_build([story, self.retest_pack("PASSED")])
         self.assertEqual(r.returncode, 0, r.stderr)
 
     def test_links_rendered_as_href(self):
         for bad in ("javascript:alert(1)", "data:text/html,x", "/relative"):
-            self.refused(base_pack(bugs=[{"id": "DEMO-9", "title": "b", "status": "OPEN", "url": bad}]), "must be an absolute http(s) URL or a #PACK.CASE deep link")
-        for good in ("https://claude.ai/artifact/abc", "#DEMO-9"):
-            r, _ = self.run_build(base_pack(bugs=[{"id": "DEMO-9", "title": "b", "status": "OPEN", "url": good}]))
+            self.refused(base_pack(bugs=[{"id": "DEMO-7009", "title": "b", "status": "OPEN", "url": bad}]), "must be an absolute http(s) URL or a #PACK.CASE deep link")
+        for good in ("https://claude.ai/artifact/abc", "#DEMO-7009"):
+            r, _ = self.run_build(base_pack(bugs=[{"id": "DEMO-7009", "title": "b", "status": "OPEN", "url": good}]))
             self.assertEqual(r.returncode, 0, r.stderr)
 
     def test_a_mark_outside_its_image_is_refused(self):
@@ -237,7 +237,7 @@ class TestPage(BuildCase):
     def test_the_template_is_filled_once_and_titled(self):
         r, html = self.run_build(base_pack(summary="</script><script>alert(1)</script>"))
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertTrue(html.startswith("<title>DEMO-1 Evidence</title>"))
+        self.assertTrue(html.startswith("<title>DEMO-7001 Evidence</title>"))
         for marker in ("/*__SHARED_CSS__*/", "/*__SHARED_JS__*/", "/*__PACKS__*/"):
             self.assertNotIn(marker, html)
         self.assertNotIn("</script><script>alert(1)", html)      # `</` can never close the data script
@@ -364,6 +364,113 @@ class TestThumbnail(BuildCase):
         self.assertEqual(im.getpixel((150, 110)), GRAY)            # redaction burned
         self.assertEqual(im.getpixel((330, 200)), (208, 49, 45))   # the defect rect outline
         self.assertIn("2 marks from a", r.stdout)
+
+
+class TestFixRound(BuildCase):
+    """The reviewer's probes (VERIFY M2-M4, S1, S3, N1, N2, N6), one regression each."""
+
+    def story_with_card(self, status="RETEST PASSED"):
+        return base_pack(bugs=[{"id": "DEMO-7009", "title": "Bug", "status": status, "severity": "Major"}])
+
+    def write(self, path, pack):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(pack, f)
+        return path
+
+    def test_m2_a_retest_pill_built_alone_agrees_with_the_pack_beside_the_story(self):
+        self.write(os.path.join(self.dir, "evidence-pack-DEMO-7009.json"), TestValidation.retest_pack(self, "PASSED"))
+        r, _ = self.run_build(self.story_with_card())
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.write(os.path.join(self.dir, "evidence-pack-DEMO-7009.json"), TestValidation.retest_pack(self, "FAILED"))
+        self.refused(self.story_with_card(), "RETEST PASSED contradicts")
+
+    def test_m2_a_pill_nothing_can_check_is_refused(self):
+        stderr = self.refused(self.story_with_card(), "RETEST PASSED cannot be checked")
+        self.assertIn("evidence-pack-DEMO-7009.json", stderr)
+        self.assertIn("--bug-pack DEMO-7009=", stderr)
+
+    def test_m2_the_recovered_pack_in_the_bug_folder_and_the_latest_round_win(self):
+        stale = TestValidation.retest_pack(self, "FAILED"); stale["currentRound"] = 0
+        stale["tcs"] = [stale["tcs"][1]]; stale["tcs"][0]["evidence"] = [{"type": "note", "body": "repro"}]
+        stale.pop("rounds")
+        self.write(os.path.join(self.dir, "evidence-pack-DEMO-7009.json"), stale)
+        self.write(os.path.join(self.dir, ".context", "PBI", "bugs", "BUG-DEMO-7009-cart", "evidence", "evidence-pack.json"), TestValidation.retest_pack(self, "PASSED"))
+        r, _ = self.run_build(self.story_with_card())
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_m2_an_explicit_bug_pack_flag(self):
+        path = self.write(os.path.join(self.dir, "elsewhere", "bug.json"), TestValidation.retest_pack(self, "FAILED"))
+        r, _ = self.run_build(self.story_with_card("RETEST FAILED"), "--bug-pack", f"DEMO-7009={path}")
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_m3_after_extract_two_keys_on_one_image_burn_the_union(self):
+        p = base_pack(images={"a": {"file": "a.png"}, "b": {"file": "a.png"}})
+        p["tcs"][0]["evidence"].append({"type": "image", "ref": "b", "result": "defect"})
+        _, html = self.run_build(p)
+        page = os.path.join(self.dir, "out", "index.html")
+        rec = os.path.join(self.dir, "rec.json")
+        subprocess.run([sys.executable, BUILD, "--extract", page, "--out", rec], check=True, capture_output=True)
+        recovered = json.load(open(rec))
+        recovered["images"]["a"]["redact"] = [[40, 100, 220, 20]]
+        _, html2 = self.run_build(recovered, out="again/index.html")
+        imgs = embedded(html2)[0]["images"]
+        self.assertTrue(near(pixel_of(imgs["a"]["src"], (150, 110)), GRAY))
+        self.assertTrue(near(pixel_of(imgs["b"]["src"], (150, 110)), GRAY))
+        thumb = os.path.join(self.dir, "t.png")
+        r, _ = self.run_build(recovered, "--thumb", thumb, out=None)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(near(Image.open(thumb).convert("RGB").getpixel((150, 110)), GRAY))
+
+    def test_m4_a_worktree_builds_a_pack_in_the_primary_checkout(self):
+        primary = os.path.join(self.dir, "primary")
+        os.makedirs(primary)
+        git = lambda *a, cwd=primary: subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+        git("init", "-q"); git("-c", "user.email=t@example.test", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "init")
+        wt = os.path.join(self.dir, "wt")
+        git("worktree", "add", "-q", wt)
+        ev = os.path.join(primary, ".context", "PBI", "stories", "STORY-DEMO-7001-x", "evidence")
+        os.makedirs(ev); shot(os.path.join(ev, "DEMO-7001-tc1.png"))
+        for f in (os.path.join(ev, "DEMO-7001-tc1.png"), os.path.relpath(os.path.join(ev, "DEMO-7001-tc1.png"), primary)):
+            pack = self.write(os.path.join(ev, "evidence-pack.json"), base_pack(images={"a": {"file": f}}))
+            r = subprocess.run([sys.executable, BUILD, "--pack", pack, "--out", os.path.join(ev, "page.html")], cwd=wt, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, f"{f}: {r.stderr}")
+
+    def test_s1_the_prescribed_bearer_placeholder_passes_and_a_real_token_does_not(self):
+        p = base_pack(); p["tcs"][0]["evidence"].append({"type": "api", "label": "x", "request": json.dumps({"headers": {"Authorization": "Bearer <redacted>"}})})
+        r, _ = self.run_build(p)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        p["tcs"][0]["evidence"][1]["request"] = json.dumps({"headers": {"Authorization": "Bearer " + KEY}})
+        self.refused(p, "tcs[0].evidence[1].request")
+
+    def test_s3_a_passed_case_whose_evidence_lives_at_its_url(self):
+        p = base_pack(); p["tcs"][0]["evidence"] = []; p["tcs"][0]["url"] = "https://claude.ai/artifact/abc"
+        r, _ = self.run_build(p)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        p["tcs"][0]["url"] = "#DEMO-7001"
+        self.refused(p, "PASSED and FAILED only on observation")
+
+    def test_n1_the_key_pattern_matches_the_whole_id(self):
+        p = base_pack(); p["ticket"]["id"] = "xDEMO-7001y"
+        self.refused(p, "must match the ticket key pattern", key=r"DEMO-\d+")
+
+    def test_n2_a_count_is_not_a_secret(self):
+        sql = {"type": "sql", "label": "usage", "query": "select token_count, api_token from usage", "columns": ["token_count", "api_token"], "rows": [[1234, "<redacted>"]]}
+        p = base_pack(); p["tcs"][0]["evidence"].append(sql)
+        r, _ = self.run_build(p)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        sql["rows"] = [[1234, KEY]]
+        self.refused(p, "rows[0][1] holds a value in a secret-named SQL column")
+
+    def test_n6_an_inline_image_with_metadata_is_re_encoded_clean(self):
+        from PIL import PngImagePlugin
+        buf = io.BytesIO(); info = PngImagePlugin.PngInfo(); info.add_text("Comment", "png note")
+        Image.new("RGB", (400, 300), (200, 200, 200)).save(buf, "PNG", pnginfo=info)
+        p = base_pack(images={"a": {"src": "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()}})
+        _, html = self.run_build(p)
+        src = embedded(html)[0]["images"]["a"]["src"]
+        self.assertTrue(src.startswith("data:image/jpeg;base64,"))
+        self.assertNotIn(b"png note", base64.b64decode(src.split(",", 1)[1]))
 
 
 if __name__ == "__main__":

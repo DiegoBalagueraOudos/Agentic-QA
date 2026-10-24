@@ -39,10 +39,11 @@ dumps, `.auth/*` or browser storage state. The build refuses, and names the fiel
 - `key=` / `password=` / `secret=` values in any text (JSON bodies such as `"password": "..."`
   included), and any value under a key whose name holds a secret word (`newPassword`,
   `X-Auth-Token`, `service_role_key`), in objects, header lists and JSON kept as strings;
-- any SQL cell under a column named that way.
+- any SQL cell under a column named that way. A NUMBER under a name that measures something
+  (`token_count`, `session_ttl`, `password_length`) passes: a count is not a secret.
 
 A value counts as masked only when at most a few clear characters remain (`<redacted>`, `***`,
-`ab****`); `RealValue***` is still refused. A `redact` box is burned in on every image, a screenshot
+`ab****`, and `Bearer <redacted>`: one auth scheme word is ignored); `RealValue***` is still refused. A `redact` box is burned in on every image, a screenshot
 recovered with `extract` included. Image files outside the repo, in an `.auth` folder, or that are a
 HAR, trace, archive or state file are refused, and an image is accepted only when its bytes are PNG
 or JPEG.
