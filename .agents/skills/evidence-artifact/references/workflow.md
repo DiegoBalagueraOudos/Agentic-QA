@@ -153,8 +153,9 @@ inline; everything else is the link. An API/DB-only bug has no thumbnail: link o
 5. On `jira-xray`, `--test <TC> --exec <ATR>` (or `--run <id>`) also adds the PNG to that Test Run's
    evidence and reads the run back. The run is resolved before any write, so a wrong TC writes nothing.
 
-Write "(image embedded below)" in a report only after the read-back passed, then
-`bun run board bug <KEY> <BUG> --evidence-embedded --by worker` (the command prints that line). With
+Write "(image embedded below)" in a report only after the read-back passed (after a fallback, name the
+`Evidence` comment instead), then `bun run board bug <KEY> <BUG> --title "<title>" --severity <...>
+--evidence-embedded --by worker` (the command prints that line, filled from the bug pack). With
 no tracker (`board.source: none`) `attach` writes nothing: the thumbnail stays on disk and the report
 links it.
 

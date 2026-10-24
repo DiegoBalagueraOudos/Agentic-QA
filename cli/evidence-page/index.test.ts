@@ -55,6 +55,12 @@ describe('bun run evidence attach / link', () => {
     expect(r.err).toContain('the jira-native source has none');
   });
 
+  it('link refuses a deep link to a case the pack does not hold', () => {
+    const r = evidence('link', '--pack', bugPack('BK-7104'), '--source', 'jira-xray', '--test', 'BK-7111', '--exec', 'BK-7141', '--dry-run');
+    expect(r.code).toBe(2);
+    expect(r.err).toContain('case BK-7111 is not in BK-7104\'s pack');
+  });
+
   it('link refuses a host outside board.evidence.allowed_hosts before any call', () => {
     const r = evidence('link', '--key', 'BK-7001', '--url', 'https://images.example/page', '--dry-run');
     expect(r.code).toBe(1);

@@ -173,7 +173,8 @@ bun run board needs-you <KEY> "<the question>" \
   view, the Bugs view and both "Copy for Slack" outputs.
 - **Verify the artifacts, not the report** (wave close): any bug filed has its evidence page linked
   AND its ONE thumbnail embedded in the Description per `evidence-artifact/references/workflow.md` §4
-  (`bun run evidence attach`, read back). Measured on the source board: three conductor-briefed bugs
+  (`bun run evidence attach`, read back; where the Description cannot be edited, in the `Evidence`
+  comment `attach` fell back to, which the report names). Measured on the source board: three conductor-briefed bugs
   went out without it because the brief cited a plain-text precedent; every bug-filing brief names
   that step and tells the filer to run `bug ... --evidence-embedded` once the image is in. A `bug`
   call that printed the evidence reminder without that flag is a bug still missing its image.

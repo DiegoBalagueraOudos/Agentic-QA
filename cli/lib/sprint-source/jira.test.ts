@@ -165,9 +165,11 @@ describe('jira-native source', () => {
     const transport = replay({ [SPRINT_JQL]: recorded('jira-search-sprint.json') });
     const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW, keys: ['ACME-1', 'ACME-2'], discover: true });
     expect(transport.calls).toContain(`jira ${BUG_JQL}`);
-    expect(snapshot.discover?.bugs?.map(b => `${b.id}:${b.bucket}`)).toEqual(['ACME-21:open', 'ACME-7022:open']);
+    expect(snapshot.discover?.bugs?.map(b => `${b.id}:${b.bucket}`)).toEqual(['ACME-21:open', 'ACME-7022:open', 'ACME-7024:open']);
     expect(snapshot.discover?.bugs?.find(b => b.id === 'ACME-21')?.tickets).toEqual(snapshot.bugs['ACME-21'].tickets);
-    expect(snapshot.discover?.bugs?.find(b => b.id === 'ACME-7022')).toMatchObject({ createdAt: '2026-01-15T09:00:00.000+0000', tickets: [] });
+    expect(snapshot.discover?.bugs?.find(b => b.id === 'ACME-7022')).toMatchObject({ createdAt: '2026-01-15T09:00:00.000Z', tickets: [] });
+    // Jira's offset time, read as UTC: the board's sprint window compares ISO strings
+    expect(snapshot.discover?.bugs?.find(b => b.id === 'ACME-7024')).toMatchObject({ createdAt: '2026-01-16T01:30:00.000Z', updatedAt: '2026-01-16T01:40:00.000Z' });
     expect(snapshot.discover?.unclassifiedBugs).toMatchObject([{ id: 'ACME-7023', status: 'Triage' }]);
     expect(snapshot.discover?.unclassifiedBugs?.[0].reason).toContain('Triage');
   });

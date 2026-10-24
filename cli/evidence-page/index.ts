@@ -425,10 +425,13 @@ async function runAttach(values: Record<string, string | string[] | boolean | un
   const dryRun = values['dry-run'] === true;
   const { tracker: t, calls } = await tracker(source, dryRun, run);
   const result = await t.attachThumbnail(target.key, resolve(png), run);
-  const parent = target.pack?.ticket.parent ?? '<ticket>';
+  const ticket = target.pack?.ticket;
+  const board = `bun run board bug ${ticket?.parent ?? '<ticket>'} ${target.key} --title ${JSON.stringify(ticket?.title ?? '<title>')} --severity ${ticket?.severity ?? '<Critical|High|Medium|Low>'} --evidence-embedded --by worker`;
   const next = source === 'none' || !result.embedded
     ? []
-    : [`write "(image embedded below)" in ${target.key}'s report only now, then: bun run board bug ${parent} ${target.key} --evidence-embedded --by worker`];
+    : result.fellBack
+      ? [`the image is in ${target.key}'s "Evidence" comment, not its Description (the edit screen does not expose it): say so in the report, then: ${board}`]
+      : [`write "(image embedded below)" in ${target.key}'s report only now, then: ${board}`];
   return report(result, json, dryRun, calls, next);
 }
 
@@ -448,8 +451,19 @@ async function runLink(values: Record<string, string | string[] | boolean | unde
   }
   const source = trackerSource(values, config);
   const run = runRef(values, source);
-  // The deep link names the case by the run's test key unless --case gives the pack's case id
+  // The deep link names the case by the run's test key unless --case gives the pack's case id;
+  // with a pack, the id must be one of its cases, or the link would open nothing
   const caseId = values.case as string | undefined;
+  if (run !== undefined && target.pack !== null) {
+    const wanted = caseId ?? ('test' in run ? run.test : undefined);
+    if (wanted === undefined) {
+      usage('with --pack and --run, name the case with --case <id> (one of the pack\'s tcs ids)');
+    }
+    const ids = [...(target.pack.tcs ?? []), ...(target.pack.bugs ?? [])].map(c => c.id);
+    if (!ids.includes(wanted)) {
+      usage(`case ${wanted} is not in ${target.key}'s pack (${ids.join(', ') || 'no cases'}); pass --case <id>`);
+    }
+  }
   const dryRun = values['dry-run'] === true;
   const { tracker: t, calls } = await tracker(source, dryRun, run);
   const result = await t.linkEvidence(target.key, { url }, run === undefined ? undefined : { ...run, caseId });

@@ -1199,7 +1199,7 @@ function printStatusSuggestions(suggestions: readonly StatusSuggestion[]): void 
   log.header('[board.statuses]');
   log.info(`${suggestions.length} workflow status(es) are in no bucket yet; a ticket or bug in one fails the board snapshot. Suggested from the status category and its name:`);
   for (const s of suggestions) {
-    out(`  ${s.domain.padEnd(8)} ${s.slug.padEnd(28)} ${(s.category ?? '?').padEnd(14)} -> ${s.bucket}`);
+    err(`  ${s.domain.padEnd(8)} ${s.slug.padEnd(28)} ${(s.category ?? '?').padEnd(14)} -> ${s.bucket}`);
   }
 }
 

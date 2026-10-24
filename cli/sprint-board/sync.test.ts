@@ -241,7 +241,7 @@ suite('sync through jira-native (recorded responses)', () => {
     expect(t.discover?.sprintRows).toBe(3);
     expect(t.discover?.untracked).toEqual([]);
     // The sprint's own bug rows reach the store; the one in an unmapped status does not.
-    expect(t.discover?.bugs?.map(b => `${b.id}:${b.bucket}`)).toEqual(['ACME-21:open', 'ACME-7022:open']);
+    expect(t.discover?.bugs?.map(b => `${b.id}:${b.bucket}`)).toEqual(['ACME-21:open', 'ACME-7022:open', 'ACME-7024:open']);
   });
 });
 

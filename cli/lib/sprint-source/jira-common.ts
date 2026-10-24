@@ -103,6 +103,13 @@ export async function issuesByKey(transport: Transport, keys: readonly string[],
   return out;
 }
 
+/** A Jira timestamp (`2026-01-15T20:30:00.000-0500`) as UTC ISO; an unparsable one is kept as it came. */
+function utcIso(at: string | null): string | null {
+  if (at === null) { return null; }
+  const ms = Date.parse(at.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
+  return Number.isNaN(ms) ? at : new Date(ms).toISOString();
+}
+
 // Moved to config.ts (the bug query is derived there); re-exported so the import path holds.
 export { issueTypeNames };
 
@@ -332,7 +339,8 @@ export function createJiraSource(parts: JiraSourceParts): Source {
             // A bug row in a status no bucket lists is named, never counted as open.
             try {
               const row = common(r);
-              sprintBugs.push({ ...row, bucket: classifyBug(config.statusMap, r.key, row.statusKey), createdAt: r.fields.created ?? null, tickets: linkedBugs.get(r.key) ?? [] });
+              // UTC ISO, so the board's sprint window (an ISO string comparison) reads an offset time right
+              sprintBugs.push({ ...row, updatedAt: utcIso(row.updatedAt), bucket: classifyBug(config.statusMap, r.key, row.statusKey), createdAt: utcIso(r.fields.created ?? null), tickets: linkedBugs.get(r.key) ?? [] });
             }
             catch (err) {
               unclassifiedBugs.push({ id: r.key, status, reason: (err as Error).message });
