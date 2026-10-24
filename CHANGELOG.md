@@ -52,6 +52,29 @@ below names which one it applies to:
   created only after a person approves them. Files live under the primary checkout's
   `.session/project-context/coverage/`. Never part of `refresh-all`.
 
+### Changed (evidence page: the reference design, replaced format)
+- **Replaced format: `evidence-pack/1.0` -> `evidence-pack/2.0`.** The evidence page is now the
+  reference implementation's page, copied (ADR-0022): the same layout, palette, fonts, viewer,
+  BEFORE FIX history, compare and pills. The pack follows its format under the id `evidence-pack/2.0`
+  (`tcs`, `bugs`, `env` as a build strip, `repro`, `rounds`, `currentRound`, `artifact: {url, path,
+  published}`); a `1.0` pack is refused with one line. Field reference: the `evidence-artifact`
+  skill, `references/pack-schema.md`.
+- **The builder is `.agents/skills/evidence-artifact/scripts/build.py` (Python 3.9+ and Pillow).**
+  `bun run evidence build` checks both and names the install command
+  (`python3 -m pip install pillow`) when one is missing. Every safety rule of the first page is kept
+  in it with a regression test, and a JPEG capture can now be redacted. The TypeScript renderer and
+  image codec are gone.
+- **CLI flags changed**: `build --out` is now the page FILE (default
+  `<pack dir>/evidence-artifact/index.html`, a bug `.../evidence-artifact/<BUG>/index.html`, was the
+  `evidence-page/` folder), `--thumb <png>` writes the bug thumbnail instead of the page, `--case`,
+  `--repo`, repeated `--pack` for one review page; new `bun run evidence extract --page <html> --out
+  <pack.json>` recovers a pack from a published page.
+- **New skill `evidence-artifact`** (the agent workflow: capture in Stage 2, build, publish, record and
+  link in Stage 3, retests on the same URL). `agentic-qa-core/references/evidence-page.md` is now a
+  pointer to it.
+- **Upgrade step**: install Pillow once (`python3 -m pip install pillow`); rewrite any
+  `evidence-pack/1.0` pack in the new shape (`bun run evidence demo` writes two complete examples).
+
 ### Added (evidence page)
 - **`bun run evidence build --pack <pack.json>`** builds one self-contained, offline HTML evidence
   page per ticket and per bug from an `evidence-pack/1.0` JSON pack (ADR-0021): verdict, build

@@ -2,7 +2,7 @@
 
 > Cited by: `sprint-testing` (Stage 2 capture + Stage 3 handoff), `bug-screenshot-annotation`, `regression-testing` (artifact triage), and any subagent briefed to capture or reference evidence. This file consolidates the evidence rules previously scattered across `sprint-testing/references/reporting-templates.md` (§1.11, §3.5) and `sprint-testing/references/exploration-patterns.md` (§5.3) — those sections stay authoritative for their stage mechanics and point here for the shared bucket + naming model.
 
-The evidence PAGE built from these files (one offline HTML page per ticket and per bug, from an evidence pack kept in the same `evidence/` folder) has its own reference: `evidence-page.md`.
+The evidence PAGE built from these files (one offline HTML page per ticket and per bug, from an evidence pack kept in the same `evidence/` folder) is the `evidence-artifact` skill (`.agents/skills/evidence-artifact/SKILL.md`).
 
 Every file produced while testing falls into exactly one of three buckets. Misfiling is the root cause of two recurring failures: stray artifacts committed to the repo root, and "evidence" claimed in a report that never existed on disk.
 

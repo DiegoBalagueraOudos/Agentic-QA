@@ -79,6 +79,8 @@ These are **not optional** for the workflow — each one is required by a specif
 
 The list is `EXTERNAL_CLIS` in `cli/install.ts`: each entry names the skill that needs it, a cross-platform install hint when one exists, and the official docs URL. `bun setup` shows that table with a found / missing status per tool, and `bun run setup:doctor` re-checks it any time. Repo search (`rg`) is not on it: Claude Code bundles its own, OpenCode and Codex use the system binary (`brew install ripgrep` · `apt install ripgrep` · `winget install BurntSushi.ripgrep.MSVC`).
 
+The evidence page (`evidence-artifact` skill, `bun run evidence`) is built by a Python script: it needs **Python 3.9+** and **Pillow** (`python3 -m pip install pillow`). It is not on that list yet; `bun run evidence build` checks both first and names the one thing to install.
+
 ### Variables and MCP credentials (`.env` keys)
 
 Each harness has its own MCP config — `.mcp.json` (Claude Code), `opencode.jsonc` (OpenCode), `.codex/config.toml` (Codex) — and all three start every server that needs `.env` values through the same `.env` loader, which reads the file itself. Every variable the repo knows carries a scope in `cli/lib/variables-manifest.ts` (the source of truth; human guide: `docs/core/variables-de-entorno.html`):

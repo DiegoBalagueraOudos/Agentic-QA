@@ -1,5 +1,5 @@
 /**
- * @fileoverview The host seam of the evidence page (decision D17, ADR-0021).
+ * @fileoverview The host seam of the evidence page (decision D17, ADR-0021, ADR-0022).
  *
  * The builder writes a static file; a HOST makes it reachable:
  *   - `claude-artifact` (default): a private hosted Claude artifact. Publishing
@@ -37,7 +37,7 @@ export interface AgentPublishStep {
   tool: 'Artifact'
   /** Read the existing artifact first: a publish to a URL this session has not read is refused. */
   readFirst: string | null
-  publish: { file_path: string, url?: string, icon?: string }
+  publish: { file_path: string, url?: string, icon?: string, description?: string }
   /** Run after the publish, with the URL the tool returned. */
   record: string
   instructions: string[]
@@ -48,11 +48,33 @@ export interface PublishResult {
   agentStep?: AgentPublishStep
 }
 
+/** The reference's icons: a checklist for a story page, a bug for a bug page. */
+export function iconOf(kind: Pack['kind']): string {
+  return kind === 'bug' ? 'bug' : 'checklist';
+}
+
+/** The round the verdict is judged on: `currentRound`, else the highest round present, else 0 (as `build.py` reads it). */
+function currentRound(pack: Pick<Pack, 'tcs' | 'currentRound'>): number {
+  const own = (c: Pack['tcs'][number]) => c.round ?? 0;
+  return pack.currentRound ?? Math.max(0, ...pack.tcs.map(own), ...pack.tcs.flatMap(c => (c.evidence ?? []).map(e => e.round ?? 0)));
+}
+
+/** One sentence for the gallery card: `<KEY> <env> evidence: <n> of <m> TCs passed`, current round only. */
+export function describePage(pack: Pick<Pack, 'ticket' | 'env' | 'tcs' | 'bugs' | 'kind' | 'currentRound'>): string {
+  const cur = currentRound(pack);
+  const live = pack.tcs.filter(c => (c.round ?? (c.kind === 'repro' ? 0 : cur)) >= cur);
+  const passed = live.filter(c => c.status === 'PASSED').length;
+  const env = Object.values(pack.env ?? {})[0];
+  const bugs = (pack.bugs ?? []).length;
+  const what = pack.kind === 'bug' ? 'cases' : 'TCs';
+  return `${pack.ticket.id}${env ? ` ${env}` : ''} evidence: ${passed} of ${live.length} ${what} passed${bugs > 0 ? `, ${bugs} bug${bugs > 1 ? 's' : ''} filed` : ''}`;
+}
+
 export function publishEvidence(
   htmlPath: string,
-  existingRef: string | null | undefined,
+  existingUrl: string | null | undefined,
   host: EvidenceHost = DEFAULT_HOST,
-  context: { packPath: string, repoRoot?: string } = { packPath: '<pack>' },
+  context: { packPath: string, repoRoot?: string, kind?: Pack['kind'], description?: string } = { packPath: '<pack>' },
 ): PublishResult {
   const absolute = resolve(htmlPath);
   if (host === 'local') {
@@ -61,14 +83,15 @@ export function publishEvidence(
     return { ref: { host, location: rel.startsWith('..') || isAbsolute(rel) ? absolute : rel, state: 'published' } };
   }
 
-  const existing = existingRef ?? null;
+  const existing = existingUrl ?? null;
+  const icon = iconOf(context.kind ?? 'story');
   const publish: AgentPublishStep['publish'] = existing === null
-    ? { file_path: absolute, icon: 'evidence' }
+    ? { file_path: absolute, icon, ...(context.description ? { description: context.description } : {}) }
     : { file_path: absolute, url: existing };
   const record = `bun run evidence record --pack ${context.packPath} --url <the url the Artifact tool returned>`;
   const instructions = existing === null
     ? [
-        `Publish with the Artifact tool: file_path=${absolute}, icon=evidence. The page is private; do not share it or make a public link.`,
+        `Publish with the Artifact tool: file_path=${absolute}, icon=${icon}${context.description ? `, description="${context.description}"` : ''}. Static page, no capabilities. It is private; do not share it or make a public link.`,
         `Then record the URL it returns: ${record}`,
       ]
     : [
@@ -114,21 +137,22 @@ export function evidenceUrlError(url: string, allowedHosts: readonly string[]): 
 export type RecordResult = { ok: true, pack: Pack } | { ok: false, error: string };
 
 /** Store a publication on the pack. A different URL than the recorded one is refused: republish to the first. */
-export function recordPublication(pack: Pack, url: string, options: { allowedHosts: readonly string[], now?: Date }): RecordResult {
+export function recordPublication(pack: Pack, url: string, options: { allowedHosts: readonly string[], now?: Date, pagePath?: string }): RecordResult {
   const error = evidenceUrlError(url, options.allowedHosts);
   if (error !== null) {
     return { ok: false, error };
   }
-  const existing = pack.artifact?.ref;
+  const existing = pack.artifact?.url;
   if (existing !== undefined && existing !== url) {
     return { ok: false, error: `this pack is already published at ${existing}; republish to that url instead of minting a second page` };
   }
   const at = (options.now ?? new Date()).toISOString();
+  const path = pack.artifact?.path ?? options.pagePath;
   return {
     ok: true,
     pack: {
       ...pack,
-      artifact: { host: 'claude-artifact', ref: url, published: [...(pack.artifact?.published ?? []), { ref: url, at }] },
+      artifact: { url, ...(path === undefined ? {} : { path }), published: [...(pack.artifact?.published ?? []), at] },
     },
   };
 }

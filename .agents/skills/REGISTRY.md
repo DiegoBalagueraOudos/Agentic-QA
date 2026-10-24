@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-24T16:13:46.271Z`
+> Generated: `2026-10-24T19:54:09.966Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -8,7 +8,7 @@ This file is the per-session compact-rules cache for the Skill Resolver protocol
 The orchestrator copies one or more `## Skill: <slug>` blocks below into every subagent briefing under `## Project Standards (auto-resolved)`.
 Subagents trust those compact rules and only read the full SKILL.md when explicitly instructed.
 
-Skills indexed: 26
+Skills indexed: 27
 
 ---
 ## Skill: acli
@@ -106,7 +106,7 @@ Skills indexed: 26
 - DO: read the rendered PNG back and expect at least one adjustment pass (move a circle, rewrap callout text, nudge the badge out of a collision). It is not one-shot.
 - DO: state the final PNG's repo-relative path in chat the moment it lands, unprompted, and repeat it leading the "Bug annotations" group in the session-close screenshot list.
 - WHEN embedding the annotated PNG into the bug issue: offer it and let the human confirm first; once published it leads the bug's Evidence section, ahead of the raw capture.
-- DIRECTION: the evidence page (`agentic-qa-core/references/evidence-page.md`) keeps marks as data on one offline page per ticket and per bug; when a ticket has one, link it and keep this PNG only where a tracker needs an inline image.
+- DIRECTION: the evidence page (the `evidence-artifact` skill) keeps marks as data on one page per ticket and per bug; when a ticket has one, link it and keep this PNG only where a tracker needs an inline image.
 
 **Read full SKILL.md when**: building the annotation HTML, choosing shape types, or handling a case the local render cannot cover (e.g. a photo of physical signage that would need anonymization).
 
@@ -187,6 +187,29 @@ Skills indexed: 26
 **Read full SKILL.md when**: building a briefing for a UI or E2E dispatch, scoping a smoke or regression run, deciding whether a section is stale, or proposing an edit to the map.
 
 > Source: `.agents/skills/business-e2e-context/SKILL.md` · phase: `unknown` · kind: `context` · extraction strategy: A
+
+---
+
+## Skill: evidence-artifact
+
+**Purpose**: Turns a ticket's test evidence into ONE private claude.ai page (an Artifact) that a developer or PM can open and read: a verdict header,...
+
+**Compact Rules**:
+- DO: load this skill in any dispatch whose stage captures evidence (sprint-testing Stage 2) or reports it (Stage 3, filing a bug), and append every proof to `<PBI>/evidence/evidence-pack.json` AS you test, never reconstructed at the end.
+- DO: take marks from the element's box via `playwright-cli eval` (`coords: "px"`); do NOT read a screenshot back to place a mark unless no element reaches it.
+- DO NOT: mask with a mark. Personal data on screen goes in the image's `redact` boxes, which the build burns into the pixels.
+- DO NOT: put a trace, a HAR, a token, a cookie or an `.auth` file in a pack. Credentials in API/SQL text are written as `<redacted>`; the build refuses the rest and names the field.
+- DO: give a bug its own pack (`evidence-pack-<BUG>.json`, `kind: "bug"`, a `repro` case) once the bug issue exists, and build and publish bug pages BEFORE the story page: a story's `RETEST PASSED` / `RETEST FAILED` bug card is refused unless the bug's own pack confirms it.
+- DO: build with `bun run evidence build --pack <pack>`; it needs Python 3.9+ and Pillow and names the one thing to install when either is missing.
+- DO: publish with the Artifact tool; when the pack already has `artifact.url`, run `Artifact action: "read"` on it first and publish with that `url`. Omitting `url` mints a second page and orphans every link.
+- DO: record the URL with `bun run evidence record --pack <pack> --url <url>` and on the board (`bun run board evidence-artifact <KEY> <url> [--bug <BUG>] --by worker`), then link it from the ATR, the bug description, the QA comment footer and each TC's notes.
+- DO: on a retest, keep every earlier case and item with its `round`, set `currentRound` and `rounds[]`, append the retest case, and republish to the SAME URL. A retest never passes on a DEFERRED case.
+- DO: report the URLs as published private for the owner to share; when the Artifact tool is unavailable, report the pack path instead (the conductor publishes).
+- DO NOT: send evidence to any external image service, whatever the chat authorises.
+
+**Read full SKILL.md when**: the compact rules above are insufficient (e.g. novel scenario, debugging, or the briefing tells you to load the full skill).
+
+> Source: `.agents/skills/evidence-artifact/SKILL.md` · phase: `unknown` · kind: `workflow` · extraction strategy: A
 
 ---
 
