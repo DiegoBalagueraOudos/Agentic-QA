@@ -16,6 +16,19 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Added (exploratory testing)
+- **`/exploratory-testing`**, the ticket-free entry into the Execution stage: a charter, a
+  parallel reconnaissance fan-out across UI, API and DB, a refutation pass whose job is to kill each
+  finding, a main-thread tie-break, and a handoff. Every candidate scenario is executed live, marked
+  `NEW`, `WEAK` or `COVERED` against existing coverage (the gap list of `project-context` mode
+  `coverage`, or a coverage view built from the KATA manifest and the TMS; a weak cover never
+  dedupes), and kept `oracle: observed` until a person confirms it. Bugs, coverage Tech Stories
+  and module-context writes are drafted and filed only on a person's approval. Its DoD and
+  contract are in `stage-gates.md`; `test-documentation` reads its `candidate-scenarios.md`.
+- **`agentic-qa-core/references/adversarial-verification.md`**: the refute mandate, the
+  own-invariant check, executing competing hypotheses, and the main-thread tie-break, shared by
+  `exploratory-testing` and `sprint-testing`.
+
 ### Added (coverage inventory)
 - **`project-context` mode `coverage`**: crosses the behaviours in the business maps with the
   tests (the KATA manifest at the production branch, the TMS test repository, the regression

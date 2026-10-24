@@ -64,6 +64,7 @@ Every path below is relative to `packages/decks/`, which is also the published p
 | First-time tour, this skill itself | `agentic-qa-onboard/how-it-works.es.html` |
 | Shift-Left (pre-sprint refinement) | `shift-left-testing/how-it-works.es.html` |
 | Planning, Execution, Reporting (sprint QA) | `sprint-testing/how-it-works.es.html` |
+| Exploration without a ticket (flow, module, sweep) | `exploratory-testing/how-it-works.es.html` |
 | Documentation (TMS + ROI) | `test-documentation/how-it-works.es.html` |
 | Automation (KATA) | `test-automation/how-it-works.es.html` |
 | Regression + GO / CAUTION / NO-GO | `regression-testing/how-it-works.es.html` |
@@ -228,6 +229,7 @@ The QA work in this boilerplate runs as named stages: Shift-Left before the spri
 | ----- | ----- | ---- | ------------ |
 | Shift-Left | `/shift-left-testing` | PRE-SPRINT (batch) | AC refinement on a batch of backlog Stories, gap-spotting, early authoring of the Story's single ATP into the `{{jira.acceptance_test_plan}}` field (outline maturity, no Test Plan item yet: `/sprint-testing` Planning creates the item FROM that field and refines the same ATP), tracked by a `[QA] Shift-Left Review` subtask, transition `backlog → shift_left_qa → estimation`. Adds labels `shift-left-reviewed` + `shift-left-{YYYY-MM-DD}` (the dated one dates the pass for the freshness window `/sprint-testing` declares; the Stage 1 short-circuit opens only on the published ATP body, never on the labels alone). |
 | Planning → Execution → Reporting | `/sprint-testing` | IN-SPRINT (ticket) | Per-ticket: ATS, ATP, then ATR. Smoke + trifuerza (UI/API/DB) exploration. Planning short-circuits its first phases only when the Story's published ATP body backs a Shift-Left pass within the window `/sprint-testing` declares (the labels alone open nothing). |
+| Execution without a ticket | `/exploratory-testing` | ON DEMAND (in-sprint or post-sprint) | Ticket-free exploration of a flow, a module or the whole app: charter, parallel recon, refutation, tie-break. Every candidate executed live, marked NEW / WEAK / COVERED against existing coverage and `oracle: observed` until a person confirms it; feeds Documentation. |
 | Documentation | `/test-documentation` | IN-SPRINT (post-QA) | Refine the executed test cases into TMS Tests, one ROI verdict per scenario (Candidate/Manual/Deferred), Candidates added to the RTP. |
 | Automation | `/test-automation` | POST-SPRINT | KATA-compliant E2E + API tests on Playwright. Plan → Code → Review, with a required separate verifier. |
 | Regression | `/regression-testing` | PRE-RELEASE | CI suite execution. Failure classification. GO/CAUTION/NO-GO release verdict. |
@@ -395,6 +397,7 @@ If any box is unchecked, fix that first. The downstream skills assume a green fo
 
 - Refine backlog Stories pre-sprint → use `/shift-left-testing`
 - Test a ticket → use `/sprint-testing`
+- Explore a module, a flow or the whole app with no ticket → use `/exploratory-testing`
 - Document test cases in TMS → use `/test-documentation`
 - Write automated tests → use `/test-automation`
 - Run a regression suite → use `/regression-testing`
