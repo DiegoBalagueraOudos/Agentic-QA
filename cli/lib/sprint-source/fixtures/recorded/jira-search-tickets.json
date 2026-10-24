@@ -1,0 +1,134 @@
+{
+  "isLast": true,
+  "issues": [
+    {
+      "id": "1001",
+      "key": "ACME-1",
+      "fields": {
+        "summary": "Search filters by price range",
+        "status": { "name": "In Test" },
+        "priority": { "name": "High" },
+        "issuetype": { "name": "Story" },
+        "components": [{ "name": "Search" }],
+        "assignee": { "displayName": "Avery Dev" },
+        "customfield_10050": { "displayName": "Rowan QA" },
+        "customfield_10020": [
+          { "name": "Sprint 6", "state": "closed" },
+          { "name": "Sprint 7", "state": "active" }
+        ],
+        "updated": "2026-01-14T15:00:00.000+0000",
+        "created": "2026-01-05T09:00:00.000+0000",
+        "issuelinks": [
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1031",
+              "key": "ACME-31",
+              "fields": {
+                "summary": "ATS: ACME-1: Search filters by price range",
+                "issuetype": { "name": "Test Set" }
+              }
+            }
+          },
+          {
+            "type": { "name": "Relates" },
+            "inwardIssue": {
+              "id": "1035",
+              "key": "ACME-35",
+              "fields": {
+                "summary": "TS: Search: Validate search",
+                "issuetype": { "name": "Test Set" }
+              }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1012",
+              "key": "ACME-12",
+              "fields": { "summary": "Min above max", "issuetype": { "name": "Test" } }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1041",
+              "key": "ACME-41",
+              "fields": {
+                "summary": "ATR: ACME-1: Story Testing",
+                "issuetype": { "name": "Test Execution" }
+              }
+            }
+          },
+          {
+            "type": { "name": "Blocks" },
+            "inwardIssue": {
+              "id": "1021",
+              "key": "ACME-21",
+              "fields": { "summary": "Max price ignored", "issuetype": { "name": "Bug" } }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1002",
+      "key": "ACME-2",
+      "fields": {
+        "summary": "Search results paginate",
+        "status": { "name": "QA Approved" },
+        "priority": { "name": "Medium" },
+        "issuetype": { "name": "Story" },
+        "components": [],
+        "assignee": null,
+        "customfield_10050": null,
+        "customfield_10020": [{ "name": "Sprint 7", "state": "active" }],
+        "updated": "2026-01-13T11:00:00.000+0000",
+        "created": "2026-01-04T09:00:00.000+0000",
+        "issuelinks": [
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1013",
+              "key": "ACME-13",
+              "fields": { "summary": "Next page keeps filters", "issuetype": { "name": "Test" } }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1051",
+              "key": "ACME-51",
+              "fields": {
+                "summary": "ATP: ACME-2: Search results paginate",
+                "issuetype": { "name": "Test Plan" }
+              }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1042",
+              "key": "ACME-42",
+              "fields": {
+                "summary": "ATR: ACME-2: Story Testing",
+                "issuetype": { "name": "Test Execution" }
+              }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1043",
+              "key": "ACME-43",
+              "fields": {
+                "summary": "ATR: ACME-2: Retest",
+                "issuetype": { "name": "Re-Test Execution" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

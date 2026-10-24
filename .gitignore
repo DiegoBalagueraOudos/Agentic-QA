@@ -201,6 +201,9 @@ dbhub.local.toml
 !.context/project-config.md
 !.context/ADR/
 !.context/regression-history/
+# The `none` sprint source's tickets.yaml (`board.tickets_file`, ADR-0019): with no
+# tracker this file IS the system of record, so it is versioned.
+!.context/sprint/
 !.context/reports/
 .context/reports/*
 !.context/reports/README.md

@@ -1,0 +1,55 @@
+{
+  "_recorded": "hand-written from the Xray Cloud GraphQL schema (getTestRuns), not captured from a live call",
+  "getTestRuns": {
+    "results": [
+      {
+        "id": "r1",
+        "status": { "name": "PASSED" },
+        "startedOn": "2026-01-14T09:00:00Z",
+        "finishedOn": "2026-01-14T09:12:00Z",
+        "test": { "issueId": "1011" },
+        "testExecution": { "issueId": "1041" }
+      },
+      {
+        "id": "r2",
+        "status": { "name": "FAILED" },
+        "startedOn": "2026-01-15T02:00:00Z",
+        "finishedOn": "2026-01-15T02:05:00Z",
+        "test": { "issueId": "1011" },
+        "testExecution": { "issueId": "1099" }
+      },
+      {
+        "id": "r3",
+        "status": { "name": "TODO" },
+        "startedOn": null,
+        "finishedOn": null,
+        "test": { "issueId": "1012" },
+        "testExecution": { "issueId": "1041" }
+      },
+      {
+        "id": "r4",
+        "status": { "name": "PASSED" },
+        "startedOn": "2026-01-10T09:00:00Z",
+        "finishedOn": "2026-01-10T09:20:00Z",
+        "test": { "issueId": "1013" },
+        "testExecution": { "issueId": "1042" }
+      },
+      {
+        "id": "r5",
+        "status": { "name": "TODO" },
+        "startedOn": null,
+        "finishedOn": null,
+        "test": { "issueId": "1013" },
+        "testExecution": { "issueId": "1043" }
+      },
+      {
+        "id": "r6",
+        "status": { "name": "FAILED" },
+        "startedOn": "2026-01-14T11:00:00Z",
+        "finishedOn": "2026-01-14T11:10:00Z",
+        "test": { "issueId": "1014" },
+        "testExecution": { "issueId": "1043" }
+      }
+    ]
+  }
+}

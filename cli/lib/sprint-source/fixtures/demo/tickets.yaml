@@ -1,0 +1,110 @@
+# Demo sprint for the `none` source. Invented data: a shop with a cart,
+# a checkout and an account area. A later board renders this as its demo.
+sprint: Sprint 7
+
+tickets:
+  DEMO-101:
+    title: Checkout applies a discount code
+    status: In Test
+    priority: High
+    type: Story
+    module: Checkout
+    developer: Avery Dev
+    qa: Rowan QA
+    updated: '2026-01-14T15:20:00Z'
+    tests:
+      - id: DEMO-101-T1
+        name: A valid code lowers the total
+        status: PASSED
+        updated: '2026-01-14T14:02:00Z'
+
+      - id: DEMO-101-T2
+        name: An expired code shows an error
+        status: FAILED
+        updated: '2026-01-14T14:40:00Z'
+
+      - { id: DEMO-101-T3, name: Two codes cannot be stacked, status: NOT RUN }
+    bugs: [DEMO-201]
+
+  DEMO-102:
+    title: Cart keeps items after sign-in
+    status: QA Approved
+    priority: Medium
+    type: Story
+    module: Cart
+    developer: Avery Dev
+    qa: Rowan QA
+    updated: '2026-01-13T10:05:00Z'
+    tests:
+      - id: DEMO-102-T1
+        name: Guest cart merges into the account cart
+        status: PASSED
+        updated: '2026-01-13T09:30:00Z'
+
+      - id: DEMO-102-T2
+        name: Out-of-stock items are flagged after merge
+        status: PASSED
+        updated: '2026-01-13T09:55:00Z'
+
+  DEMO-103:
+    title: Account page lists past orders
+    status: Ready for QA
+    priority: Medium
+    type: Story
+    module: Account
+    developer: Avery Dev
+    qa: Rowan QA
+    updated: '2026-01-14T08:00:00Z'
+    tests:
+      - { id: DEMO-103-T1, name: Orders are listed newest first, status: NOT RUN }
+
+  DEMO-104:
+    title: Saved cards can be removed
+    status: Blocked
+    priority: High
+    type: Story
+    module: Account
+    developer: Avery Dev
+    qa: Rowan QA
+    updated: '2026-01-12T17:45:00Z'
+    tests:
+      - id: DEMO-104-T1
+        name: Removing a card asks for confirmation
+        status: BLOCKED
+        updated: '2026-01-12T17:40:00Z'
+
+      - id: DEMO-104-T2
+        name: The last card cannot be removed during a subscription
+        status: DEFERRED
+        updated: '2026-01-12T17:42:00Z'
+
+  DEMO-105:
+    title: Gift wrapping option at checkout
+    status: In Progress
+    priority: Low
+    type: Story
+    module: Checkout
+    developer: Avery Dev
+    qa: Rowan QA
+    updated: '2026-01-11T12:00:00Z'
+
+bugs:
+  DEMO-201:
+    title: Expired discount code is accepted
+    status: Open
+    priority: High
+    module: Checkout
+    developer: Avery Dev
+    qa: Rowan QA
+    created: '2026-01-14T14:41:00Z'
+    updated: '2026-01-14T14:45:00Z'
+
+  DEMO-202:
+    title: Cart badge count lags after merge
+    status: Closed
+    priority: Low
+    module: Cart
+    developer: Avery Dev
+    qa: Rowan QA
+    created: '2026-01-10T11:00:00Z'
+    updated: '2026-01-12T16:00:00Z'

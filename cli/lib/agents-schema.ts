@@ -552,6 +552,17 @@ export const IDENTITY_PATHS: readonly string[] = [
   // Which harnesses THIS repo runs on: the boilerplate checks all three, a
   // project declares its own or leaves it null to detect (ADR-0012).
   'harnesses',
+  // The sprint modules' block (ADR-0019) is MIXED: its source choice, tickets
+  // file, test status map and evidence hosts are methodology and travel; the
+  // query, the status buckets (this repo's workflow slugs), people and brand
+  // are this project's own.
+  'board.jql',
+  'board.ticket_key_pattern',
+  'board.timezone',
+  'board.statuses.tickets.*',
+  'board.statuses.bugs.*',
+  'board.people',
+  'board.brand.*',
 ];
 
 /** Whether a dotted path matches one `IDENTITY_PATHS` pattern, segment by segment. */
@@ -633,6 +644,23 @@ export const FILLED_ELSEWHERE: Readonly<Record<string, string>> = {
   'secrets.onepassword.vault': 'the secret-manager choice of `bun setup` (cli/lib/secret-providers.ts; null while secrets.provider is local)',
   'secrets.onepassword.account': 'the secret-manager choice of `bun setup` (optional: null = the 1Password CLI default account)',
   'harnesses': 'the agent selection of `bun setup` (`recordHarnessSelection` in cli/install.ts; null = detect from the files present, ADR-0012)',
+  ...Object.fromEntries([
+    'board.jql',
+    'board.ticket_key_pattern',
+    'board.timezone',
+    'board.statuses.tickets.not_ready',
+    'board.statuses.tickets.in_test',
+    'board.statuses.tickets.tested',
+    'board.statuses.tickets.blocked',
+    'board.statuses.tickets.dropped',
+    'board.statuses.bugs.open',
+    'board.statuses.bugs.fixed',
+    'board.statuses.bugs.resolved',
+    'board.statuses.bugs.discarded',
+    'board.people',
+    'board.brand.name',
+    'board.brand.logo',
+  ].map(path => [path, 'by hand when the project adopts the sprint board; `bun run board:check` names each key still missing (ADR-0019)'])),
 };
 
 /**

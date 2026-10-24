@@ -1,0 +1,10 @@
+{
+  "sprint": { "id": "customfield_10020", "type": "array", "name": "Sprint" },
+  "qa_assignee": { "id": "customfield_10050", "type": "user", "name": "QA Assignee" },
+  "test_status": {
+    "id": "customfield_10060",
+    "type": "option",
+    "name": "Test Status",
+    "options": { "blocked": "4", "failed": "2", "n_r": "3", "passed": "1" }
+  }
+}

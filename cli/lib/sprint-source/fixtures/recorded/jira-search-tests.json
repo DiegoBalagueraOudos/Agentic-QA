@@ -1,0 +1,41 @@
+{
+  "isLast": true,
+  "issues": [
+    {
+      "id": "1011",
+      "key": "ACME-11",
+      "fields": {
+        "summary": "Min price only",
+        "updated": "2026-01-14T10:00:00.000+0000",
+        "customfield_10060": { "id": "1", "value": "Passed" }
+      }
+    },
+    {
+      "id": "1012",
+      "key": "ACME-12",
+      "fields": {
+        "summary": "Min above max",
+        "updated": "2026-01-14T10:30:00.000+0000",
+        "customfield_10060": { "id": "2", "value": "Failed" }
+      }
+    },
+    {
+      "id": "1013",
+      "key": "ACME-13",
+      "fields": {
+        "summary": "Next page keeps filters",
+        "updated": "2026-01-13T10:00:00.000+0000",
+        "customfield_10060": null
+      }
+    },
+    {
+      "id": "1014",
+      "key": "ACME-14",
+      "fields": {
+        "summary": "Last page has no next link",
+        "updated": "2026-01-13T10:05:00.000+0000",
+        "customfield_10060": null
+      }
+    }
+  ]
+}

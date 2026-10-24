@@ -15,7 +15,7 @@ The directory has two roles:
 
 | File | What it is | Who edits it | How to regenerate |
 |---|---|---|---|
-| `project.yaml` | Human-edited project config: project name, repo paths, URLs, MCP server names, issue-tracker metadata, default env. ALSO holds the `git_strategy:` block (this repo's git workflow — read by `git-flow-master`; see §"`git_strategy`" below), the `updater:` block (files `bun sync` must keep as the project's own; see §"`updater`" below), and the `orchestration:` block (defaults for supervised multi-session worker fleets — read by `orca-orchestration`; see §"`orchestration`" below). | You (project owner) / `git-flow-master` (git_strategy block) / `orca-orchestration` (orchestration block) | `bun run agents:setup` (identity/env fields) or edit by hand. The `git_strategy:` block is filled by `git-flow-master` Strategy Setup, NOT by `agents:setup`. |
+| `project.yaml` | Human-edited project config: project name, repo paths, URLs, MCP server names, issue-tracker metadata, default env. ALSO holds the `git_strategy:` block (this repo's git workflow — read by `git-flow-master`; see §"`git_strategy`" below), the `updater:` block (files `bun sync` must keep as the project's own; see §"`updater`" below), and the `orchestration:` block (defaults for supervised multi-session worker fleets — read by `orca-orchestration`; see §"`orchestration`" below), and the `board:` block (the sprint modules' status buckets and the few values with no other home — read by `cli/lib/sprint-source/`; see §"`board`" below). | You (project owner) / `git-flow-master` (git_strategy block) / `orca-orchestration` (orchestration block) | `bun run agents:setup` (identity/env fields) or edit by hand. The `git_strategy:` block is filled by `git-flow-master` Strategy Setup, NOT by `agents:setup`. |
 | `jira-fields.json` | Auto-generated catalog of every custom field in your Jira workspace, keyed by canonical slug. Each entry has `id`, `type`, optional `name`, `options`, `system`, `provider`. | Generated only — **do not edit by hand** | `bun run jira:sync-fields` |
 | `jira-workflows.json` | Auto-generated catalog of workflow statuses + transitions per `work_type`, keyed by canonical slug. Each `work_type` entry has `jira_issue_type`, `workflow_scheme`, `workflow`, `statuses`, `transitions`. | Generated only — **do not edit by hand** | `bun run jira:sync-workflows` |
 | `jira-link-types.json` | Auto-generated catalog of every issue link type in your Jira workspace (e.g. `blocks`, `relates`, `is caused by`), keyed by canonical slug. Each entry has `id`, `name`, `outward`, `inward`, `exists_in_workspace`. | Generated only — **do not edit by hand** | `bun run jira:sync-link-types` |
@@ -151,6 +151,29 @@ secrets:
 - **Validation**: an unknown `provider` or `auth` throws (`cli/lib/secret-providers.ts`) rather than guess a source; a missing block reads as `local`.
 - **Steps and CI**: `INSTALLER.md` ("Secret manager (advanced)").
 - Read directly by the installer, not a `{{VAR}}` source.
+
+## `board` (block inside `project.yaml`)
+
+Configuration of the sprint modules (the Sprint Board, the Merge Line and the evidence page), read by `cli/lib/sprint-source/config.ts` (ADR-0019). The block holds only what has no other home; everything else is DERIVED on every load from the key that already owns it, so no second copy exists to go stale.
+
+| Value | Where it comes from |
+|---|---|
+| ticket key pattern | `project.project_key` (`^<key>-\d+$`); `board.ticket_key_pattern` overrides it |
+| environment | `testing.default_env` |
+| mainline branch | `git_strategy.branches.production` |
+| required approvals | `git_strategy.policy.require_pr_reviews` |
+| Jira host | `issue_tracker.atlassian_url` |
+| TMS modality | `testing.tms_cli`, when `board.source` is `auto` |
+| board title | `project.project_name`, unless `board.brand.name` is set |
+
+The keys, their allowed values and the shipped defaults are the commented `board:` block in `.agents/project.schema.yaml`.
+
+- **`source`**: `auto` (follows `testing.tms_cli`: `bun xray` = `jira-xray`, anything else = `jira-native`), `jira-xray`, `jira-native`, or `none`, which reads the `tickets_file` the owner edits (default `.context/sprint/tickets.yaml`, versioned on purpose: with no tracker it IS the system of record). The demo sprint under `cli/lib/sprint-source/fixtures/demo/` shows its shape.
+- **`statuses`**: every status a ticket or bug can hold, in exactly one bucket (tickets: `not_ready`, `in_test`, `tested`, `blocked`, `dropped`; bugs: `open`, `fixed`, `resolved`, `discarded`). The Jira sources name statuses by the workflow slugs of `jira-workflows.json`, each domain checked against its own work types (tickets: `story` and `tech_story`; bugs: `bug` and `defect`); the `none` source by its own strings. A status in no bucket FAILS the snapshot instead of being counted; `[]` means no status belongs there. `statuses.tests` maps raw test outcomes to `PASSED`, `FAILED`, `NOT RUN`, `BLOCKED`, `DEFERRED` and ships with the Xray run statuses and the jira-native `test_status` options. `BLOCKED` and `DEFERRED` are reasons a test is NOT RUN (`DEFERRED` is the discovery-driven doctrine's `DEFERRED (execution)`, never the ROI `Deferred` verdict), and counts fold them into NOT RUN.
+- **Unconfigured is not an error**: while every ticket and bug bucket is `null` (how the template ships), `bun run board:check` prints one INFO line and exits 0. A misspelled or unknown key anywhere in the block is an error, never "unconfigured". Filled, it validates every slug against `jira-workflows.json`, prints each derived value with its source, and warns about workflow statuses no bucket lists yet. With `source: none` it also warns when git ignores the `tickets_file`.
+- **Who fills it**: by hand, when the project adopts the sprint board. `agents:setup` does not prompt for it yet.
+- **Identity**: the query, the status buckets, people and brand are this project's own, so `agents:schema` blanks them in the template.
+- Read directly by `cli/lib/sprint-source/config.ts`, so `vars:check` skips it.
 
 ## `orchestration` (block inside `project.yaml`)
 
@@ -328,6 +351,7 @@ When the methodology evolves and needs a brand-new canonical status or transitio
 | `bun run jira:check` | Compare `jira-required.yaml` vs `jira-fields.json` (custom fields) AND vs `jira-workflows.json` (work types, statuses, transitions) → setup report. Flags: `--json` (machine-readable), `--verbose` (include OK rows), `--help`. Exits 1 if any required field, `work_type`, status or transition is missing or mismatched. |
 | `bun run vars:check` | Validate every `{{VAR}}`, `{{jira.<slug>}}`, `{{jira.<slug>.<option>}}`, `{{jira.work_type.*}}`, `{{jira.status.*}}` and `{{jira.transition.*}}` reference across the roots `scripts/lint-vars.ts` scans. Exits 1 if any are undeclared. |
 | `bun run agents:setup` | Interactive CLI to fill / edit `.agents/project.yaml`. Flags: `--non-interactive` (env-driven for CI), `--dry-run`, `--reset`, `--help`. |
+| `bun run board:check` | Validate the `board:` block against `jira-workflows.json` (no network; part of `repo:check`). Unconfigured = one INFO line, exit 0. Flags: `--snapshot` (take a snapshot with the configured source, print JSON), `--demo` (snapshot the committed demo sprint), `--discover`, `--help`. |
 
 ## Troubleshooting
 

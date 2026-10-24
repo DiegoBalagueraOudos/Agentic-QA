@@ -136,6 +136,59 @@ qa:
     # runs each stage; the human gates still apply). Documentation only: no skill branches on it.
     execution_profile: agentic
 
+# Sprint board, Merge Line and evidence modules (ADR-0019). Read directly by
+# cli/lib/sprint-source/config.ts (not {{VAR}} tokens) -> skipped by vars:check.
+# Checked by `bun run board:check`, which names every key still to fill.
+# DERIVED, never repeated here: the ticket key from project.project_key, the
+# environment from testing.default_env, the mainline branch from
+# git_strategy.branches.production, the required approvals from
+# git_strategy.policy.require_pr_reviews, the Jira host from
+# issue_tracker.atlassian_url, and (with `source: auto`) the TMS modality from
+# testing.tms_cli. Only what has no other home lives in this block.
+board:
+  source: auto # auto | jira-xray | jira-native | none. auto follows testing.tms_cli (bun xray = jira-xray, anything else = jira-native); none = the tickets_file below
+  tickets_file: .context/sprint/tickets.yaml # read by the `none` source only: with no tracker this versioned file IS the system of record
+  jql: null # ticket query for the jira sources (e.g. project = PROJ AND sprint in openSprints() AND issuetype = Story)
+  ticket_key_pattern: null # null = derived ^<project_key>-\d+$; override when tickets span keys (e.g. '^(PROJ|OPS)-\d+$')
+  timezone: null # IANA zone for day boundaries and report times (e.g. America/New_York); null = the machine's zone
+  # Every status a ticket or bug can hold, in exactly ONE bucket. Jira sources use
+  # the workflow slugs of .agents/jira-workflows.json (tickets: story and tech_story;
+  # bugs: bug and defect), each domain checked against its own work types; the
+  # none source uses the strings of tickets_file. A status in no bucket FAILS the
+  # snapshot instead of being counted; `bun run board:check` warns about workflow
+  # statuses no bucket lists yet. [] = no status belongs there.
+  statuses:
+    tickets:
+      not_ready: null # not in the test environment yet (e.g. [to_do, in_progress])
+      in_test: null # in the test environment, QA's turn (e.g. [ready_for_qa, in_test])
+      tested: null # past the QA gate (e.g. [qa_approved, done])
+      blocked: null # e.g. [blocked]
+      dropped: null # cancelled, never counted as tested (e.g. [aborted])
+    bugs:
+      open: null # the defect still exists (e.g. [open, in_progress])
+      fixed: null # fixed, waiting for its retest (e.g. [ready_for_qa])
+      resolved: null # retested and closed (e.g. [closed])
+      discarded: null # not a defect after all (e.g. [rejected, duplicated])
+    # Raw test outcome -> PASSED | FAILED | NOT RUN | BLOCKED | DEFERRED. The shipped
+    # lists are Xray's built-in run statuses and the jira-native test_status options
+    # (.agents/jira-required.yaml); an aborted Xray run was not observed, so NOT RUN.
+    # BLOCKED and DEFERRED are reasons a test is NOT RUN, never executed outcomes:
+    # DEFERRED is the discovery-driven doctrine's DEFERRED (execution), a QA deferral
+    # recorded with its follow-up, and never the ROI Deferred verdict. It exists in
+    # neither TMS: list the raw value yours uses for it.
+    tests:
+      PASSED: [PASSED, passed]
+      FAILED: [FAILED, failed]
+      NOT RUN: [TODO, EXECUTING, ABORTED, n_r]
+      BLOCKED: [blocked]
+      DEFERRED: []
+  people: null # who the board names: e.g. [{ name: Jane Doe, role: qa, language: en, jira: Jane Doe }]
+  evidence:
+    allowed_hosts: [claude.ai] # bare hosts an evidence link may point at; the hosted Claude artifact is the default
+  brand:
+    name: null # board header title; null = project.project_name
+    logo: null # repo-relative SVG or PNG path (e.g. .context/brand/logo.svg); null = text-only header
+
 # Git workflow for THIS project — the SOURCE OF TRUTH read by the git-flow-master skill
 # before any git/gh operation. Ships `strategy: solo-main` as an inherited DEFAULT, not a
 # decision — `meta.strategy_source` records the difference (`inherited` until the Strategy

@@ -1,0 +1,45 @@
+{
+  "story": {
+    "jira_issue_type": { "id": "100", "name": "Story" },
+    "statuses": {
+      "to_do": { "id": "1", "name": "To Do", "category": "new" },
+      "in_test": { "id": "2", "name": "In Test", "category": "indeterminate" },
+      "qa_approved": { "id": "3", "name": "QA Approved", "category": "done" },
+      "blocked": { "id": "4", "name": "Blocked", "category": "indeterminate" },
+      "aborted": { "id": "5", "name": "Aborted", "category": "done" }
+    }
+  },
+  "tech_story": {
+    "jira_issue_type": { "id": "103", "name": "Tech Story" },
+    "statuses": {
+      "to_do": { "id": "1", "name": "To Do", "category": "new" },
+      "completed": { "id": "6", "name": "Completed", "category": "done" }
+    }
+  },
+  "bug": {
+    "jira_issue_type": { "id": "101", "name": "Bug" },
+    "statuses": {
+      "open": { "id": "11", "name": "Open", "category": "new" },
+      "ready_for_qa": { "id": "12", "name": "Ready For QA", "category": "indeterminate" },
+      "closed": { "id": "13", "name": "Closed", "category": "done" },
+      "rejected": { "id": "14", "name": "Rejected", "category": "done" }
+    }
+  },
+  "test_case": {
+    "jira_issue_type": { "id": "102", "name": "Test" },
+    "statuses": {
+      "draft": { "id": "21", "name": "Draft", "category": "new" },
+      "ready": { "id": "22", "name": "Ready", "category": "done" }
+    }
+  },
+  "test_set": { "jira_issue_type": { "id": "104", "name": "Test Set" }, "statuses": {} },
+  "test_plan": { "jira_issue_type": { "id": "105", "name": "Test Plan" }, "statuses": {} },
+  "test_execution": {
+    "jira_issue_type": { "id": "106", "name": "Test Execution" },
+    "statuses": {}
+  },
+  "re_test_execution": {
+    "jira_issue_type": { "id": "107", "name": "Re-Test Execution" },
+    "statuses": {}
+  }
+}

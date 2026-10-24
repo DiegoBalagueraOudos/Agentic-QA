@@ -155,6 +155,9 @@ function loadDeclaredVariables(yamlPath: string): DeclaredVars {
     // `harnesses` is a top-level LIST read by the compatibility gates (ADR-0012),
     // not a {{VAR}} leaf.
     if (sectionName === 'harnesses') { continue; }
+    // `board` is read directly by cli/lib/sprint-source/config.ts (ADR-0019),
+    // not as {{VAR}} leaves: `timezone` must not become `{{TIMEZONE}}`.
+    if (sectionName === 'board') { continue; }
     if (sectionName === 'environments') {
       // Nested: each child is an environment whose leaves are env-scoped vars.
       if (!sectionVal || typeof sectionVal !== 'object' || Array.isArray(sectionVal)) {
