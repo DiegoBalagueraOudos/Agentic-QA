@@ -13,7 +13,7 @@ metadata:
 
 Activate when a user lands on this repo for the first time and asks "where do I start?", "how does QA work here?", or invokes `/agentic-qa-onboard`. The skill is a guided tour, not an executor: it explains the stack, the QA pipeline (the IQL stages, always by name: Shift-Left before the sprint, then Planning, Execution, Reporting, Documentation, Automation and Regression), the MCPs, and the env vars that everything depends on, then hands off to the right downstream skill.
 
-This skill is specific to **this** Playwright + KATA QA boilerplate and points at the concrete entry points (`/shift-left-testing`, `/sprint-testing`, `/test-automation`, `/test-documentation`, `/regression-testing`, `/framework-development`).
+This skill is specific to **this** Playwright + KATA QA boilerplate and points at the concrete entry points (`/shift-left-testing`, `/sprint-testing`, `/exploratory-testing`, `/test-automation`, `/test-documentation`, `/regression-testing`, `/framework-development`).
 
 ---
 
