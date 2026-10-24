@@ -1,0 +1,192 @@
+{
+  "source": "none",
+  "syncedAt": "2026-01-14T16:00:00.000Z",
+  "searched": {
+    "tickets": 5,
+    "tests": 8,
+    "bugs": 2
+  },
+  "tickets": {
+    "DEMO-101": {
+      "id": "DEMO-101",
+      "title": "Checkout applies a discount code",
+      "status": "In Test",
+      "statusKey": "In Test",
+      "bucket": "in_test",
+      "priority": "High",
+      "type": "Story",
+      "sprint": "Sprint 7",
+      "module": "Checkout",
+      "developer": "Avery Dev",
+      "qaOwner": "Rowan QA",
+      "updatedAt": "2026-01-14T15:20:00Z",
+      "link": null,
+      "tests": [
+        {
+          "id": "DEMO-101-T1",
+          "name": "A valid code lowers the total",
+          "status": "PASSED",
+          "rawStatus": "PASSED",
+          "updatedAt": "2026-01-14T14:02:00Z"
+        },
+        {
+          "id": "DEMO-101-T2",
+          "name": "An expired code shows an error",
+          "status": "FAILED",
+          "rawStatus": "FAILED",
+          "updatedAt": "2026-01-14T14:40:00Z"
+        },
+        {
+          "id": "DEMO-101-T3",
+          "name": "Two codes cannot be stacked",
+          "status": "NOT RUN",
+          "rawStatus": "NOT RUN",
+          "updatedAt": null
+        }
+      ],
+      "bugs": ["DEMO-201"]
+    },
+    "DEMO-102": {
+      "id": "DEMO-102",
+      "title": "Cart keeps items after sign-in",
+      "status": "QA Approved",
+      "statusKey": "QA Approved",
+      "bucket": "tested",
+      "priority": "Medium",
+      "type": "Story",
+      "sprint": "Sprint 7",
+      "module": "Cart",
+      "developer": "Avery Dev",
+      "qaOwner": "Rowan QA",
+      "updatedAt": "2026-01-13T10:05:00Z",
+      "link": null,
+      "tests": [
+        {
+          "id": "DEMO-102-T1",
+          "name": "Guest cart merges into the account cart",
+          "status": "PASSED",
+          "rawStatus": "PASSED",
+          "updatedAt": "2026-01-13T09:30:00Z"
+        },
+        {
+          "id": "DEMO-102-T2",
+          "name": "Out-of-stock items are flagged after merge",
+          "status": "PASSED",
+          "rawStatus": "PASSED",
+          "updatedAt": "2026-01-13T09:55:00Z"
+        }
+      ],
+      "bugs": []
+    },
+    "DEMO-103": {
+      "id": "DEMO-103",
+      "title": "Account page lists past orders",
+      "status": "Ready for QA",
+      "statusKey": "Ready for QA",
+      "bucket": "in_test",
+      "priority": "Medium",
+      "type": "Story",
+      "sprint": "Sprint 7",
+      "module": "Account",
+      "developer": "Avery Dev",
+      "qaOwner": "Rowan QA",
+      "updatedAt": "2026-01-14T08:00:00Z",
+      "link": null,
+      "tests": [
+        {
+          "id": "DEMO-103-T1",
+          "name": "Orders are listed newest first",
+          "status": "NOT RUN",
+          "rawStatus": "NOT RUN",
+          "updatedAt": null
+        }
+      ],
+      "bugs": []
+    },
+    "DEMO-104": {
+      "id": "DEMO-104",
+      "title": "Saved cards can be removed",
+      "status": "Blocked",
+      "statusKey": "Blocked",
+      "bucket": "blocked",
+      "priority": "High",
+      "type": "Story",
+      "sprint": "Sprint 7",
+      "module": "Account",
+      "developer": "Avery Dev",
+      "qaOwner": "Rowan QA",
+      "updatedAt": "2026-01-12T17:45:00Z",
+      "link": null,
+      "tests": [
+        {
+          "id": "DEMO-104-T1",
+          "name": "Removing a card asks for confirmation",
+          "status": "BLOCKED",
+          "rawStatus": "BLOCKED",
+          "updatedAt": "2026-01-12T17:40:00Z"
+        },
+        {
+          "id": "DEMO-104-T2",
+          "name": "The last card cannot be removed during a subscription",
+          "status": "DEFERRED",
+          "rawStatus": "DEFERRED",
+          "updatedAt": "2026-01-12T17:42:00Z"
+        }
+      ],
+      "bugs": []
+    },
+    "DEMO-105": {
+      "id": "DEMO-105",
+      "title": "Gift wrapping option at checkout",
+      "status": "In Progress",
+      "statusKey": "In Progress",
+      "bucket": "not_ready",
+      "priority": "Low",
+      "type": "Story",
+      "sprint": "Sprint 7",
+      "module": "Checkout",
+      "developer": "Avery Dev",
+      "qaOwner": "Rowan QA",
+      "updatedAt": "2026-01-11T12:00:00Z",
+      "link": null,
+      "tests": [],
+      "bugs": []
+    }
+  },
+  "bugs": {
+    "DEMO-201": {
+      "id": "DEMO-201",
+      "title": "Expired discount code is accepted",
+      "status": "Open",
+      "statusKey": "Open",
+      "bucket": "open",
+      "priority": "High",
+      "type": "Bug",
+      "sprint": "Sprint 7",
+      "module": "Checkout",
+      "developer": "Avery Dev",
+      "qaOwner": "Rowan QA",
+      "createdAt": "2026-01-14T14:41:00Z",
+      "updatedAt": "2026-01-14T14:45:00Z",
+      "link": null,
+      "tickets": ["DEMO-101"]
+    },
+    "DEMO-202": {
+      "id": "DEMO-202",
+      "title": "Cart badge count lags after merge",
+      "status": "Closed",
+      "statusKey": "Closed",
+      "bucket": "resolved",
+      "priority": "Low",
+      "type": "Bug",
+      "sprint": "Sprint 7",
+      "module": "Cart",
+      "developer": "Avery Dev",
+      "qaOwner": "Rowan QA",
+      "createdAt": "2026-01-10T11:00:00Z",
+      "updatedAt": "2026-01-12T16:00:00Z",
+      "link": null,
+      "tickets": []
+    }
+  }
+}

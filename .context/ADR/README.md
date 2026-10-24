@@ -81,6 +81,7 @@ Who authors: a human QA architect / lead directly, **or** an AI workflow that de
 | [ADR-0016](./ADR-0016-documentation-contracts.md) | Documentation contracts: `LINT.IfChange` region markers, a push and CI gate with a `Docs-Checked:` escape, an edit-time reminder (maintainers only in v1) | Accepted | — | — |
 | [ADR-0017](./ADR-0017-route-adherence.md) | The prompt hook scopes, ranks and caps its `ROUTE:` lines, states when to read them, and re-surfaces an unread one once on Claude Code | Accepted | — | — |
 | [ADR-0018](./ADR-0018-sweep-pending-decisions.md) | Sweep Pending Decisions (SPD): the human-facing session asks everything that waits in one structured call, with a prose fallback | Accepted | — | — |
+| [ADR-0019](./ADR-0019-board-config-and-source-adapter.md) | The sprint modules read one `board:` block and one `Source` interface; every status passes through the config or the snapshot fails | Accepted | — | — |
 
 > Keep this table in sync whenever an ADR is added or its status changes. It is the fast index every session reads first.
 

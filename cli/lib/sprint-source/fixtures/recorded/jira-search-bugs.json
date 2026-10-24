@@ -1,0 +1,22 @@
+{
+  "isLast": true,
+  "issues": [
+    {
+      "id": "1021",
+      "key": "ACME-21",
+      "fields": {
+        "summary": "Max price ignored",
+        "status": { "name": "Open" },
+        "priority": { "name": "High" },
+        "issuetype": { "name": "Bug" },
+        "components": [{ "name": "Search" }],
+        "assignee": { "displayName": "Avery Dev" },
+        "customfield_10050": { "displayName": "Rowan QA" },
+        "customfield_10020": [{ "name": "Sprint 7", "state": "active" }],
+        "updated": "2026-01-14T10:40:00.000+0000",
+        "created": "2026-01-14T10:35:00.000+0000",
+        "issuelinks": []
+      }
+    }
+  ]
+}

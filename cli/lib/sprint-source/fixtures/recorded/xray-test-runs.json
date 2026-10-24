@@ -1,0 +1,29 @@
+{
+  "_recorded": "hand-written from the Xray Cloud GraphQL schema (getTestRuns), not captured from a live call",
+  "getTestRuns": {
+    "total": 3,
+    "results": [
+      {
+        "id": "r1",
+        "status": { "name": "FAILED" },
+        "startedOn": "2026-01-13T09:00:00Z",
+        "finishedOn": "2026-01-13T09:10:00Z",
+        "test": { "issueId": "1011" }
+      },
+      {
+        "id": "r2",
+        "status": { "name": "PASSED" },
+        "startedOn": "2026-01-14T09:00:00Z",
+        "finishedOn": "2026-01-14T09:12:00Z",
+        "test": { "issueId": "1011" }
+      },
+      {
+        "id": "r3",
+        "status": { "name": "TODO" },
+        "startedOn": null,
+        "finishedOn": null,
+        "test": { "issueId": "1012" }
+      }
+    ]
+  }
+}
