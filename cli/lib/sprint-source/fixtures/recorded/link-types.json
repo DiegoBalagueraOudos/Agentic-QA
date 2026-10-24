@@ -1,0 +1,5 @@
+{
+  "test": { "id": "1", "name": "Test", "outward": "tests", "inward": "is tested by" },
+  "relates": { "id": "2", "name": "Relates", "outward": "relates to", "inward": "relates to" },
+  "blocks": { "id": "3", "name": "Blocks", "outward": "blocks", "inward": "is blocked by" }
+}

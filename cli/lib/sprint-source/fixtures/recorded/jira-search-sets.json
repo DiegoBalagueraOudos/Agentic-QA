@@ -1,0 +1,40 @@
+{
+  "isLast": true,
+  "issues": [
+    {
+      "id": "1031",
+      "key": "ACME-31",
+      "fields": {
+        "issuelinks": [
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1011",
+              "key": "ACME-11",
+              "fields": { "summary": "Min price only", "issuetype": { "name": "Test" } }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1012",
+              "key": "ACME-12",
+              "fields": { "summary": "Min above max", "issuetype": { "name": "Test" } }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "outwardIssue": {
+              "id": "1001",
+              "key": "ACME-1",
+              "fields": {
+                "summary": "Search filters by price range",
+                "issuetype": { "name": "Story" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

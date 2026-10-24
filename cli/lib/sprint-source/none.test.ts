@@ -66,6 +66,27 @@ describe('none source', () => {
     expect(await rejection(dangling.snapshot())).toThrow(/"DEMO-9" is not under bugs:/);
   });
 
+  test('a test row with no status, or a misspelled key, is a file error, never a silent NOT RUN', async () => {
+    const missing = createNoneSource(demoConfig(), { readFile: () => 'tickets:\n  DEMO-1:\n    title: x\n    status: To Do\n    tests:\n      - id: T1\n' });
+    expect(await rejection(missing.snapshot())).toThrow(/tickets\.DEMO-1\.tests\[0\]\.status: required/);
+    const misspelled = createNoneSource(demoConfig(), { readFile: () => 'tickets:\n  DEMO-1:\n    title: x\n    status: To Do\n    tests:\n      - id: T1\n        stauts: FAILED\n' });
+    expect(await rejection(misspelled.snapshot())).toThrow(/tickets\.DEMO-1\.tests\[0\]: unknown key\(s\) stauts/);
+    const ticketTypo = createNoneSource(demoConfig(), { readFile: () => 'tickets:\n  DEMO-1:\n    title: x\n    status: To Do\n    devloper: Avery Dev\n' });
+    expect(await rejection(ticketTypo.snapshot())).toThrow(/tickets\.DEMO-1: unknown key\(s\) devloper/);
+  });
+
+  test('a test or bug listed twice under one ticket is a file error', async () => {
+    const twiceTest = createNoneSource(demoConfig(), { readFile: () => 'tickets:\n  DEMO-1:\n    title: x\n    status: To Do\n    tests:\n      - { id: T1, status: PASSED }\n      - { id: T1, status: FAILED }\n' });
+    expect(await rejection(twiceTest.snapshot())).toThrow(/test "T1" is listed twice/);
+    const twiceBug = createNoneSource(demoConfig(), { readFile: () => 'tickets:\n  DEMO-1:\n    title: x\n    status: To Do\n    bugs: [DEMO-9, DEMO-9]\nbugs:\n  DEMO-9: { title: y, status: Open }\n' });
+    expect(await rejection(twiceBug.snapshot())).toThrow(/"DEMO-9" is listed twice/);
+  });
+
+  test('a test shared by two tickets counts once in the denominator', async () => {
+    const shared = createNoneSource(demoConfig(), { readFile: () => 'tickets:\n  DEMO-1:\n    title: x\n    status: To Do\n    tests: [{ id: T1, status: PASSED }]\n  DEMO-2:\n    title: y\n    status: To Do\n    tests: [{ id: T1, status: PASSED }]\n' });
+    expect((await shared.snapshot()).searched).toEqual({ tickets: 2, tests: 1, bugs: 0 });
+  });
+
   test('keys narrow the board, discover lists the rest of the sprint', async () => {
     const snapshot = await createNoneSource(demoConfig(), { repoRoot: REPO_ROOT }).snapshot({ now: DEMO_NOW, keys: ['DEMO-101', 'DEMO-102'], discover: true });
     expect(Object.keys(snapshot.tickets)).toEqual(['DEMO-101', 'DEMO-102']);

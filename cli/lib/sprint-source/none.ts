@@ -58,6 +58,17 @@ export class TicketsFileError extends Error {
   }
 }
 
+/** The keys each row of the file may hold; anything else is a typo, never a silent default. */
+const FILE_KEYS = ['sprint', 'tickets', 'bugs'];
+const TICKET_KEYS = ['title', 'status', 'priority', 'type', 'sprint', 'module', 'developer', 'qa', 'updated', 'link', 'tests', 'bugs'];
+const TEST_KEYS = ['id', 'name', 'status', 'updated'];
+const BUG_KEYS = ['title', 'status', 'priority', 'type', 'sprint', 'module', 'developer', 'qa', 'created', 'updated', 'link'];
+
+function rejectUnknownKeys(file: string, row: Mapping, allowed: readonly string[], path: string): void {
+  const unknown = Object.keys(row).filter(k => !allowed.includes(k));
+  if (unknown.length > 0) { throw new TicketsFileError(file, `${path}: unknown key(s) ${unknown.join(', ')} (expected one of: ${allowed.join(', ')})`); }
+}
+
 export interface NoneSourceOptions {
   /** Checkout root `board.tickets_file` is relative to. */
   repoRoot?: string
@@ -79,6 +90,7 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
       try { doc = parseYaml(readFile(path)); }
       catch (err) { throw new TicketsFileError(file, `cannot read or parse (${(err as Error).message})`); }
       if (!isMapping(doc)) { throw new TicketsFileError(file, 'expected a mapping with tickets: and bugs:'); }
+      rejectUnknownKeys(file, doc, FILE_KEYS, '(top level)');
       const fileSprint = text(doc.sprint);
       const ticketRows = doc.tickets ?? {};
       const bugRows = doc.bugs ?? {};
@@ -87,26 +99,38 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
 
       const wanted = snapshotOptions.keys ? new Set(snapshotOptions.keys) : null;
       const tickets: Record<string, Ticket> = {};
-      let testsSearched = 0;
+      const testIds = new Set<string>();
 
       for (const [id, row] of Object.entries(ticketRows)) {
         if (!config.ticketKeyPattern.test(id)) { throw new TicketsFileError(file, `ticket id "${id}" does not match board.ticket_key_pattern (${config.ticketKeyPattern.source})`); }
         if (!isMapping(row)) { throw new TicketsFileError(file, `tickets.${id}: expected a mapping`); }
+        rejectUnknownKeys(file, row, TICKET_KEYS, `tickets.${id}`);
         if (wanted && !wanted.has(id)) { continue; }
         const title = text(row.title);
         const status = text(row.status);
         if (title === null || status === null) { throw new TicketsFileError(file, `tickets.${id}: title and status are required`); }
         const testRows = row.tests ?? [];
         if (!Array.isArray(testRows)) { throw new TicketsFileError(file, `tickets.${id}.tests: expected a list`); }
+        const seenTests = new Set<string>();
         const tests: TestCase[] = testRows.map((t, i) => {
-          if (!isMapping(t) || text(t.id) === null) { throw new TicketsFileError(file, `tickets.${id}.tests[${i}]: expected a mapping with an id`); }
+          const at = `tickets.${id}.tests[${i}]`;
+          if (!isMapping(t) || text(t.id) === null) { throw new TicketsFileError(file, `${at}: expected a mapping with an id`); }
+          rejectUnknownKeys(file, t, TEST_KEYS, at);
           const testId = text(t.id) as string;
+          if (seenTests.has(testId)) { throw new TicketsFileError(file, `${at}: test "${testId}" is listed twice under tickets.${id}`); }
+          seenTests.add(testId);
+          // Required here, unlike a tracker: in a hand-edited system of record a
+          // missing status is a typo, not "nobody ran it". Write `NOT RUN`.
           const raw = text(t.status);
+          if (raw === null) { throw new TicketsFileError(file, `${at}.status: required (e.g. NOT RUN)`); }
+          testIds.add(testId);
           return { id: testId, name: text(t.name) ?? testId, status: classifyTest(config.statusMap, testId, raw), rawStatus: raw, updatedAt: text(t.updated) };
         });
-        testsSearched += tests.length;
         const linked = row.bugs ?? [];
         if (!Array.isArray(linked)) { throw new TicketsFileError(file, `tickets.${id}.bugs: expected a list of bug ids`); }
+        const bugIds = linked.map(b => String(b));
+        const twice = bugIds.find((b, i) => bugIds.indexOf(b) !== i);
+        if (twice !== undefined) { throw new TicketsFileError(file, `tickets.${id}.bugs: "${twice}" is listed twice`); }
         tickets[id] = {
           id,
           title,
@@ -122,13 +146,14 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
           updatedAt: text(row.updated),
           link: text(row.link),
           tests,
-          bugs: linked.map(b => String(b)),
+          bugs: bugIds,
         };
       }
 
       const bugs: Record<string, Bug> = {};
       for (const [id, row] of Object.entries(bugRows)) {
         if (!isMapping(row)) { throw new TicketsFileError(file, `bugs.${id}: expected a mapping`); }
+        rejectUnknownKeys(file, row, BUG_KEYS, `bugs.${id}`);
         const title = text(row.title);
         const status = text(row.status);
         if (title === null || status === null) { throw new TicketsFileError(file, `bugs.${id}: title and status are required`); }
@@ -161,7 +186,7 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
       const snapshot: SourceSnapshot = {
         source: 'none',
         syncedAt: now.toISOString(),
-        searched: { tickets: Object.keys(tickets).length, tests: testsSearched, bugs: Object.keys(bugs).length },
+        searched: { tickets: Object.keys(tickets).length, tests: testIds.size, bugs: Object.keys(bugs).length },
         tickets,
         bugs,
       };

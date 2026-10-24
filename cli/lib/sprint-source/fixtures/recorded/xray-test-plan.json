@@ -1,0 +1,10 @@
+{
+  "_recorded": "hand-written from the Xray Cloud GraphQL schema (getTestPlan.tests), not captured from a live call",
+  "getTestPlan": {
+    "tests": {
+      "results": [
+        { "issueId": "1014", "jira": { "key": "ACME-14", "summary": "Last page has no next link" } }
+      ]
+    }
+  }
+}

@@ -28,13 +28,25 @@ export type BugBucket = (typeof BUG_BUCKETS)[number];
  * The canonical execution outcomes are PASSED and FAILED, both only on
  * observation; anything else is NOT RUN with a reason
  * (`agentic-qa-core/references/discovery-driven-doctrine.md` §5). BLOCKED
- * (the blocking ladder is open) and DEFERRED (a QA deferral recorded with a
- * follow-up) are two of those reasons, kept as their own values because the
- * board shows them apart. They are NOT RUN for every count, and DEFERRED is
- * never the ROI "Deferred" verdict of test documentation.
+ * (the blocking ladder is open) and DEFERRED are two of those reasons, kept as
+ * their own values because the board shows them apart. DEFERRED is exactly the
+ * doctrine's `DEFERRED (execution)`: QA deferred the case and recorded the
+ * follow-up. It is never the ROI `Deferred` verdict of test documentation,
+ * which says a scenario does not enter the regression repository.
+ *
+ * Count with `countedOutcome`, never with `status` directly: a count of
+ * `status === 'NOT RUN'` misses the BLOCKED and DEFERRED cases.
  */
 export const TEST_STATUSES = ['PASSED', 'FAILED', 'NOT RUN', 'BLOCKED', 'DEFERRED'] as const;
 export type TestStatus = (typeof TEST_STATUSES)[number];
+
+/** The three outcomes every count uses (doctrine §5.1). */
+export type CountedOutcome = 'PASSED' | 'FAILED' | 'NOT RUN';
+
+/** BLOCKED and DEFERRED are reasons a case is NOT RUN, never separate outcomes for counting. */
+export function countedOutcome(status: TestStatus): CountedOutcome {
+  return status === 'PASSED' || status === 'FAILED' ? status : 'NOT RUN';
+}
 
 export interface TestCase {
   id: string
@@ -88,7 +100,11 @@ export interface UntrackedRow {
 export interface SourceSnapshot {
   source: SourceKind
   syncedAt: string
-  /** Denominators, always present, zero included: a count is never shown without what it was counted from. */
+  /**
+   * Denominators, always present, zero included: a count is never shown without
+   * what it was counted from. Each counts DISTINCT items in this snapshot: a test
+   * case or a bug linked to two tickets counts once.
+   */
   searched: { tickets: number, tests: number, bugs: number }
   tickets: Record<string, Ticket>
   bugs: Record<string, Bug>

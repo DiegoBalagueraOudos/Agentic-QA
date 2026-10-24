@@ -113,7 +113,45 @@ describe('board config: every error names its key path', () => {
         bugs: { open: ['open'], fixed: [], resolved: ['closed'], discarded: [] },
       },
     }), catalogs));
-    expect(errors).toEqual(['board.statuses.tickets.in_test: "in_qa_env" is not a status slug in .agents/jira-workflows.json']);
+    expect(errors).toEqual(['board.statuses.tickets.in_test: "in_qa_env" is not a status of the story / tech_story work types in .agents/jira-workflows.json']);
+  });
+
+  test('a bug slug in a ticket bucket is rejected: each domain is checked against its own work types', () => {
+    const errors = invalid(resolveBoardConfig(project({
+      statuses: {
+        tickets: { not_ready: ['to_do'], in_test: ['in_test', 'ready_for_qa'], tested: ['qa_approved', 'closed'], blocked: [], dropped: [] },
+        bugs: { open: ['open'], fixed: [], resolved: ['closed'], discarded: ['in_test'] },
+      },
+    }), catalogs));
+    expect(errors).toEqual([
+      'board.statuses.tickets.in_test: "ready_for_qa" is not a status of the story / tech_story work types in .agents/jira-workflows.json',
+      'board.statuses.tickets.tested: "closed" is not a status of the story / tech_story work types in .agents/jira-workflows.json',
+      'board.statuses.bugs.discarded: "in_test" is not a status of the bug / defect work types in .agents/jira-workflows.json',
+    ]);
+  });
+
+  test('a Tech Story status is a valid ticket slug', () => {
+    const { config } = ok(resolveBoardConfig(project({
+      statuses: {
+        tickets: { not_ready: ['to_do'], in_test: ['in_test'], tested: ['qa_approved', 'completed'], blocked: ['blocked'], dropped: ['aborted'] },
+        bugs: { open: ['open'], fixed: ['ready_for_qa'], resolved: ['closed'], discarded: ['rejected'] },
+      },
+    }), catalogs));
+    expect(config.statusMap.tickets.get('completed')).toBe('tested');
+  });
+
+  test('a misspelled key is an error, never "unconfigured"', () => {
+    const typo = project(null);
+    typo.board = { source: 'auto', statuse: { tickets: { in_test: ['in_test'] } } };
+    expect(invalid(resolveBoardConfig(typo, catalogs))).toEqual(['board.statuse: unknown key (expected one of: source, tickets_file, jql, ticket_key_pattern, timezone, statuses, people, evidence, brand)']);
+    const nested = invalid(resolveBoardConfig(project({ evidence: { allowed_host: ['claude.ai'] }, brand: { logo: null, colour: 'red' }, people: [{ name: 'Rowan QA', langauge: 'en' }] }), catalogs));
+    expect(nested).toEqual([
+      'board.evidence.allowed_host: unknown key (expected one of: allowed_hosts)',
+      'board.brand.colour: unknown key (expected one of: name, logo)',
+      'board.people[0].langauge: unknown key (expected one of: name, role, language, jira)',
+    ]);
+    const statusTypo = project({ statuses: { tickets: {}, bugs: {}, test: {} } });
+    expect(invalid(resolveBoardConfig(statusTypo, catalogs))).toEqual(['board.statuses.test: unknown key (expected one of: tickets, bugs, tests)']);
   });
 
   test('a typo in a bucket name', () => {
@@ -163,6 +201,7 @@ describe('board config: coverage warnings', () => {
     expect(warnings).toEqual([
       'board.statuses.tickets: workflow status "blocked" is in no bucket; a ticket in it will fail the snapshot',
       'board.statuses.tickets: workflow status "aborted" is in no bucket; a ticket in it will fail the snapshot',
+      'board.statuses.tickets: workflow status "completed" is in no bucket; a ticket in it will fail the snapshot',
     ]);
   });
 });

@@ -2,8 +2,8 @@
  * @fileoverview The `board:` block of `.agents/project.yaml`, resolved and
  * validated (ADR-0019).
  *
- * DERIVE, NEVER REPEAT. Half of what the reference implementation hardcoded
- * already has a home in `project.yaml`: the ticket key (`project.project_key`),
+ * DERIVE, NEVER REPEAT. Half of the values a sprint board needs already have a
+ * home in `project.yaml`: the ticket key (`project.project_key`),
  * the environment (`testing.default_env`), the mainline branch
  * (`git_strategy.branches.production`), the required approvals
  * (`git_strategy.policy.require_pr_reviews`), the TMS modality
@@ -35,6 +35,7 @@ import { BUG_BUCKETS, SOURCE_KINDS, TEST_STATUSES, TICKET_BUCKETS } from './type
 export const PROJECT_YAML = '.agents/project.yaml';
 export const WORKFLOWS_CATALOG = '.agents/jira-workflows.json';
 export const FIELDS_CATALOG = '.agents/jira-fields.json';
+export const LINK_TYPES_CATALOG = '.agents/jira-link-types.json';
 
 /** `.agents/jira-workflows.json`, only the parts read here. */
 export type WorkflowCatalog = Record<string, {
@@ -49,13 +50,22 @@ export type FieldCatalog = Record<string, {
   options?: Record<string, string>
 }>;
 
+/** `.agents/jira-link-types.json`, only the parts read here. */
+export type LinkTypeCatalog = Record<string, { name?: string }>;
+
 export interface Catalogs {
   workflows: WorkflowCatalog | null
   fields: FieldCatalog | null
+  /** Optional: without it the `test` link is not filtered by type (a degraded instance). */
+  linkTypes?: LinkTypeCatalog | null
 }
 
-/** Work types whose statuses a board ticket or bug takes (methodology slugs). */
-export const TICKET_WORK_TYPES = ['story'] as const;
+/**
+ * Work types whose statuses a board ticket or bug takes (methodology slugs).
+ * `tech_story` is a ticket because a coverage Tech Story is a coverable of its
+ * own (discovery-driven doctrine §3).
+ */
+export const TICKET_WORK_TYPES = ['story', 'tech_story'] as const;
 export const BUG_WORK_TYPES = ['bug', 'defect'] as const;
 
 // ============================================================================
@@ -73,6 +83,8 @@ export interface Person {
 
 export interface BoardConfig {
   source: SourceKind
+  /** The file the block was read from; every status error names it. */
+  configFile: string
   /** Repo-relative; read by the `none` source only. */
   ticketsFile: string
   jql: string | null
@@ -105,14 +117,16 @@ export type BoardConfigResult
 
 /**
  * Shipped test status map: Xray's built-in run statuses and the jira-native
- * `test_status` option slugs (`.agents/jira-required.yaml`). DEFERRED exists
- * in neither, so it maps only what a project lists.
+ * `test_status` option slugs (`.agents/jira-required.yaml`). An aborted Xray run
+ * was not observed, so it is NOT RUN; BLOCKED means the blocking ladder is open,
+ * which only the project can say. DEFERRED (the doctrine's `DEFERRED (execution)`)
+ * exists in neither TMS, so it maps only what a project lists.
  */
 export const DEFAULT_TEST_STATUSES: Readonly<Record<TestStatus, readonly string[]>> = {
   'PASSED': ['PASSED', 'passed'],
   'FAILED': ['FAILED', 'failed'],
-  'NOT RUN': ['TODO', 'EXECUTING', 'n_r'],
-  'BLOCKED': ['ABORTED', 'blocked'],
+  'NOT RUN': ['TODO', 'EXECUTING', 'ABORTED', 'n_r'],
+  'BLOCKED': ['blocked'],
   'DEFERRED': [],
 };
 
@@ -216,12 +230,51 @@ function readBuckets<B extends string>(
 // RESOLVE
 // ============================================================================
 
-/** Resolve the block from an already-parsed `project.yaml` and the catalogs. Pure. */
-export function resolveBoardConfig(root: unknown, catalogs: Catalogs): BoardConfigResult {
-  if (!isMapping(root)) { return { state: 'invalid', errors: [`${PROJECT_YAML}: expected a mapping at the top level`] }; }
+/** The keys each mapping of the block may hold; anything else is a typo. */
+const BOARD_KEYS: Readonly<Record<string, readonly string[]>> = {
+  'board': ['source', 'tickets_file', 'jql', 'ticket_key_pattern', 'timezone', 'statuses', 'people', 'evidence', 'brand'],
+  'board.statuses': ['tickets', 'bugs', 'tests'],
+  'board.evidence': ['allowed_hosts'],
+  'board.brand': ['name', 'logo'],
+};
+const PERSON_KEYS = ['name', 'role', 'language', 'jira'] as const;
+
+/**
+ * Unknown keys, by path. Checked before anything else: a misspelled
+ * `statuses:` would otherwise read as "not filled" and pass as unconfigured.
+ */
+function unknownKeys(board: Mapping): string[] {
+  const errors: string[] = [];
+  for (const [path, allowed] of Object.entries(BOARD_KEYS)) {
+    const node = path === 'board' ? board : at(board, path.slice('board.'.length));
+    if (!isMapping(node)) { continue; }
+    for (const key of Object.keys(node)) {
+      if (!allowed.includes(key)) { errors.push(`${path}.${key}: unknown key (expected one of: ${allowed.join(', ')})`); }
+    }
+  }
+  if (Array.isArray(board.people)) {
+    board.people.forEach((entry, i) => {
+      if (!isMapping(entry)) { return; }
+      for (const key of Object.keys(entry)) {
+        if (!(PERSON_KEYS as readonly string[]).includes(key)) { errors.push(`board.people[${i}].${key}: unknown key (expected one of: ${PERSON_KEYS.join(', ')})`); }
+      }
+    });
+  }
+  return errors;
+}
+
+/**
+ * Resolve the block from an already-parsed `project.yaml` and the catalogs. Pure.
+ * `configFile` is the path the block came from, named in every status error.
+ */
+export function resolveBoardConfig(root: unknown, catalogs: Catalogs, configFile: string = PROJECT_YAML): BoardConfigResult {
+  if (!isMapping(root)) { return { state: 'invalid', errors: [`${configFile}: expected a mapping at the top level`] }; }
   const board = root.board;
-  if (board === undefined || board === null) { return { state: 'unconfigured', reason: `${PROJECT_YAML} has no board: block` }; }
+  if (board === undefined || board === null) { return { state: 'unconfigured', reason: `${configFile} has no board: block` }; }
   if (!isMapping(board)) { return { state: 'invalid', errors: ['board: expected a mapping'] }; }
+
+  const typos = unknownKeys(board);
+  if (typos.length > 0) { return { state: 'invalid', errors: typos }; }
 
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -252,7 +305,7 @@ export function resolveBoardConfig(root: unknown, catalogs: Catalogs): BoardConf
     tests = read.lists;
   }
   const statuses: BoardStatuses = { tickets: tickets.lists, bugs: bugs.lists, tests };
-  const built = buildStatusMap(statuses);
+  const built = buildStatusMap(statuses, configFile);
   errors.push(...built.errors);
 
   // --- source
@@ -280,13 +333,18 @@ export function resolveBoardConfig(root: unknown, catalogs: Catalogs): BoardConf
       errors.push(`${WORKFLOWS_CATALOG} is missing: the ${source} source names statuses by its workflow slugs (run \`bun run jira:sync-workflows\`)`);
     }
     else {
+      // Each domain is validated against ITS OWN work types: a bug slug in a
+      // ticket bucket is a wrong mapping, not a valid one.
       const ticketSlugs = slugsOf(catalogs.workflows, TICKET_WORK_TYPES);
       const bugSlugs = slugsOf(catalogs.workflows, BUG_WORK_TYPES);
-      const allSlugs = slugsOf(catalogs.workflows, Object.keys(catalogs.workflows));
-      for (const [domain, lists, own] of [['tickets', statuses.tickets, ticketSlugs], ['bugs', statuses.bugs, bugSlugs]] as const) {
+      const domains = [
+        ['tickets', statuses.tickets, ticketSlugs, TICKET_WORK_TYPES],
+        ['bugs', statuses.bugs, bugSlugs, BUG_WORK_TYPES],
+      ] as const;
+      for (const [domain, lists, own, workTypes] of domains) {
         for (const [bucket, ids] of Object.entries(lists)) {
           for (const id of ids) {
-            if (!allSlugs.has(id)) { errors.push(`board.statuses.${domain}.${bucket}: "${id}" is not a status slug in ${WORKFLOWS_CATALOG}`); }
+            if (!own.has(id)) { errors.push(`board.statuses.${domain}.${bucket}: "${id}" is not a status of the ${workTypes.join(' / ')} work types in ${WORKFLOWS_CATALOG}`); }
           }
         }
         const mapped = domain === 'tickets' ? built.map.tickets : built.map.bugs;
@@ -381,6 +439,7 @@ export function resolveBoardConfig(root: unknown, catalogs: Catalogs): BoardConf
     state: 'ok',
     config: {
       source,
+      configFile,
       ticketsFile,
       jql,
       ticketKeyPattern,
@@ -423,6 +482,7 @@ export function loadBoardConfig(repoRoot: string = process.cwd()): BoardConfigRe
   const catalogs: Catalogs = {
     workflows: readCatalog<WorkflowCatalog>(join(repoRoot, WORKFLOWS_CATALOG), errors),
     fields: readCatalog<FieldCatalog>(join(repoRoot, FIELDS_CATALOG), errors),
+    linkTypes: readCatalog<LinkTypeCatalog>(join(repoRoot, LINK_TYPES_CATALOG), errors),
   };
   if (errors.length > 0) { return { state: 'invalid', errors }; }
   return resolveBoardConfig(root, catalogs);

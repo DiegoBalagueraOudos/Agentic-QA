@@ -22,12 +22,22 @@
           {
             "type": { "name": "Test" },
             "inwardIssue": {
-              "id": "1011",
-              "key": "ACME-11",
+              "id": "1031",
+              "key": "ACME-31",
               "fields": {
-                "summary": "Min price only",
-                "issuetype": { "name": "Test" },
-                "status": { "name": "Ready" }
+                "summary": "ATS: ACME-1: Search filters by price range",
+                "issuetype": { "name": "Test Set" }
+              }
+            }
+          },
+          {
+            "type": { "name": "Relates" },
+            "inwardIssue": {
+              "id": "1035",
+              "key": "ACME-35",
+              "fields": {
+                "summary": "TS: Search: Validate search",
+                "issuetype": { "name": "Test Set" }
               }
             }
           },
@@ -36,10 +46,17 @@
             "inwardIssue": {
               "id": "1012",
               "key": "ACME-12",
+              "fields": { "summary": "Min above max", "issuetype": { "name": "Test" } }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1041",
+              "key": "ACME-41",
               "fields": {
-                "summary": "Min above max",
-                "issuetype": { "name": "Test" },
-                "status": { "name": "Ready" }
+                "summary": "ATR: ACME-1: Story Testing",
+                "issuetype": { "name": "Test Execution" }
               }
             }
           },
@@ -48,11 +65,7 @@
             "inwardIssue": {
               "id": "1021",
               "key": "ACME-21",
-              "fields": {
-                "summary": "Max price ignored",
-                "issuetype": { "name": "Bug" },
-                "status": { "name": "Open" }
-              }
+              "fields": { "summary": "Max price ignored", "issuetype": { "name": "Bug" } }
             }
           }
         ]
@@ -78,10 +91,39 @@
             "inwardIssue": {
               "id": "1013",
               "key": "ACME-13",
+              "fields": { "summary": "Next page keeps filters", "issuetype": { "name": "Test" } }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1051",
+              "key": "ACME-51",
               "fields": {
-                "summary": "Next page keeps filters",
-                "issuetype": { "name": "Test" },
-                "status": { "name": "Ready" }
+                "summary": "ATP: ACME-2: Search results paginate",
+                "issuetype": { "name": "Test Plan" }
+              }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1042",
+              "key": "ACME-42",
+              "fields": {
+                "summary": "ATR: ACME-2: Story Testing",
+                "issuetype": { "name": "Test Execution" }
+              }
+            }
+          },
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": {
+              "id": "1043",
+              "key": "ACME-43",
+              "fields": {
+                "summary": "ATR: ACME-2: Retest",
+                "issuetype": { "name": "Re-Test Execution" }
               }
             }
           }
