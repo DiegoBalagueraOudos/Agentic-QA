@@ -710,7 +710,13 @@ describe('agent identity', () => {
 
   test('orcaAvailable never spawns a process and tolerates an empty PATH', () => {
     const home = temporaryRoot('agent identity path ');
-    write(home, 'bin/orca', '');
+    // Linux probes `orca-ide`: a bare `orca` there is the GNOME screen reader
+    const cliName = process.platform === 'linux' ? 'orca-ide' : 'orca';
+    write(home, `bin/${cliName}`, '');
+    if (process.platform === 'linux') {
+      write(home, 'reader/orca', '');
+      expect(orcaAvailable({ PATH: join(home, 'reader') })).toBe(false);
+    }
 
     expect(orcaAvailable({ PATH: join(home, 'bin') })).toBe(true);
     expect(orcaAvailable({ PATH: join(home, 'missing') })).toBe(false);
