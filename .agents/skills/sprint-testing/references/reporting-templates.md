@@ -309,6 +309,9 @@ TEST CASES
   TC-{id}: {name} ... {status}
   TC-{id}: {name} ... {status}
 
+DEFERRED CASES
+  {None | TC-{id}: DEFERRED (execution) {date} by QA decision: {reason}; follow-up {KEY}}
+
 TEST DATA
   {Entity}: {name} (ID: {id})
 
@@ -322,7 +325,7 @@ RECOMMENDATIONS
   {Automation candidates, future testing, improvements}
 ```
 
-"Result" values: `PASSED` (all TCs pass), `FAILED` (one or more fail), `PASSED WITH ISSUES` (all pass but with notable observations). The per-TC statuses come from the Execution Status field (Run), not the Test Status workflow — see `test-documentation/references/tms-conventions.md` §IQL.
+"Result" values: `PASSED` (all TCs pass), `FAILED` (one or more fail), `PASSED WITH ISSUES` (all pass but with notable observations, or every case that did not pass is a recorded `DEFERRED (execution)` listed under DEFERRED CASES). The per-TC statuses come from the Execution Status field (Run), not the Test Status workflow — see `test-documentation/references/tms-conventions.md` §IQL.
 
 ### 2.3 Upload by modality
 
@@ -393,7 +396,7 @@ for each {TEST_KEY, result} in run:
 | Modality | Completion signal |
 |----------|-------------------|
 | A (Xray) | All Test Runs at a terminal status (PASS/FAIL/BLOCKED/ABORTED, not TODO/EXECUTING), THEN the Test Execution issue transitioned via `{{jira.transition.test_execution.complete}}` to `{{jira.status.test_execution.close}}` (the status is named `Close`, not `Done`). A bug retest closes its `ReTest:` Execution with `{{jira.transition.re_test_execution.complete}}`. The terminal set is whatever THIS instance configures. An unexecuted case is never recorded FAILED: its run stays `TODO` (or `BLOCKED` where the instance defines it) and the ATR body carries `DEFERRED (execution) <date> by QA decision: <reason>; follow-up <KEY>`. The Execution closes once every non-terminal run carries such a line (see `sprint-orchestration.md` Stage 3 step 3-bis). |
-| B (Jira-native) | `{{jira.acceptance_test_results}}` populated with full body (not placeholder), or the `## Acceptance Test Results (ATR)` fallback comment when the field is absent; every linked TC has a terminal Test Status. No Execution item exists at this altitude — state that as the N/A. |
+| B (Jira-native) | `{{jira.acceptance_test_results}}` populated with full body (not placeholder), or the `## Acceptance Test Results (ATR)` fallback comment when the field is absent; every linked TC has a terminal Test Status, or stays `NOT RUN` with its `DEFERRED (execution)` line in the ATR. No Execution item exists at this altitude — state that as the N/A. |
 
 Stage 3 closes the ATS and the ATP in the same pass (Modality jira-xray): ATS via `{{jira.transition.test_set.done}}` → `{{jira.status.test_set.close}}` (membership final), ATP via `{{jira.transition.test_plan.complete}}` → `{{jira.status.test_plan.completed}}` (results are in; fire `{{jira.transition.test_plan.designed}}` first if Stage 1 left it at `planning`). On an unmapped slug run the `artifact-lifecycle.md` §4 fallback — ask, never skip silently.
 
@@ -411,7 +414,7 @@ Also append to `context.md`:
 ```markdown
 ## Final Status
 
-**Result:** {PASSED | PASSED WITH DEFERRALS | FAILED}
+**Result:** {PASSED | PASSED WITH ISSUES | FAILED}
 **Workflow Complete:** {date}
 **Next:** {{{jira.status.story.qa_approved}} | Wait for fixes}
 ```
@@ -442,6 +445,10 @@ TEST DATA USED:
 VERIFIED BEHAVIORS:
 - AC1: {brief description} - VERIFIED
 - AC2: {brief description} - VERIFIED
+
+{If any case was deferred:}
+DEFERRED CASES (not observed; QA decision, follow-up open):
+- TC-{id}: {reason} - follow-up {KEY}
 
 {If clarifications obtained:}
 CLARIFICATIONS:
