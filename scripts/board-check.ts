@@ -39,7 +39,13 @@ const USAGE = `Usage: bun run board:check [--snapshot | --demo] [--discover]
   --discover   with --snapshot/--demo: also list sprint rows the board does not track
   --help       this text`;
 
-function report(result: BoardConfigResult): number {
+/** Whether git ignores a repo-relative path (the `none` source's system of record must be versioned). */
+function gitIgnores(repoRoot: string, path: string): boolean {
+  const probe = Bun.spawnSync(['git', 'check-ignore', '-q', '--no-index', path], { cwd: repoRoot, stdout: 'ignore', stderr: 'ignore' });
+  return probe.exitCode === 0;
+}
+
+function report(result: BoardConfigResult, repoRoot: string): number {
   if (result.state === 'unconfigured') {
     console.log(`board:check INFO: board not configured (${result.reason}); nothing to check.`);
     return 0;
@@ -53,6 +59,9 @@ function report(result: BoardConfigResult): number {
   console.log(`board:check OK: source ${config.source}, ticket key ${config.ticketKeyPattern.source}`);
   for (const value of derived) { console.log(`  derived ${value.key} = ${JSON.stringify(value.value)}  <- ${value.from}`); }
   for (const warning of warnings) { console.log(`  WARN ${warning}`); }
+  if (config.source === 'none' && gitIgnores(repoRoot, config.ticketsFile)) {
+    console.log(`  WARN board.tickets_file ${config.ticketsFile} is ignored by git, so the none source's system of record would never be committed: add a re-include line for its folder to .gitignore (e.g. !.context/sprint/ after .context/*)`);
+  }
   return 0;
 }
 
@@ -61,15 +70,21 @@ async function main(): Promise<number> {
   if (argv.has('--help')) { console.log(USAGE); return 0; }
   const unknown = [...argv].filter(a => !['--snapshot', '--demo', '--discover'].includes(a));
   if (unknown.length > 0) { console.error(`board:check: unknown option(s) ${unknown.join(' ')}\n\n${USAGE}`); return 1; }
+  const snapshotMode = argv.has('--snapshot') || argv.has('--demo');
+  if (argv.has('--discover') && !snapshotMode) { console.error(`board:check: --discover only applies with --snapshot or --demo\n\n${USAGE}`); return 1; }
 
   const repoRoot = process.cwd();
   const demo = argv.has('--demo');
   const result = demo
-    ? resolveBoardConfig(parseYaml(readFileSync(join(repoRoot, DEMO_PROJECT), 'utf8')), { workflows: null, fields: null })
+    ? resolveBoardConfig(parseYaml(readFileSync(join(repoRoot, DEMO_PROJECT), 'utf8')), { workflows: null, fields: null }, DEMO_PROJECT)
     : loadBoardConfig(repoRoot);
 
-  if (!demo && !argv.has('--snapshot')) { return report(result); }
-  if (result.state !== 'ok') { return report(result) || 1; }
+  if (!snapshotMode) { return report(result, repoRoot); }
+  if (result.state === 'unconfigured') {
+    console.error(`board:check: --snapshot needs a configured board: block (${result.reason})`);
+    return 1;
+  }
+  if (result.state === 'invalid') { return report(result, repoRoot); }
 
   try {
     const snapshot = await createSource(result.config, { repoRoot }).snapshot({ discover: argv.has('--discover') });
