@@ -160,7 +160,7 @@ describe('withSourceLock wait', () => {
       import { withSourceLock } from ${JSON.stringify(store)};
       try { await withSourceLock('sprint-1', async () => 'ran', { waitMs: 0 }); console.log('ran'); }
       catch (err) { console.log('threw', err.code ?? err.message); }`;
-    const r = Bun.spawnSync(['bun', '-e', script], { env: { ...process.env, SPRINT_BOARD_DIR: dir }, timeout: 10_000 });
+    const r = Bun.spawnSync(['bun', '-e', script], { env: { ...process.env, SPRINT_BOARD_DIR: dir, SPRINT_BOARD_PROJECT_YAML: DEMO_CONFIG }, timeout: 10_000 });
     expect(`${r.stdout.toString()}${r.stderr.toString()}`.trim()).toBe('threw EISDIR');
   }, 15_000);
 
@@ -173,7 +173,7 @@ describe('withSourceLock wait', () => {
     const script = `
       import { withSourceLock } from ${JSON.stringify(store)};
       console.log(await withSourceLock('sprint-1', async () => 'ran', { waitMs: 0 }));`;
-    const r = Bun.spawnSync(['bun', '-e', script], { env: { ...process.env, SPRINT_BOARD_DIR: dir }, timeout: 10_000 });
+    const r = Bun.spawnSync(['bun', '-e', script], { env: { ...process.env, SPRINT_BOARD_DIR: dir, SPRINT_BOARD_PROJECT_YAML: DEMO_CONFIG }, timeout: 10_000 });
     expect(`${r.stdout.toString()}${r.stderr.toString()}`.trim()).toBe('ran');
     expect(readdirSync(join(dir, 'sprints', 'sprint-1')).filter(n => n.includes('.lock'))).toEqual([]);
   }, 15_000);
@@ -256,7 +256,7 @@ describe('closed boards', () => {
   test('a board closed while sync waited for the lock is refused once the lock is free', async () => {
     const lock = join(dir, 'sprints', 'sprint-1', 'source.json.lock');
     writeFileSync(lock, '4242 2026-10-16T09:06:00Z\n');
-    const p = Bun.spawn(['bun', CLI, 'sync', '--lock-wait', '20'], { env: { ...process.env, SPRINT_BOARD_DIR: dir }, stdout: 'pipe', stderr: 'pipe' });
+    const p = Bun.spawn(['bun', CLI, 'sync', '--lock-wait', '20'], { env: { ...process.env, SPRINT_BOARD_DIR: dir, SPRINT_BOARD_PROJECT_YAML: DEMO_CONFIG }, stdout: 'pipe', stderr: 'pipe' });
     const reader = p.stdout.getReader();
     let out = '';
     while (!out.includes('waiting for the tracker sync lock')) {

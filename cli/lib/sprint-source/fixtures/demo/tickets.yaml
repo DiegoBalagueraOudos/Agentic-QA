@@ -1,5 +1,5 @@
 # Demo sprint for the `none` source. Invented data: a shop with a cart,
-# a checkout and an account area. A later board renders this as its demo.
+# a checkout and an account area. The Sprint Board has its own demo in cli/sprint-board/demo/
 sprint: Sprint 7
 
 tickets:
