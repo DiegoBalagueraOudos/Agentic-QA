@@ -26,6 +26,16 @@ below names which one it applies to:
 - **`bun run board:check`** validates the block offline and runs inside `repo:check`; an
   unconfigured block (how the template ships) is one INFO line and exit 0. `bun sync` offers the
   new block to existing projects through the schema diff.
+- **Upgrade step for existing projects that adopt `board.source: none`**: `bun sync` does not touch
+  the root `.gitignore`, and the default `.context/*` rule ignores the `tickets.yaml` that is the
+  source's system of record. Add this line right after `.context/*` (or `!` + the folder of your
+  own `board.tickets_file`):
+
+  ```gitignore
+  !.context/sprint/
+  ```
+
+  `bun run board:check` warns while the file is still ignored.
 
 ### Changed (`bun sync` and `bun setup` are the command names)
 - **The updater is `bun sync`**, a new `sync` script. `up` stays as a hidden alias running the
