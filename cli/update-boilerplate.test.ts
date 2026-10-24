@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -7,7 +8,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { unusedHarnessPaths } from './lib/harness-selection.ts';
 import { cleanupDeprecated, componentOwnedPaths, isRepoOnlyPath, validateComponentRegistry } from './lib/updater-core.ts';
 import { RETIRED_SECTION_FILES } from './lib/updater-instructions.ts';
-import { COMPONENTS, DEPRECATED_FILES, GATE_SCRIPTS, gatesSummaryLine, parseArgs, resolveProtectedWatchlist, RETIRED_COMMAND_WRAPPERS, RETIRED_SKILL_FILES, runGate, summarizeGates, worktreeRefusal } from './update-boilerplate.ts';
+import { COMPONENTS, DEPRECATED_FILES, GATE_SCRIPTS, gatesSummaryLine, parseArgs, resolveProtectedWatchlist, RETIRED_COMMAND_WRAPPERS, RETIRED_SKILL_FILES, runGate, summarizeGates, sweepStaleCloneDirs, TEMP_DIR, worktreeRefusal } from './update-boilerplate.ts';
 
 const temporaryRoots: string[] = [];
 
@@ -238,6 +239,40 @@ describe('worktree refusal', () => {
     expect(refusal).toContain('primary');
     // Not a git checkout at all: not this guard's business.
     expect(worktreeRefusal(temporaryRoot())).toBeNull();
+  });
+});
+
+describe('upstream clone directory', () => {
+  // Two `bun sync` runs on one machine (two worktrees, two test processes) used
+  // to share one fixed directory, and each clone wiped the other's: CLONE_FAILED.
+  test('two concurrent processes clone into two different directories under the temp dir', async () => {
+    const code = `import { TEMP_DIR } from ${JSON.stringify(join(import.meta.dir, 'update-boilerplate.ts'))}; console.log(TEMP_DIR);`;
+    const probe = async (): Promise<string> => (await new Response(Bun.spawn([process.execPath, '-e', code], { stdout: 'pipe', stderr: 'ignore' }).stdout).text()).trim();
+    const [first, second] = await Promise.all([probe(), probe()]);
+    expect(first).not.toBe('');
+    expect(first).not.toBe(second);
+    for (const dir of [first, second]) { expect(dirname(dir)).toBe(tmpdir()); }
+  });
+
+  test('this process owns a directory named after its pid', () => {
+    expect(TEMP_DIR).toBe(join(tmpdir(), `kata-boilerplate-update-${process.pid}`));
+  });
+
+  test('the startup sweep removes the clone dir of a dead run and keeps the live ones', () => {
+    const tmp = temporaryRoot();
+    // A pid that existed and is gone: a run killed with SIGKILL leaves exactly this.
+    const dead = spawnSync('true').pid;
+    const names = [`kata-boilerplate-update-${dead}`, `kata-boilerplate-update-${process.ppid}`, `kata-boilerplate-update-${process.pid}`, 'kata-boilerplate-update', 'kata-boilerplate-update-x1'];
+    for (const name of names) { mkdirSync(join(tmp, name, '.git'), { recursive: true }); }
+
+    expect(sweepStaleCloneDirs(tmp)).toEqual([`kata-boilerplate-update-${dead}`]);
+    expect(existsSync(join(tmp, `kata-boilerplate-update-${dead}`))).toBe(false);
+    // A live run (the parent here), this run, and anything not shaped `<prefix><digits>` stay.
+    for (const name of names.slice(1)) { expect(existsSync(join(tmp, name))).toBe(true); }
+  });
+
+  test('the sweep never throws on a temp dir it cannot read', () => {
+    expect(sweepStaleCloneDirs(join(temporaryRoot(), 'missing'))).toEqual([]);
   });
 });
 
