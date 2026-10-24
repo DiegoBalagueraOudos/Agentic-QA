@@ -152,7 +152,8 @@ board:
   ticket_key_pattern: null # null = derived ^<project_key>-\d+$; override when tickets span keys (e.g. '^(PROJ|OPS)-\d+$')
   timezone: null # IANA zone for day boundaries and report times (e.g. America/New_York); null = the machine's zone
   # Every status a ticket or bug can hold, in exactly ONE bucket. Jira sources use
-  # the workflow slugs of .agents/jira-workflows.json (story / bug work types); the
+  # the workflow slugs of .agents/jira-workflows.json (tickets: story and tech_story;
+  # bugs: bug and defect), each domain checked against its own work types; the
   # none source uses the strings of tickets_file. A status in no bucket FAILS the
   # snapshot instead of being counted; `bun run board:check` warns about workflow
   # statuses no bucket lists yet. [] = no status belongs there.
@@ -170,14 +171,16 @@ board:
       discarded: null # not a defect after all (e.g. [rejected, duplicated])
     # Raw test outcome -> PASSED | FAILED | NOT RUN | BLOCKED | DEFERRED. The shipped
     # lists are Xray's built-in run statuses and the jira-native test_status options
-    # (.agents/jira-required.yaml). DEFERRED exists in neither: list the raw value
-    # your TMS uses for a recorded QA deferral. BLOCKED and DEFERRED are reasons a
-    # test is NOT RUN, never executed outcomes.
+    # (.agents/jira-required.yaml); an aborted Xray run was not observed, so NOT RUN.
+    # BLOCKED and DEFERRED are reasons a test is NOT RUN, never executed outcomes:
+    # DEFERRED is the discovery-driven doctrine's DEFERRED (execution), a QA deferral
+    # recorded with its follow-up, and never the ROI Deferred verdict. It exists in
+    # neither TMS: list the raw value yours uses for it.
     tests:
       PASSED: [PASSED, passed]
       FAILED: [FAILED, failed]
-      NOT RUN: [TODO, EXECUTING, n_r]
-      BLOCKED: [ABORTED, blocked]
+      NOT RUN: [TODO, EXECUTING, ABORTED, n_r]
+      BLOCKED: [blocked]
       DEFERRED: []
   people: null # who the board names: e.g. [{ name: Jane Doe, role: qa, language: en, jira: Jane Doe }]
   evidence:
