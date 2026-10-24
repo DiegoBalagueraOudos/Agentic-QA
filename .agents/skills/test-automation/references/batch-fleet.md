@@ -105,7 +105,7 @@ What a `/test-automation` worker's brief must nail down beyond the generic seven
 3. **Fixture registration is expected to conflict** — register the component normally in `ApiFixture.ts` / `UiFixture.ts`, do not try to avoid the edit, do not reformat the file.
 4. **Git**: branch name, base, whether it pushes and opens its own PR (§7).
 5. **Scope-correction licence**: a plan that turns out wrong during Code is a legitimate finding. Record it in the WP's `spec.md`, report it, and wait — do not re-plan a different scope silently.
-6. **Rules (component 7) include the TC source gate**: automate only the TCs its WP lists, all of which passed the gate; a TC that turns out missing or unsigned mid-WP → stop and report, never create it in the TMS.
+6. **Rules (component 7) include the TC source gate**: automate only the TCs its WP lists, all of which passed the gate (a `Verdict signed:` comment whose Jira `created` and `updated` predate the run's start); a TC that turns out missing or unsigned mid-WP → stop and report, never create it in the TMS, never write or edit a signature, never wait for one inside the run.
 7. **Local gate before reporting**: `bun run test <paths>` → `bun run types:check` → `bun run lint:check`, in that order, green, plus the Phase 3 review checklist. A worker reports a red gate as a failure; it does not report "done, with notes".
 8. **Reporting**: one completion message, an explicit success/failure outcome, the list of files it changed, and the path of its long report. Then stop — it does not close its own session and does not start the next WP unless the brief listed it.
 

@@ -234,7 +234,7 @@ The ladder replaces two failure modes: false coverage (a case marked PASSED on i
 ## 6. `automated` means the code is on the production branch
 
 A TC moves `pull_request` -> `automated` (transition `merged`) only when its test code is on
-`git_strategy.branches.production` in `.agents/project.yaml`. A merge into `branches.integration`, or into
+`git_strategy.branches.production` in `.agents/project.yaml`, with CI green there. A merge into `branches.integration`, or into
 a suite trunk matching `branches.ephemeral_pattern`, is not `automated`: the TC stays at `pull_request` and
 its labels stay as they are.
 

@@ -39,13 +39,13 @@
     {
       "name": "should-trigger-gap-list-stops-at-source-gate",
       "prompt": "Automate the coverage gaps of the billing module straight from the gap list.",
-      "expected_behavior": "Activates test-automation and runs the TC source gate before planning. The gaps have no signed Candidate Tests, so it STOPS and routes the gap ids (or their coverage Tech Story) to test-documentation. It creates no Test in the TMS, scores no ROI and writes no spec.",
+      "expected_behavior": "Activates test-automation and runs the TC source gate before planning. The gaps have no signed Candidate Tests, so it STOPS, reports and routes the gap ids (or their coverage Tech Story) to test-documentation. It creates no Test in the TMS, scores no ROI and writes no spec.",
       "category": "positive"
     },
     {
       "name": "should-trigger-missing-tests-routed-not-created",
       "prompt": "KEY-7012 has no Xray tests yet. Create the missing tests and automate them.",
-      "expected_behavior": "Activates test-automation. The TC source gate finds no signed Candidate for KEY-7012, so it does not create the Tests: it routes KEY-7012 to test-documentation (Analyze, ROI, the person's signature) and resumes only once the TCs exist at candidate with the Verdict signed line.",
+      "expected_behavior": "Activates test-automation. The TC source gate finds no signed Candidate for KEY-7012, so it STOPS and reports: it routes KEY-7012 to test-documentation (Analyze, ROI, the person's signature) and does not resume in this run. It creates no Test, writes no Verdict signed line and does not wait; a later run re-reads Jira and counts only a signature created and last updated before that run started.",
       "category": "positive"
     }
   ]

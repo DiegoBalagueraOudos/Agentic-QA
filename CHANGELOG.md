@@ -17,16 +17,19 @@ below names which one it applies to:
 ## Unreleased — Boilerplate
 
 ### Changed (signed ROI gate for automation, discovery intake)
-- **`test-automation` no longer creates Tests.** A TC source gate runs before Plan: every TC in
-  scope must exist in the TMS at `candidate` with a signed verdict, read from the TMS in the same
-  run. A missing or unsigned TC stops the session and goes to `/test-documentation` with its scope
-  (Story, coverage Tech Story or gap ids). The planning playbook's "create them in the TMS first",
+- **`test-automation` no longer creates Tests.** A TC source gate runs before Plan and first on
+  every resume. In scope are the Tests at `candidate` whose signature comment was created and last
+  updated in Jira before the run started; Manual and recorded-Deferred Tests are listed out of
+  scope. The run stops and routes the scope to `/test-documentation` (Story, coverage Tech Story or
+  gap ids) only for a named TC that is not a signed Candidate, a Test with no verdict, or zero
+  signed Candidates, and it never signs or waits inside the run it gates. The planning playbook's "create them in the TMS first",
   the module master document's own scenarios, the batch fleet's discovery work packages and the
   tracing troubleshooting row all follow the gate. `bun run test:sync` is documented as allowed only
   after a run in the environment the Test Execution names.
 - **Signed ROI verdicts.** `test-documentation` fires Candidate or Manual only after a person signs
-  the verdict, and the ROI comment ends with a `Verdict signed:` line, which is what the automation
-  gate reads. Candidates without the line get a sign-only pass. `stage-gates.md` makes signed ROI a
+  the verdict, and the ROI comment ends with a `Verdict signed:` line naming a record a reader can
+  check (the person's own comment, or the saved decision). Only an attended session writes it.
+  Candidates without the line get a sign-only pass (`tms-conventions.md` §9). `stage-gates.md` makes signed ROI a
   hard gate with no collapse path.
 - **Discovery intake** (`test-documentation/references/discovery-intake.md`): the coverage gap list
   and the exploratory round's candidate file feed Analyze, ROI and Document. COVERED is dropped with

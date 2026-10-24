@@ -31,7 +31,9 @@ A `weak` cover never dedupes a candidate away: only a counted `exercises` cover 
 
 - **The anchor exists.** Every candidate hangs on a coverable: the gap's `tech_story`, or the handoff's
   Anchor line. Read it back: `bun run jira:sync-issues get <TECHSTORY-KEY> --types tech_story --include-comments`
-  (`tech_story` is not a default sync type). No anchor, or a key that does not resolve -> STOP for that
+  (`tech_story` is not a default sync type). When the Anchor line names an existing Story or Bug instead, the
+  scope is `ticket-driven` or `module-driven` (`{US_ID}` = that key); the rest of this file applies
+  unchanged. No anchor, or a key that does not resolve -> STOP for that
   candidate and propose the coverage Tech Story through `project-context` mode `coverage` Step 5; a person
   approves it, this skill does not create it.
 - **The oracle answer is on Jira.** `oracle: confirmed` counts only when the anchor's synced description or
@@ -40,7 +42,8 @@ A `weak` cover never dedupes a candidate away: only a counted `exercises` cover 
   (`denominators.gaps_upper_bound`), a NEW behaviour may already have a Test: search the TMS for it before
   deriving anything.
 - **The cover still counts.** A COVERED candidate whose covering Test is now `deprecated`, back in design or
-  gone is re-marked NEW or WEAK.
+  gone, or whose cover row is `stale` or `verified: false`, is re-marked NEW or WEAK: the same rule the
+  exploratory handoff applies (`../../exploratory-testing/references/handoff-and-reporting.md` §3.1).
 
 ## 4. What each mark becomes
 
@@ -73,7 +76,8 @@ for that existing TC. A WEAK candidate still `oracle: observed` waits for the or
    Story; the expected result comes from the person's answer, never from the code or the map, which are the
    evidence shown with the question. A scenario nobody observed live and nobody confirmed is not
    characterized: no verdict; propose an `/exploratory-testing` charter for it, or ask the person with the code
-   or map shown as evidence.
+   or map shown as evidence. Dedupe each derived scenario against the gap list's `tests[].covers` (counted
+   `exercises` rows only; a `weak` cover never dedupes).
 2. **Gate 0.** Only `oracle: confirmed` scenarios are scored. `oracle: observed` waits, unscored, and stays
    listed.
 3. **Prioritize.** ROI per scenario, Candidate / Manual / Deferred, the person signs each verdict

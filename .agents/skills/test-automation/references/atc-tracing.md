@@ -242,9 +242,9 @@ The suite workflows under `.github/workflows/` run the second line as a
 step. `syncResults()` itself still honours the `AUTO_SYNC` gate, and in CI it
 exits non-zero when the report file is missing rather than returning silently.
 
-**When you may run `bun run test:sync`.** Only after a run against the environment the Test
-Execution names (its Test Environment). The write-back records `PASSED` / `FAILED`, and a case is
-`PASSED` or `FAILED` only when observed in that environment
+**When you may run `bun run test:sync`.** Only after a run against the environment the TC's
+precondition names (the Test Execution's Test Environment). The write-back records `PASSED` / `FAILED`,
+and a case is `PASSED` or `FAILED` only when observed in that environment
 (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §5.2). A Code-phase run, the local
 gate, a local stack or any environment other than the Execution's is evidence about the code,
 never a TMS result: leave `AUTO_SYNC` off for it. This is a usage rule; the sync code does not check the environment.

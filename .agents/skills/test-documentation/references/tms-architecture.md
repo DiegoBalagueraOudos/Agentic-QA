@@ -716,7 +716,7 @@ For N <= 10 TCs, classify inline — the dispatch overhead is not justified. The
 
 [TMS_TOOL] Update TC:
   id: {from TC ID}
-  status: PASSED            # only when observed in the Execution's environment (doctrine §5); else NOT RUN + reason
+  status: PASSED            # only when observed in the environment its precondition names (doctrine §5); else NOT RUN + reason
   workflow-status: Candidate  # only after the person signed the verdict (tms-conventions.md §9 "The ROI comment")
   precondition: {from test environment details}
   spec: {from step-by-step specification}

@@ -19,4 +19,4 @@
 
 | Date | Topic | Rule this project follows | Why | Measured |
 |---|---|---|---|---|
-| _(none yet)_ | | | | |
+| 2026-10-24 | Never-collapsed gates | Five, not four: the person-signed ROI verdict before automation joins the site's list (`agentic-qa-core/references/stage-gates.md`, "Signed ROI before automation is a hard gate") | A TC that reaches automation without a signed verdict skips the >50% Candidate/Manual alarm and the person's signature; light mode has no path around it | none |

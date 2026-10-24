@@ -327,8 +327,9 @@ Document:
 
 ```
 Plan:
-[ ] TC source gate passed: every TC in scope read from the TMS this run at `candidate` with a
-    signed verdict; none created or scored by this stage (missing → `/test-documentation`)
+[ ] TC source gate passed: every TC in scope read from the TMS this run at `candidate`, its
+    `Verdict signed:` comment created and last updated before this run started; Manual and
+    recorded-Deferred Tests listed out of scope; none created, scored or signed by this stage
 [ ] Only Candidate verdicts in scope; spec.md derives ATCs by technique (1:N)
 [ ] Test-Design Checklist applied (BVA where ranges exist; EP partitions distinct)
 Code:

@@ -52,7 +52,7 @@ Requires `agentic-qa-core`. Loads on demand:
 
 **Test-automation operational rules:**
 
-- Plan → Code → Review, always in order, behind the TC source gate: every TC in scope exists in the TMS with a SIGNED `Candidate` verdict (status `candidate` + the `Verdict signed:` line on its ROI comment, read from the TMS this run); missing or unsigned → STOP and route the scope to `/test-documentation`. This skill never creates a Test, scores ROI or fires a verdict transition. Signed ROI is a hard gate, never collapsed.
+- Plan → Code → Review, always in order, behind the TC source gate (also first on every resume): in scope = the Tests at `candidate` whose `Verdict signed:` ROI comment has Jira `created` AND `updated` older than this run's start; Manual and recorded-Deferred Tests are listed out of scope. STOP and route to `/test-documentation` only on a named TC that is not a signed Candidate, a Test with no verdict, or zero signed Candidates; never sign or wait inside the run. This skill never creates a Test, scores ROI or fires a verdict transition. Signed ROI is a hard gate, never collapsed.
 - A TC reaches `automated` (labels `+automated -automation-candidate`) only when its code is on the production branch (`git_strategy.branches.production`); a merge into an integration branch or a suite trunk is not `automated`. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §6.
 - Fixture selection: API-only → `{ api }` (no browser); UI-only → `{ ui }`; hybrid → `{ test }`.
 - ATC = atomic mini-flow; NEVER calls another ATC. Reusable chains → a Steps module.
@@ -150,6 +150,7 @@ Before picking the planning scope, run the session resume contract from `agentic
    - Read the cited canonical `spec.md` / `automation-plan.md` / `atc/*.md` under `.context/PBI/epics/EPIC-<KEY>-<slug>/test-specs/<scope>/` for the domain content.
    - Surface to the user: last completed phase (Plan / Code / Review) + next phase + open Review findings if any.
    - Offer **resume / restart / abort**. On `restart`, archive to `.session/.archive/<YYYY-MM-DD>-test-automation-<scope>-aborted/` before proceeding.
+   - On `resume`, run the TC source gate (below) FIRST, before the phase it resumes: a plan written before the gate existed may list unsigned TCs.
 
 Phase 0 is inline (no subagent).
 
@@ -174,18 +175,18 @@ When in doubt, ask the user which scope. Never assume "module" just because mult
 
 ## TC source gate (Phase 0 by TC source, MANDATORY before Plan)
 
-Runs after the scope is picked and before the first planning read. The TCs come from the TMS, never from this skill.
+Runs after the scope is picked and before the first planning read, and again FIRST on every resume, whatever phase the resume lands on. The TCs come from the TMS, never from this skill. Before reading Jira, append `## Phase 0 — TC source gate — <ts>` to `.session/test-automation/<scope>/progress.md`: that timestamp is this run's start.
 
-| Scope | TC list read from |
+| Scope | Tests looked at |
 |---|---|
 | ticket-driven | the Story's Tests (its `ATS:` Test Set membership, or its direct TC→Story links where no ATS can exist) |
 | bug-driven | the Test linked to the bug (`tests / is tested by`) |
 | module-driven | the module's Tests at `{{jira.status.test_case.candidate}}` (JQL by component + status) |
 | discovery-driven | the Tests of the coverage Tech Story's `ATS:` Test Set |
 
-A TC passes when it exists, sits at `{{jira.status.test_case.candidate}}` (or `in_automation` / `pull_request` on a resume), and its ROI comment carries `Verdict signed: <who>, <where>, <when>` (`test-documentation/SKILL.md` §"Three outcomes"). Read the status and the comments this run through `[ISSUE_TRACKER_TOOL]` (`/acli`; both are plain fields, and the sync never writes a Test: `test_case` declares `sync: never`); a local file, a plan, a label or a value this session wrote is not evidence (fail-closed, `agentic-qa-core/references/orchestration-doctrine.md`).
+**In scope** = the Tests at `{{jira.status.test_case.candidate}}` (or `in_automation` / `pull_request` on a resume) whose ROI comment carries a `Verdict signed:` line (format and the sign-only pass: `test-documentation/references/tms-conventions.md` §9) and whose Jira `created` AND `updated` timestamps both predate this run's start. Read status and comments this run through `[ISSUE_TRACKER_TOOL]`: the work item view of the `comment` field returns each comment's `id`, `created` and `updated` (the comment-list output does not), and the sync never writes a Test (`test_case` declares `sync: never`). A signature written or edited during this run keeps the gate closed; a local file, a plan, a label or a value this session wrote is not evidence (fail-closed, `agentic-qa-core/references/orchestration-doctrine.md`). While the agent works on the person's own tracker token this is the strongest evidence available; a code check is the follow-up (`agentic-qa-core/references/discovery-driven-doctrine.md` §8).
 
-Any TC missing, unsigned, `Manual`, `Deferred` or still in design → STOP and route to `/test-documentation` with the scope: the Story key, the coverage Tech Story key, or the gap ids. An unsigned legacy Candidate goes to a sign-only pass there, not a re-score. A partial set is the person's call: route the rest and wait, or narrow the work package to the signed TCs. Signed ROI is a hard gate with no collapse path (`agentic-qa-core/references/stage-gates.md` §Automation).
+**Out of scope, listed in the plan, never a stop**: Tests at `{{jira.status.test_case.manual}}`; Tests at `{{jira.status.test_case.ready}}` with a recorded Deferred verdict (their ROI comment, or the mirrored Deferred list on the coverable); Candidates without a valid signature, listed for the sign-only pass. **STOP and report**, routing the scope (Story key, coverage Tech Story key, or gap ids) to `/test-documentation`, only when a TC the request names is not a signed Candidate, a Test in the list has no verdict at all (no ROI record: undocumented or still in design), or the scope yields zero signed Candidates. This skill never runs the sign-only pass, and never waits for it, inside the run it gates: a later run re-reads Jira. Signed ROI is a hard gate with no collapse path (`agentic-qa-core/references/stage-gates.md` §Automation).
 
 ## Batch mode (fleet) — optional second executor
 

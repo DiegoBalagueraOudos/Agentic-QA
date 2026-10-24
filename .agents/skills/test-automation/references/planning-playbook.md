@@ -550,6 +550,8 @@ When `/test-automation` is invoked mid-flow (or resumed after context loss), the
 
 Before classifying state, read the current ticket in `PROGRESS.md` §Current status to confirm which ticket the resume applies to.
 
+Whatever row the resume lands on, the TC source gate (`../SKILL.md` §"TC source gate") runs FIRST, before Code or Review continue: a plan written before the gate existed, or before a verdict changed, may list TCs that are no longer signed Candidates.
+
 ### 12.1 Revision-loop ceiling (Phase 3 · Review)
 
 Maximum revision loops: **2**. If the test is still not APPROVED after 2 revision rounds, present all remaining issues to the user and ask for guidance. Do not enter an infinite loop of reviewer ↔ coder mutations.

@@ -632,7 +632,7 @@ Record the gate outcome (hypothesis, cited fact, decision) in the ATR Observatio
 | Story PASSED with TCs worth automating | Formalize TCs + ROI | `test-documentation` (Stage 4) |
 | Story PASSED but all TCs Manual-only | Close, no handoff | — |
 | Story FAILED | Wait for fix -> re-run Stage 2 on failed TCs -> repeat Stage 3 | (loop) |
-| Bug VERIFIED | Optionally add regression ATC | `test-automation` (Stage 5) |
+| Bug VERIFIED | Bug-driven decision (golden rule + ROI + the person's signature), then automate a signed Candidate | `test-documentation` (Stage 4), then `test-automation` (Stage 5) |
 | Bug NOT FIXED | Return to dev | — |
 | Release window near | CI regression suite | `regression-testing` (Stage 6) |
 
