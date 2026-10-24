@@ -28,7 +28,7 @@
  */
 
 import type { BoardConfig } from './config.ts';
-import type { Bug, SnapshotOptions, Source, SourceSnapshot, TestCase, Ticket } from './types.ts';
+import type { Bug, SnapshotOptions, Source, SourceSnapshot, TestCase, Ticket, UnclassifiedBugRow } from './types.ts';
 
 import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
@@ -208,6 +208,39 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
             }
           });
         snapshot.discover = { at: now.toISOString(), sprintRows: Object.keys(ticketRows).length, untracked };
+
+        // The file IS the sprint: every row under bugs: is one of the sprint's own bug rows.
+        const sprintBugs: Bug[] = [];
+        const unclassifiedBugs: UnclassifiedBugRow[] = [];
+        for (const [id, row] of Object.entries(bugRows)) {
+          const r = row as Mapping;
+          const status = text(r.status) ?? '';
+          try {
+            sprintBugs.push(bugs[id] ?? {
+              id,
+              title: text(r.title) ?? id,
+              status,
+              statusKey: status,
+              bucket: classifyBug(config.statusMap, id, status),
+              priority: text(r.priority),
+              type: text(r.type) ?? 'Bug',
+              sprint: text(r.sprint) ?? fileSprint,
+              module: text(r.module),
+              developer: text(r.developer),
+              qaOwner: text(r.qa),
+              createdAt: text(r.created),
+              updatedAt: text(r.updated),
+              link: text(r.link),
+              tickets: Object.values(tickets).filter(t => t.bugs.includes(id)).map(t => t.id),
+            });
+          }
+          catch (err) {
+            // A bug row in a status no bucket lists is named, never counted as open.
+            unclassifiedBugs.push({ id, status, reason: (err as Error).message });
+          }
+        }
+        snapshot.discover.bugs = sprintBugs;
+        if (unclassifiedBugs.length > 0) { snapshot.discover.unclassifiedBugs = unclassifiedBugs; }
       }
       return snapshot;
     },

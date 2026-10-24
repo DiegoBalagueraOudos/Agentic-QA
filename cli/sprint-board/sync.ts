@@ -162,8 +162,12 @@ async function syncOpen(slug: string, sprint: Sprint, config: BoardConfig, opts:
     // A sprint row in a status board.statuses does not list cannot be in test: named, never counted.
     const unclassified = rows.filter(r => r.bucket === null && !onBoard.has(r.id.toUpperCase())).map(r => ({ id: r.id, status: r.status }));
     if (unclassified.length) { console.warn(`discover: ${unclassified.length} untracked sprint row(s) in a status board.statuses does not list: ${unclassified.map(u => `${u.id} (${u.status})`).join(', ')}`); }
-    // No source returns the sprint's own bug rows yet, so `bugs` stays absent and the Bugs view says "not checked".
-    discovered = { at: now.toISOString(), sprintRows, untracked: untrackedInTest(untracked, onBoard), ...(unclassified.length ? { unclassified } : {}) };
+    // The sprint's own bug rows (the Bugs view's second source); absent when the source has no bug query, so the view says "not checked".
+    const sprintBugRows = first.discover?.bugs?.map(b => ({ id: b.id, ...trackerBugOf(b) }));
+    const lostBugs = first.discover?.unclassifiedBugs ?? [];
+    if (lostBugs.length) { console.warn(`discover: ${lostBugs.length} sprint bug row(s) left out, never counted: ${lostBugs.map(u => `${u.id} (${u.status || 'no status'}): ${u.reason}`).join('; ')}`); }
+    if (sprintBugRows) { console.log(`discover: ${sprintBugRows.length} bug rows in the sprint's bug query`); }
+    discovered = { at: now.toISOString(), sprintRows, untracked: untrackedInTest(untracked, onBoard), ...(unclassified.length ? { unclassified } : {}), ...(sprintBugRows ? { bugs: sprintBugRows } : {}) };
   }
 
   if (!ids.size) {

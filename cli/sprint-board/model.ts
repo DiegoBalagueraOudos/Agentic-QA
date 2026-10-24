@@ -986,8 +986,9 @@ const DAY_MS = 86_400_000;
  * The Bugs view's list. A bug belongs to the sprint when EITHER:
  *   1. it was linked on this board (`bug <ticket> <bug>`), or linked to a tracked ticket in the
  *      tracker, whatever sprint the tracker files it under; or
- *   2. it is one of the sprint's own bug rows (`discover.bugs`, when a source returns them) whose
- *      created time falls inside the sprint (start to close, or now). No source returns them yet:
+ *   2. it is one of the sprint's own bug rows (`discover.bugs`, read by `sync --discover`) whose
+ *      created time falls inside the sprint (start to close, or now). Before a discover read, or
+ *      on a jira source with no bug query (`board.bug_jql` neither set nor derivable),
  *      `search.bugRows` stays null and the view says "not checked".
  * A bug filed into another sprint (or none) and never linked here is not found: the view says so
  * with the denominators in `search`. Blocking = still open and filed against a ticket that is in QA

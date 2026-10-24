@@ -149,6 +149,7 @@ board:
   source: auto # auto | jira-xray | jira-native | none. auto follows testing.tms_cli (bun xray = jira-xray, anything else = jira-native); none = the tickets_file below
   tickets_file: .context/sprint/tickets.yaml # read by the `none` source only: with no tracker this versioned file IS the system of record
   jql: null # ticket query for the jira sources (e.g. project = PROJ AND sprint in openSprints() AND issuetype = Story)
+  bug_jql: null # the sprint's own bug rows (Bugs view); null = derived from jql, its issuetype clause swapped for the bug types (e.g. project = PROJ AND sprint in openSprints() AND issuetype in (Bug, Defect))
   ticket_key_pattern: null # null = derived ^<project_key>-\d+$; override when tickets span keys (e.g. '^(PROJ|OPS)-\d+$')
   timezone: null # IANA zone for day boundaries and report times (e.g. America/New_York); null = the machine's zone
   # Every status a ticket or bug can hold, in exactly ONE bucket. Jira sources use

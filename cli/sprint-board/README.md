@@ -209,7 +209,11 @@ Every bug of the sprint, from two sources, with what was searched printed under 
    tracker (`bugKeys`); one the tracker cannot find is printed and named on the search line as not
    found, never shown as open.
 2. **The sprint's own bug rows**, created inside the sprint (start to close, or now), when the
-   source returns them. No source returns them yet, so this part reads "not checked", never zero.
+   source returns them: `sync --discover` reads them (the `none` source: every row under `bugs:` of
+   `tickets.yaml`; the jira sources: `board.bug_jql`, else `board.jql` with its issuetype clause
+   swapped for the bug types, printed by `board:check`). Until a discover read, or when no bug query
+   can be derived, this part reads "not checked", never zero. A bug row in a status no bug bucket
+   lists is printed by `sync` and left out, never counted as open.
 
 A bug filed into another sprint (or none) and linked to nothing tracked is not found, and the
 search line says so.

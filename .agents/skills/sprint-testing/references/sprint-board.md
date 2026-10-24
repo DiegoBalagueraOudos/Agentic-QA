@@ -177,8 +177,8 @@ bun run board needs-you <KEY> "<the question>" \
   went out without it because the brief cited a plain-text precedent; every bug-filing brief names
   that step and tells the filer to run `bug ... --evidence-embedded` once the image is in. A `bug`
   call that printed the evidence reminder without that flag is a bug still missing its image.
-- **Bugs view**: every bug linked with `bug` plus every bug the tracker links to a tracked ticket,
-  grouped blocking a ticket / open not blocking / resolved or closed, with the denominators printed.
+- **Bugs view**: every bug linked with `bug`, every bug the tracker links to a tracked ticket, and
+  the sprint's own bug rows created inside the sprint (read by `sync --discover`), grouped blocking a ticket / open not blocking / resolved or closed, with the denominators printed.
   Its "Copy for Slack" follows §4 like the progress table: the owner posts it, the conductor never
   does. Full rule: `cli/sprint-board/README.md` §Bugs view.
 - **Fixtures**: `fixture <KEY> "<data found>" [--module <module>]` records reusable test data a
