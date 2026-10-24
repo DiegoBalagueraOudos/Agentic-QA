@@ -16,6 +16,17 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Added (coverage inventory)
+- **`project-context` mode `coverage`**: crosses the behaviours in the business maps with the
+  tests (the KATA manifest at the production branch, the TMS test repository, the regression
+  repository) and puts each one in exactly one bucket: `automated`, `manual-only`, `weak` or
+  `uncovered`. Gaps are ordered by the Master Test Plan's risk. The `weak` verdict and the risk
+  level are agent judgments with one evidence line per row; the buckets, the order and the
+  run-over-run diff are computed by **`bun run context:coverage`** (`collect`, `classify`,
+  `propose`), so the gap list is recomputable. Coverage Tech Stories are proposed as a dry run and
+  created only after a person approves them. Files live under the primary checkout's
+  `.session/project-context/coverage/`. Never part of `refresh-all`.
+
 ### Added (sprint source layer)
 - **`cli/lib/sprint-source/`**: the configuration layer and `Source` interface the Sprint Board,
   Merge Line and evidence modules will build on (ADR-0019). Three sources (`jira-xray`,
