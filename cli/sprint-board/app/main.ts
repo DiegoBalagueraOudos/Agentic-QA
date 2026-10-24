@@ -118,7 +118,7 @@ function render(): void {
     // The header names the page, not a sprint: this view is repo-wide.
     $('#sprint-name')!.textContent = 'Merge Line';
     $('#sprint-day')!.textContent = mergeRaw?.state?.mainSha ? `main ${mergeRaw.state.mainSha}` : 'main';
-    $('#env-chip')!.textContent = 'qa-automation';
+    $('#env-chip')!.textContent = mergeRaw?.state?.repo?.split('/').at(-1) ?? tr('repository', 'repositorio');
     document.title = `${mergeNeeds(mergeRaw) ? `(${mergeNeeds(mergeRaw)}) ` : ''}Merge Line`;
     $('#view')!.innerHTML = viewMerge(demoState ? null : mergeRaw, { live: live() && !demoState });
     if (openPr != null) {

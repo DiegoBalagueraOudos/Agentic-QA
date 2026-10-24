@@ -26,7 +26,7 @@ const PARAMS: BuildParams = {
   nextOpen: '2026-01-15T09:00:00Z',
   mainBranch: 'main',
   repo: 'acme/shop',
-  timezone: 'America/Argentina/Buenos_Aires',
+  timezone: 'UTC',
   winOpen: '09:00',
   winClose: '21:00',
   days: '1 2 3 4 5',

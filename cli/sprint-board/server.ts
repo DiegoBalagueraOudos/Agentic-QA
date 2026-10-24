@@ -28,7 +28,7 @@ import { appendEvent, archiveDir, BOARD_DIR, currentSlug, listArchives, listSpri
 
 const APP_DIR = join(import.meta.dir, 'app');
 /** Merge Line's data, shared by every worktree through the .session symlink. */
-const MERGE_DIR = join(REPO_ROOT, '.session', 'gitflow-master');
+const MERGE_DIR = process.env.MERGE_STATE_DIR ?? join(REPO_ROOT, '.session', 'gitflow-master');
 const COLLECT = join(import.meta.dir, 'merge-collect.ts');
 const mergeWatched = () => [join(MERGE_DIR, 'docs', 'meta'), join(MERGE_DIR, 'docs', 'prs'), join(MERGE_DIR, 'notes'), join(MERGE_DIR, 'collector.json')];
 const EVIDENCE_ROOTS = ['.session', '.context/PBI'].map(r => join(REPO_ROOT, r));
