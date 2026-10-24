@@ -178,12 +178,12 @@ Runs after the scope is picked and before the first planning read. The TCs come 
 
 | Scope | TC list read from |
 |---|---|
-| ticket-driven | the Story's Tests (its `ATS:` Test Set membership) |
+| ticket-driven | the Story's Tests (its `ATS:` Test Set membership, or its direct TC→Story links where no ATS can exist) |
 | bug-driven | the Test linked to the bug (`tests / is tested by`) |
 | module-driven | the module's Tests at `{{jira.status.test_case.candidate}}` (JQL by component + status) |
 | discovery-driven | the Tests of the coverage Tech Story's `ATS:` Test Set |
 
-A TC passes when it exists, sits at `{{jira.status.test_case.candidate}}` (or `in_automation` / `pull_request` on a resume), and its ROI comment carries `Verdict signed: <who>, <where>, <when>` (`test-documentation/SKILL.md` §"Three outcomes"). Read it this run with `bun run jira:sync-issues get <KEY> --include-comments`; a local file, a plan, a label or a value this session wrote is not evidence (fail-closed, `agentic-qa-core/references/orchestration-doctrine.md`).
+A TC passes when it exists, sits at `{{jira.status.test_case.candidate}}` (or `in_automation` / `pull_request` on a resume), and its ROI comment carries `Verdict signed: <who>, <where>, <when>` (`test-documentation/SKILL.md` §"Three outcomes"). Read the status and the comments this run through `[ISSUE_TRACKER_TOOL]` (`/acli`; both are plain fields, and the sync never writes a Test: `test_case` declares `sync: never`); a local file, a plan, a label or a value this session wrote is not evidence (fail-closed, `agentic-qa-core/references/orchestration-doctrine.md`).
 
 Any TC missing, unsigned, `Manual`, `Deferred` or still in design → STOP and route to `/test-documentation` with the scope: the Story key, the coverage Tech Story key, or the gap ids. An unsigned legacy Candidate goes to a sign-only pass there, not a re-score. A partial set is the person's call: route the rest and wait, or narrow the work package to the signed TCs. Signed ROI is a hard gate with no collapse path (`agentic-qa-core/references/stage-gates.md` §Automation).
 

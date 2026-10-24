@@ -6,9 +6,10 @@ else: no Analyze, no ROI, no new Test, no verdict change. Canon:
 `../../agentic-qa-core/references/discovery-driven-doctrine.md` §6.
 
 Who calls it: `/git-flow-master` hands it off when a promotion into the production branch merges ("Promotion
-landed on `<production>`: run the post-promotion `merged` pass"), and `/test-automation` routes here when a
-ticket PR merges straight into the production branch (single-branch strategies). The `/test-automation`
-light stage verifier is the backstop that finds a TC this pass missed.
+landed on `<production>`: run the post-promotion `merged` pass"). Under a single-branch strategy the ticket PR
+merges straight into the production branch and nothing hands the pass off automatically: run it on request
+after the merge, and the `/test-automation` light stage verifier is the backstop that finds a TC left at
+`{{jira.status.test_case.pull_request}}` with its spec already on the production branch.
 
 > **Prerequisite**: load `/acli` before any `[ISSUE_TRACKER_TOOL]` call below.
 
@@ -37,7 +38,8 @@ light stage verifier is the backstop that finds a TC this pass missed.
 5. Both checks and CI pass: fire `{{jira.transition.test_case.merged}}`, set labels `+automated -automation-candidate`,
    and comment `Automated: <spec path> on origin/<production>@<short sha>, CI <run url>`. An unmapped slug runs
    the fallback in `../../agentic-qa-core/references/artifact-lifecycle.md` §4.
-6. Read every transitioned TC back (`bun run jira:sync-issues get <TC_KEY>`) and confirm the status
+6. Read every transitioned TC back through `[ISSUE_TRACKER_TOOL]` (the sync never writes a Test: `test_case`
+   declares `sync: never`) and confirm the status
    (Critical Rule #16). The transition call returning success is not the check.
 
 ## 3. What this pass never does
