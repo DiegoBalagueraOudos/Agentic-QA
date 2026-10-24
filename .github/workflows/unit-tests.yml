@@ -80,6 +80,12 @@ jobs:
         # scripts/ui-page.test.ts drives the installer page in a real browser
         # and skips when Chromium is missing.
 
+      - name: Install Pillow
+        if: steps.upstream.outputs.enforced == 'true'
+        run: python3 -m pip install --user pillow
+        # The evidence-artifact build.py tests (run by bun test) skip when
+        # Python 3.9+ or Pillow is missing.
+
       - name: Repo Gates
         if: steps.upstream.outputs.enforced == 'true'
         run: |
