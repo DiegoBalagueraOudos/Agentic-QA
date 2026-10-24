@@ -528,8 +528,8 @@ describe('collectParityFindings', () => {
     write(root, '.agents/project.yaml', 'git_strategy:\n  strategy: solo-main\n  meta:\n    strategy_source: chosen\n');
     const skill = [
       '# Sprint testing',
-      'playwright-cli -s=TK-{n} open --profile=.playwright/profiles/TK-{n}',
-      'Add `--persistent` only if you need it: `playwright-cli -s=TK-1 open https://app --persistent`',
+      'playwright-cli -s=KEY-{n} open --profile=.playwright/profiles/KEY-{n}',
+      'Add `--persistent` only if you need it: `playwright-cli -s=KEY-1 open https://app --persistent`',
       '',
     ].join('\n');
     write(root, '.agents/skills/sprint-testing/SKILL.md', skill);
@@ -547,7 +547,7 @@ describe('collectParityFindings', () => {
 
     expect(browserProfileDrift(root)).toEqual([
       { file: 'AGENTS.md', line: 1, flag: `--profile=${join(root, '.playwright/profiles/W1')}`, reason: 'profile inside the repo' },
-      { file: '.agents/skills/sprint-testing/SKILL.md', line: 2, flag: '--profile=.playwright/profiles/TK-{n}', reason: 'relative profile' },
+      { file: '.agents/skills/sprint-testing/SKILL.md', line: 2, flag: '--profile=.playwright/profiles/KEY-{n}', reason: 'relative profile' },
       { file: '.agents/skills/sprint-testing/SKILL.md', line: 3, flag: '--persistent', reason: 'persistent' },
     ]);
     const rows = findings();
@@ -555,7 +555,7 @@ describe('collectParityFindings', () => {
     expect(rows.find(r => r.path === '.agents/skills/sprint-testing/SKILL.md')).toMatchObject({ surface: 'skills', blocking: false, suggested: 'keep project' });
     expect(rows.find(r => r.path === 'AGENTS.md')).toMatchObject({ surface: 'instructions', blocking: false });
     const evidence = rows.find(r => r.path === '.agents/skills/sprint-testing/SKILL.md')!.evidence;
-    expect(evidence).toStartWith('informational: line 2 --profile=.playwright/profiles/TK-{n} (relative profile); line 3 --persistent (persistent)');
+    expect(evidence).toStartWith('informational: line 2 --profile=.playwright/profiles/KEY-{n} (relative profile); line 3 --persistent (persistent)');
     expect(evidence).toContain('browser-sessions.md');
     expect(readFileSync(join(root, '.agents/skills/sprint-testing/SKILL.md'), 'utf8')).toBe(skill);
   });
@@ -580,16 +580,16 @@ describe('collectParityFindings', () => {
     expect(browserProfileSitesIn('.agents/skills/x/SKILL.md', quiet, root)).toEqual([]);
 
     // The vendor playwright-cli skill documents its own flag; a relative profile in it is still a project edit.
-    const vendor = 'playwright-cli open --persistent\nplaywright-cli open --profile=/path/to/profile\nplaywright-cli -s=TK-1 open --profile=.playwright/profiles/TK-1\n';
+    const vendor = 'playwright-cli open --persistent\nplaywright-cli open --profile=/path/to/profile\nplaywright-cli -s=KEY-1 open --profile=.playwright/profiles/KEY-1\n';
     expect(browserProfileSitesIn('.claude/skills/playwright-cli/SKILL.md', vendor, root)).toEqual([
-      { file: '.claude/skills/playwright-cli/SKILL.md', line: 3, flag: '--profile=.playwright/profiles/TK-1', reason: 'relative profile' },
+      { file: '.claude/skills/playwright-cli/SKILL.md', line: 3, flag: '--profile=.playwright/profiles/KEY-1', reason: 'relative profile' },
     ]);
 
     // Repo-root spellings and a bare relative name on a browser line.
     const loud = [
       'playwright-cli -s=K open --profile=<repo>/.playwright/profiles/K',
       'playwright-cli -s=K open --profile="$PWD/profiles/K"',
-      'playwright-cli -s=K open --profile=TK-1',
+      'playwright-cli -s=K open --profile=KEY-1',
       'pw open --persistent >/dev/null 2>&1',
     ].join('\n');
     expect(browserProfileSitesIn('scripts.sh', loud, root).map(s => s.reason)).toEqual([
