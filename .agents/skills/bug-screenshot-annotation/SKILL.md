@@ -24,6 +24,8 @@ A workflow skill (`metadata.kind: workflow`) with no dispatch of its own: it is 
 - DO: state the final PNG's repo-relative path in chat the moment it lands, unprompted, and repeat it leading the "Bug annotations" group in the session-close screenshot list.
 - WHEN embedding the annotated PNG into the bug issue: offer it and let the human confirm first; once published it leads the bug's Evidence section, ahead of the raw capture.
 
+- DIRECTION: the evidence page (`agentic-qa-core/references/evidence-page.md`) keeps marks as data on one offline page per ticket and per bug; when a ticket has one, link it and keep this PNG only where a tracker needs an inline image.
+
 **Read full SKILL.md when**: building the annotation HTML, choosing shape types, or handling a case the local render cannot cover (e.g. a photo of physical signage that would need anonymization).
 
 ---

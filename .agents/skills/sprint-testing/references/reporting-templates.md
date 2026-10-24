@@ -528,7 +528,7 @@ Artifacts: ATP-{id}, ATR-{id}
 
 ### 3.5 Evidence Handoff (emit at Stage 3 close whenever UI or API evidence exists)
 
-A ranked, captioned shortlist of exactly what belongs on the ticket, emitted in chat after the Template A-D comment posts — **on ANY verdict** (pass, fail, bug, open question): a reader trusts a finding far more when they can see it, UI work especially. It never goes inside the Jira comment body itself.
+A ranked, captioned shortlist of exactly what belongs on the ticket, emitted in chat after the Template A-D comment posts — **on ANY verdict** (pass, fail, bug, open question): a reader trusts a finding far more when they can see it, UI work especially. It never goes inside the Jira comment body itself. When the ticket has a built evidence page, the handoff also cites the page: its URL once published, else its path and "page pending publish" (`agentic-qa-core/references/evidence-page.md` §5).
 
 Format:
 

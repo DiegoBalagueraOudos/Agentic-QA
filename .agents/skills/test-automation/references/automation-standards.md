@@ -623,6 +623,8 @@ test('TICKET-ID: should reject signup with invalid email @blocked:UPEX-999', asy
 
 The test stays in the suite (no silent skip) so the failure remains informative, and the `@blocked:{BUG-KEY}` tag lets regression runs filter it out of GO/NO-GO until the bug is fixed. Remove both markers when the bug closes and the test goes green.
 
+Inside the test body, `knownDefect('{BUG-KEY}')` (`tests/utils/knownDefect.ts`) replaces the `test.fail(...)` line: it sets the expected failure and records the key in one call, so the two never drift apart. Keep the `@blocked:{BUG-KEY}` title tag for the regression filter. `KataReporter` classifies the test as `known-defect` while it fails and as `unexpected-pass` once it passes, an action item that keeps the run headline red until the markers are removed (ADR-0020). A bare `test.fail()` that names no key is an action item too. Never mark an expected failure any other way.
+
 | Marker | Means | Use when |
 |--------|-------|----------|
 | `test.fail('Blocked by {BUG-KEY}')` + `@blocked:{BUG-KEY}` | A known product bug prevents passing | The product is broken — a bug key exists |

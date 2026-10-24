@@ -25,6 +25,8 @@ KNOWN-BLOCKED > KNOWN ISSUE > ENVIRONMENT > NEW TEST > REGRESSION > FLAKY
 
 Rationale: a `@blocked:{BUG-KEY}` marker is definitive — the test was parked on purpose, so no other rule applies (and it never enters the gating pass-rate; see SKILL.md §Compute metrics). If a ticket already tracks the failure, stop looking. If the error is clearly infrastructure, do not blame the code. A test with no history cannot be a regression yet.
 
+**Read the run's counts from `reports/test-outcomes.json`, never from Allure's status.** `KataReporter` writes one record per test with an outcome class (`passed`, `failed`, `known-defect`, `unexpected-pass`, `skipped`) and computes the run headline from those records (ADR-0020). Allure files an expected failure as passed, and Playwright reports a test skipped by a failed `beforeAll`, serial sibling or setup project as ok; the records count both. A `known-defect` record is the input for KNOWN-BLOCKED below (its `knownDefect` field holds the key); an `unexpected-pass` record is an action item: retest the bug, never a silent pass; a `failed` record with cause `setup-cascade` or `dependency-failed` never ran its body, so classify its ROOT test (the `rootTestId`) and count the rest as not observed.
+
 **Every class except REGRESSION needs a citation.** Those classes let a failure past the release gate, and the classifier picks them, so the choice is fail-closed (`agentic-qa-core/references/orchestration-doctrine.md`, FAIL-CLOSED GATES): each STOP in §2 names what to cite, and a class whose citation is missing, empty, or points at a ticket filed during this session is recorded as REGRESSION instead. The precedence above decides between classes that are proven; it never promotes a class that is not.
 
 ---

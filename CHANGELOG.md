@@ -27,6 +27,39 @@ below names which one it applies to:
   created only after a person approves them. Files live under the primary checkout's
   `.session/project-context/coverage/`. Never part of `refresh-all`.
 
+### Added (evidence page)
+- **`bun run evidence build --pack <pack.json>`** builds one self-contained, offline HTML evidence
+  page per ticket and per bug from an `evidence-pack/1.0` JSON pack (ADR-0021): verdict, build
+  under test, a board of cases and bugs, annotated screenshots with marks kept as data, API calls,
+  SQL results, timelines, and earlier retest rounds as BEFORE FIX history. The build refuses
+  secrets, `.auth` files, HAR and traces, burns redactions into the pixels, and stops over the
+  size limit. `--thumb` writes a bug thumbnail. No new dependency.
+- **Publishing goes through a host seam**: by default the agent publishes the page as a private
+  Claude artifact and runs `bun run evidence record --pack <pack> --url <url>` (only hosts in
+  `board.evidence.allowed_hosts`); `--host local` links the file on disk instead.
+  `bun run evidence demo` builds a synthetic example. Agent workflow:
+  `agentic-qa-core/references/evidence-page.md`.
+
+### Added (test outcome classes)
+- **Every automated test now gets one outcome class** (`passed`, `failed`, `known-defect`,
+  `unexpected-pass`, `skipped`), written by `KataReporter` to `reports/test-outcomes.json`
+  (schema `test-outcomes/1.0`, ADR-0020). A test skipped by a failed `beforeAll`, serial sibling
+  or setup project counts as `failed` (BLOCKED on the board: its body never ran), an expected
+  failure that starts passing is an `unexpected-pass` action item, and an expected failure with
+  no defect key is an action item too.
+- **`knownDefect('<KEY>')`** (`tests/utils/knownDefect.ts`) marks an expected failure and its
+  defect key in one call; the `@blocked:<KEY>` tag and `test.fail(true, 'Blocked by <KEY>')`
+  keep working.
+- **Changed: the final banner** comes from the outcome records. It reads `ALL TESTS PASSED` only
+  when nothing failed, passed unexpectedly or was left not run; otherwise it names the counts
+  (`PASSED WITH 2 KNOWN DEFECTS`, `EXECUTION FAILED: 4 FAILED (3 NOT OBSERVED: SETUP FAILED, ...)`).
+  In GitHub Actions the same counts go to the step summary. The exit code is unchanged. A CI step
+  that matched the old failure text should read the records file instead.
+- **Upgrade step for existing projects**: `bun sync` does not write `tests/` (it is the project's
+  own), so the outcome classes reach a project created before this release only by hand: copy
+  `tests/utils/testOutcomes.ts` and `tests/utils/knownDefect.ts`, then merge the `KataReporter.ts`
+  and `tests/utils/decorators.ts` changes into your copies.
+
 ### Added (sprint source layer)
 - **`cli/lib/sprint-source/`**: the configuration layer and `Source` interface the Sprint Board,
   Merge Line and evidence modules will build on (ADR-0019). Three sources (`jira-xray`,
