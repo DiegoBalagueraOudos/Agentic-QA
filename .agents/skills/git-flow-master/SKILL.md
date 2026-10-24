@@ -567,5 +567,6 @@ lifecycle, multi-session safety rules, and the decision guide: `references/workt
 | `references/pr-templating.md`        | PR body template, placeholder rules, label / reviewer / draft conventions, multi-strategy base-branch table. Read when opening a PR.                   |
 | `references/conflict-resolution.md`  | Per-conflict-type playbooks (merge / rebase / push-rejected / detached-HEAD / stash / unrelated histories / hook rejection). Read when Step 3.5 fires. |
 | `references/worktrees.md`            | Git worktrees for isolated/parallel work — manual git, Claude Code `EnterWorktree`/`ExitWorktree`, orchestrated worktrees, the untracked-files gotcha, gitignored-file provisioning, multi-session safety, the orphan audit before removal, cleanup, decision guide. Read when isolating work or running parallel sessions. |
+| `references/observer.md`             | Merge Line, the read-only PR view of the Sprint Board: the observer rule (never acts on GitHub), lanes, order, approval and tracker parity, the collector (`cli/sprint-board/merge-collect.ts`), its state and gotchas. Read when reading, operating or changing Merge Line. |
 
 Read references on demand — do not load them all upfront. Each file is self-contained.
