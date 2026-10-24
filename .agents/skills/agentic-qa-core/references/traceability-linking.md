@@ -22,6 +22,7 @@ Traceability linking turns QA intent into a queryable graph in Jira. These touch
 | `sprint-testing`        | ATS (per-Story Acceptance Test Set, `ATS: {US_ID}: {story title}`) created/updated for the Story — Stage 1, Set-first | Story `is tested by` ATS (`test`) — **the coverage-bearing edge** (§3) |
 | `sprint-testing`        | ATP item find-or-created FROM the `{{jira.acceptance_test_plan}}` field — Stage 1, Set-first step 2 | Story `is tested by` ATP (`test`, administrative) |
 | `sprint-testing`        | Defect found during in-sprint QA of a Story                     | Story `causes` Bug (`problem_incident`)       |
+| `test-documentation`    | Test documented for a discovery-driven gap (no Story)           | coverage Tech Story `is tested by` its ATS (`test`) — the same coverage-bearing edge a Story takes (`discovery-driven-doctrine.md` §3) |
 | `sprint-testing`        | QA blocks a Story on an open defect (the `defect_reported → blocked` gate) | Story `is blocked by` Bug (`blocks`)          |
 | `regression-testing`    | Existing Test re-bound to a Story for a regression cycle        | ATP `designs` Test (`test_design`); ATR `executes` Test (`test_execute`) |
 

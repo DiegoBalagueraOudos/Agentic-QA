@@ -288,8 +288,8 @@ The shape of `<scope>` is decided per skill, not per invocation. Each retrofitte
 | Skill | Scope shape | Identifier source |
 |---|---|---|
 | `sprint-testing` | `<JIRA-KEY>` (single-issue); `sprint-<N>` (sprint-wide — a scope in its own right, holding one nested `<JIRA-KEY>/` sub-scope per issue) | Jira issue key or sprint number |
-| `test-automation` | `<JIRA-KEY>` (ticket-driven, regression-driven); `<module-slug>` (module-driven) | Jira ticket or module name from scope-picker |
-| `test-documentation` | `<JIRA-KEY>` (ticket / bug); `<module-slug>` (module); `<YYYY-MM-DD>-adhoc` (ad-hoc) | Scope-picker output |
+| `test-automation` | `<JIRA-KEY>` (ticket-driven, bug-driven, discovery-driven per gap); `<module-slug>` (module-driven, discovery-driven per module) | Jira ticket or module name from scope-picker |
+| `test-documentation` | `<JIRA-KEY>` (ticket / bug / discovery per gap); `<module-slug>` (module / discovery per module); `<YYYY-MM-DD>-adhoc` (ad-hoc) | Scope-picker output |
 | `framework-development` | `<change-name>` (kebab-case) | User-provided at session start |
 | `regression-testing` | `<env>-<YYYY-MM-DD>` (e.g. `staging-2026-05-20`) | Invocation env + date |
 | `shift-left-testing` | `<YYYY-MM-DD>-<descriptor>` | Session init |

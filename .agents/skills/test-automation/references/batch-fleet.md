@@ -29,7 +29,7 @@ A **Work Package (WP)** is one delivery unit = **one `test-specs/<ID>/` spec**: 
 | WP origin | What `<ID>` is | Where its TC list comes from |
 |---|---|---|
 | **Sprint** | the Story key + slug | the Story's `Candidate` verdicts from `/test-documentation` (Stage 4). `Manual` / `Deferred` never enter a WP |
-| **Discovery** | the Tech Story key + slug, or the module slug | a coverage gap recorded as a Tech Story; the WP's spec is authored in Phase 1 like any other |
+| **Discovery** | the Tech Story key + slug, or the module slug | a coverage gap anchored to a coverage Tech Story (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §3), scope `discovery-driven`; the WP's spec is authored in Phase 1 like any other |
 
 Rules:
 
