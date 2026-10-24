@@ -47,6 +47,7 @@ regression     the RTP grows; recompute the inventory and compare it with the fi
 The exploration slot is declared in `./stage-gates.md` §"The stages, by name" and is not implemented
 yet: no skill owns it, so no checklist is written for it. Until one does, the steps above run through
 the skills that exist (`test-documentation` and `test-automation`, both in their `discovery-driven` scope, §2).
+The `inventory` step is owned by `project-context` mode `coverage` (`../../project-context/references/coverage.md`).
 
 ---
 

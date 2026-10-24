@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-24T07:42:45.651Z`
+> Generated: `2026-10-24T14:57:37.817Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -403,8 +403,9 @@ Skills indexed: 26
 **Purpose**: Generate or refresh the business context maps (the HTML maps inside business-data-context, business-api-context and business-e2e-context)...
 
 **Compact Rules**:
-- Exactly ONE mode per run: `data` · `e2e` (synonym `features`) · `api` · `test-plan` · `refresh-all` · `context-skill`. Load only that mode's reference; never open a second one in the same pass.
+- Exactly ONE mode per run: `data` · `e2e` (synonym `features`) · `api` · `test-plan` · `refresh-all` · `context-skill` · `coverage`. Load only that mode's reference; never open a second one in the same pass.
 - `context-skill` scaffolds a project-owned `<aspect>-context` for an aspect the shipped context map skills (`CONTEXT_MAP_SKILLS`) do not cover (`../agentic-qa-core/references/skill-scaffold.md` §3): it cites its sources and never copies them. `refresh-all` never includes it. Its router row goes in the `## Project context skills` table of `.agents/instructions/agent-project.md`, its trigger phrases in that file's `triggers:`; NEVER in `agent-skills-and-mcps.md`, which `bun sync` overwrites.
+- `coverage` reads the maps, the KATA manifest and the TMS and buckets every behaviour (`automated` · `manual-only` · `weak` · `uncovered`); `refresh-all` never includes it. It writes only `<<PRIMARY_ROOT>>/.session/project-context/coverage/` (companion files: this skill opts out of the session Phase 0) and never edits a test or a map. The `weak` verdict and the risk level are agent judgments with one evidence line per row; the buckets, order and diff are `bun run context:coverage classify`. Coverage Tech Stories are created only after a person approves the gap list, picked by weight (`mkd` deck for per-item choices, the question tool for one yes/no).
 - Mode → reference → output: see the Mode routing table. A map mode writes ONLY its own skill's `references/<map>.html`; the legacy markdown files a project may hold (the skill's `legacy` list in `CONTEXT_MAP_SKILLS`, `cli/lib/context-maps.ts`) are read as input and never deleted. Domain vocabulary and architecture come from the maps `project-discovery` generates: `bun run context:map business-domain-context` and `bun run context:map infra-context`, never a `.context/` file. `test-plan` → `references/test-plan.md` → the `## Master Test Plan` section of the `QA Master Test Plan` Epic description in Jira (cached by the sync at `.context/PBI/qa-artifacts/master-test-plan.md`; never a local file).
 - User did not name a mode → ASK. NEVER infer `refresh-all` from a generic "refresh the context" request.
 - `refresh-all` runs strictly `data` → `e2e` → `api` → `test-plan`, one at a time. Each reference's own validation and approval gate must close before the next is loaded. Never skip ahead.
