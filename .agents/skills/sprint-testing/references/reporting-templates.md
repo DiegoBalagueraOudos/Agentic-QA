@@ -297,9 +297,9 @@ The same body text is used in both modalities; only the container differs (§2.4
 ```
 {{PROJECT_KEY}}-{number} TEST RESULTS
 Tested: {date}
-Environment: {Staging | localhost}
+Environment: {the environment the cases were observed in (the ATR Test Environment)}
 Tester: {name/email}
-Result: {PASSED | FAILED | PASSED WITH ISSUES} ({passed}/{total})
+Result: {PASSED | FAILED | PASSED WITH ISSUES | PASSED WITH DEFERRALS} ({passed}/{total})
 
 SUMMARY
   {Brief description of what was tested}
@@ -309,7 +309,7 @@ TEST CASES
   TC-{id}: {name} ... {status}
   TC-{id}: {name} ... {status}
 
-DEFERRED CASES
+DEFERRED (EXECUTION) CASES
   {None | TC-{id}: DEFERRED (execution) {date} by QA decision: {reason}; follow-up {KEY}}
 
 TEST DATA
@@ -325,7 +325,7 @@ RECOMMENDATIONS
   {Automation candidates, future testing, improvements}
 ```
 
-"Result" values: `PASSED` (all TCs pass), `FAILED` (one or more fail), `PASSED WITH ISSUES` (all pass but with notable observations, or every case that did not pass is a recorded `DEFERRED (execution)` listed under DEFERRED CASES). The per-TC statuses come from the Execution Status field (Run), not the Test Status workflow — see `test-documentation/references/tms-conventions.md` §IQL.
+"Result" values: `PASSED` (all TCs pass), `FAILED` (one or more fail), `PASSED WITH ISSUES` (all pass but with notable observations, or a FAIL recalibrated to GO-with-debt per §5.0), `PASSED WITH DEFERRALS` (none FAILED, and every case that did not pass is a recorded `DEFERRED (execution)` listed under DEFERRED (EXECUTION) CASES). The per-TC statuses come from the Execution Status field (Run), not the Test Status workflow — see `test-documentation/references/tms-conventions.md` §IQL.
 
 ### 2.3 Upload by modality
 
@@ -386,7 +386,7 @@ for each {TEST_KEY, result} in run:
       Test Status: PASSED | FAILED | NOT RUN  # NOT RUN carries its DEFERRED (execution) reason in the comment; terminal-set caveat: §2.4
   [ISSUE_TRACKER_TOOL] Add Comment:
     issue: {TEST_KEY}
-    body: "Run {date}: {result}. Env: {env}. Session: {STORY_KEY}"
+    body: "Run {date}: {result}. Env: {env}. Session: {STORY_KEY}"  # NOT RUN: append "DEFERRED (execution) {date} by QA decision: {reason}; follow-up {KEY}"
 ```
 
 ### 2.4 "Mark ATR complete" semantics
@@ -395,7 +395,7 @@ for each {TEST_KEY, result} in run:
 
 | Modality | Completion signal |
 |----------|-------------------|
-| A (Xray) | All Test Runs at a terminal status (PASS/FAIL/BLOCKED/ABORTED, not TODO/EXECUTING), THEN the Test Execution issue transitioned via `{{jira.transition.test_execution.complete}}` to `{{jira.status.test_execution.close}}` (the status is named `Close`, not `Done`). A bug retest closes its `ReTest:` Execution with `{{jira.transition.re_test_execution.complete}}`. The terminal set is whatever THIS instance configures. An unexecuted case is never recorded FAILED: its run stays `TODO` (or `BLOCKED` where the instance defines it) and the ATR body carries `DEFERRED (execution) <date> by QA decision: <reason>; follow-up <KEY>`. The Execution closes once every non-terminal run carries such a line (see `sprint-orchestration.md` Stage 3 step 3-bis). |
+| A (Xray) | Every Test Run at a terminal status (PASS/FAIL/BLOCKED/ABORTED, not TODO/EXECUTING), or left `TODO` with its `DEFERRED (execution)` line in the ATR body, THEN the Test Execution issue transitioned via `{{jira.transition.test_execution.complete}}` to `{{jira.status.test_execution.close}}` (the status is named `Close`, not `Done`). A bug retest closes its `ReTest:` Execution with `{{jira.transition.re_test_execution.complete}}`. The terminal set is whatever THIS instance configures. An unexecuted case is never recorded FAILED: its run stays `TODO` (or `BLOCKED` where the instance defines it) and the ATR body carries `DEFERRED (execution) <date> by QA decision: <reason>; follow-up <KEY>`. The Execution closes once every non-terminal run carries such a line (see `sprint-orchestration.md` Stage 3 step 3-bis). |
 | B (Jira-native) | `{{jira.acceptance_test_results}}` populated with full body (not placeholder), or the `## Acceptance Test Results (ATR)` fallback comment when the field is absent; every linked TC has a terminal Test Status, or stays `NOT RUN` with its `DEFERRED (execution)` line in the ATR. No Execution item exists at this altitude — state that as the N/A. |
 
 Stage 3 closes the ATS and the ATP in the same pass (Modality jira-xray): ATS via `{{jira.transition.test_set.done}}` → `{{jira.status.test_set.close}}` (membership final), ATP via `{{jira.transition.test_plan.complete}}` → `{{jira.status.test_plan.completed}}` (results are in; fire `{{jira.transition.test_plan.designed}}` first if Stage 1 left it at `planning`). On an unmapped slug run the `artifact-lifecycle.md` §4 fallback — ask, never skip silently.
@@ -414,7 +414,7 @@ Also append to `context.md`:
 ```markdown
 ## Final Status
 
-**Result:** {PASSED | PASSED WITH ISSUES | FAILED}
+**Result:** {PASSED | PASSED WITH ISSUES | PASSED WITH DEFERRALS | FAILED}
 **Workflow Complete:** {date}
 **Next:** {{{jira.status.story.qa_approved}} | Wait for fixes}
 ```
@@ -436,7 +436,7 @@ Four comment templates cover the two paths (Story, Bug) and two outcomes (pass, 
 ```
 QA Testing Complete - {{PROJECT_KEY}}-{number}
 
-Environment: {Staging | localhost}
+Environment: {the environment the cases were observed in (the ATR Test Environment)}
 Result: PASSED ({passed}/{total} TCs)
 
 TEST DATA USED:
@@ -447,7 +447,7 @@ VERIFIED BEHAVIORS:
 - AC2: {brief description} - VERIFIED
 
 {If any case was deferred:}
-DEFERRED CASES (not observed; QA decision, follow-up open):
+DEFERRED (EXECUTION) CASES (not observed; QA decision, follow-up open):
 - TC-{id}: {reason} - follow-up {KEY}
 
 {If clarifications obtained:}
@@ -464,7 +464,7 @@ Use only after AI and user agree the defect is real.
 ```
 QA Testing Complete - {{PROJECT_KEY}}-{number}
 
-Environment: {Staging | localhost}
+Environment: {the environment the cases were observed in (the ATR Test Environment)}
 Result: FAILED ({passed}/{total} TCs)
 
 TEST DATA USED:
@@ -489,7 +489,7 @@ Artifacts: ATP-{id}, ATR-{id}, TC-{ids}
 ```
 QA Bug Verification - {{PROJECT_KEY}}-{number}
 
-Environment: {Staging | localhost}
+Environment: {the environment the cases were observed in (the ATR Test Environment)}
 Result: VERIFIED - Bug fix confirmed
 
 TEST DATA USED:
@@ -510,7 +510,7 @@ Use only after AI and user agree the bug still reproduces.
 ```
 QA Bug Verification - {{PROJECT_KEY}}-{number}
 
-Environment: {Staging | localhost}
+Environment: {the environment the cases were observed in (the ATR Test Environment)}
 Result: NOT FIXED - Issue persists
 
 TEST DATA USED:
@@ -638,7 +638,7 @@ Record the gate outcome (hypothesis, cited fact, decision) in the ATR Observatio
 
 ### 5.3 Mixed results
 
-When some TCs pass and others fail, set ATR result to `PASSED WITH ISSUES`. File bugs for the failures. Do not block handoff to Stage 4 — the passing TCs are still eligible for ROI evaluation.
+When some TCs pass and others fail, set ATR result to `FAILED` (one or more fail, per the §2.2 "Result" values); `PASSED WITH ISSUES` is only for a FAIL recalibrated per §5.0. File bugs for the failures. Do not block handoff to Stage 4 — the passing TCs are still eligible for ROI evaluation.
 
 ### 5.4 Error handling
 

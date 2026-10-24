@@ -434,7 +434,7 @@ Output checkpoint:
 - [ ] Smoke: PASSED / FAILED
 - [ ] Deep exploration: PASSED / FAILED / NOT RUN (BLOCKED or DEFERRED (execution), reason recorded)
 - [ ] Bugs created: N (or none)
-- [ ] Recommendation: APPROVE / REJECT / WAIT
+- [ ] Recommendation: APPROVE / REJECT / LADDER (a case still BLOCKED: name the ladder step it is on, never an open-ended wait)
 ```
 
 ### Stage 3 — Reporting (overview)

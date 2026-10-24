@@ -203,8 +203,8 @@ job writes it.
 **Required case**: at least one case produces that state through the real path (the user action,
 the lifecycle step, the scheduled job that sets it in production) and then asserts the derived
 value. Seeded cases stay; they are fast and they cover the variants. When no real path exists in the
-target environment, the case is `BLOCKED — unreachable precondition` with what it would take, per
-the section below, and the gap itself may be the report worth filing.
+target environment, the case is `BLOCKED — unreachable precondition` with what it would take while
+recreation is still being tried, and `DEFERRED (execution)` once QA defers it, per the section below, and the gap itself may be the report worth filing.
 
 ### Unreachable preconditions — the empty state on a shared, long-lived account
 
@@ -226,12 +226,13 @@ Three legitimate outcomes, in order of preference:
    radius on a shared environment — never empty data another session is using
    (`sprint-testing/references/fleet-conductor.md` §8 claims, when several sessions run).
 3. **Declared unobservable, with a product decision attached.** When neither 1 nor 2 is
-   available, the case is **not dropped**: it is recorded as `BLOCKED — unreachable
-   precondition: <state>` in the plan and the results, with the reason and what it would take
-   (a fixture account, a seed hook, a reset endpoint). That is a product / test-environment
+   available, the case is **not dropped**: it is `BLOCKED — unreachable precondition: <state>`
+   while recreation is still being tried, and becomes `DEFERRED (execution) <date> by QA decision:
+   <reason>; follow-up <KEY>` once QA defers it; the plan and the results carry that line, with what
+   it would take (a fixture account, a seed hook, a reset endpoint). That is a product / test-environment
    decision to be raised, not a QA omission to be hidden — and per the `Improvement` bridge it
-   may itself be the report worth filing. In-sprint, this outcome is the blocking ladder of
-   `discovery-driven-doctrine.md` §5 (QA deferral with a follow-up task).
+   may itself be the report worth filing. In-sprint, this outcome is steps 2-4 of the blocking
+   ladder in `discovery-driven-doctrine.md` §5 (QA deferral with a follow-up task).
 
 **Never** substitute a similar-looking state for the empty one ("only two orders" is not
 "none"), and never mark such a case PASSED on a partial observation.
@@ -314,7 +315,8 @@ a justified N/A) to each is not done.
 [ ] RISK Cases prioritized; any scope-driven drop logged explicitly?
 [ ] OBS  Every case's precondition reachable in the target environment? Empty /
          first-time / zero-quota states either have a fixture identity or are
-         declared `BLOCKED — unreachable precondition` with what it would take?
+         `BLOCKED — unreachable precondition` while being recreated, then
+         `DEFERRED (execution)` with what it would take?
          (or N/A: no case needs a state the environment cannot produce)
 [ ] SEED A derived value read from seeded state → at least one case produces that
          state through the real product path and asserts the value?

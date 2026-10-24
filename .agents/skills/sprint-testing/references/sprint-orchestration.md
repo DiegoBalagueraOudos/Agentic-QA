@@ -150,7 +150,8 @@ Sprint-wide mode. One nested sub-scope per issue at `.session/sprint-testing/spr
 | 1 | 1 | {KEY} — {title} | Sequential | `.session/sprint-testing/sprint-{N}/{KEY}/` | {priority} | {qa_lead or unassigned} | PENDING |
 
 {Status lives in "Exit condition": PENDING while queued, then PASSED / FAILED / BLOCKED /
- DEFERRED / SKIPPED once Stage 3 closed the issue. The orchestrator scans for the
+ DEFERRED / SKIPPED once Stage 3 closed the issue. These are issue-level queue states, not case
+ outcomes (`agentic-qa-core/references/discovery-driven-doctrine.md` §5), and never the ROI verdict. The orchestrator scans for the
  lowest-numbered PENDING to pick the next issue.}
 
 {`Pattern` = `Sequential` at one executor (the default). In fleet mode (N>1 executors) it
@@ -560,8 +561,8 @@ Report format:
   {
     "atr_path": "<PBI_FOLDER>/acceptance-test-results.md (jira-native) | .context/PBI/test-executions/ATR-<ATR_KEY>-<slug>.md (jira-xray)",
     "atr_id": "<TMS issue key | story-field>",
-    "result": "PASSED | FAILED | PASSED WITH ISSUES",
-    "tc_summary": { "total": <int>, "passed": <int>, "failed": <int>, "pass_rate": "<percent>" },
+    "result": "PASSED | FAILED | PASSED WITH ISSUES | PASSED WITH DEFERRALS",
+    "tc_summary": { "total": <int>, "passed": <int>, "failed": <int>, "deferred": <int>, "pass_rate": "<percent>" },
     "recalibration": { "applied": true|false, "hypothesis": "...", "verification_fact": "...", "outcome": "confirmed_defect | go_with_debt", "user_confirmed": true|false },
     "qa_comment_id": "<comment id or 'posted'>",
     "transition": "<from_status> -> <to_status>",
