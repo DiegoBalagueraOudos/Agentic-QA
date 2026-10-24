@@ -167,6 +167,9 @@ export function classify(input: ClassifyInput): GapList {
   const warnings = [...collect.warnings];
   const tests = new Map(collect.tests.map(t => [t.key, t]));
   const seedHashes = new Map(collect.seed.map(s => [s.id, s.hash]));
+  // A gap an existing coverage Tech Story names keeps its key, even before the judgment records it.
+  const anchored = new Map<string, string>();
+  for (const anchor of collect.anchors) { for (const id of anchor.gap_ids) { anchored.set(id, anchor.key); } }
   const mtp = mtpText?.toLowerCase() ?? null;
   if (mtp === null && judgments.behaviours.some(b => b.risk)) {
     warnings.push(`MTP cache missing (${collect.sources.mtp.path}): every behaviour is unranked`);
@@ -194,7 +197,7 @@ export function classify(input: ClassifyInput): GapList {
       bucket: bucketFor(rows),
       covered_by: [...rows].sort((x, y) => x.test.localeCompare(y.test)),
       stale: Boolean(b.seed_hash && seedHash && b.seed_hash !== seedHash),
-      tech_story: b.tech_story ?? null,
+      tech_story: b.tech_story ?? anchored.get(b.id) ?? null,
     };
   }).sort((a, b) => a.id.localeCompare(b.id));
 

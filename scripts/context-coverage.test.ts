@@ -36,7 +36,6 @@ describe('collect -> classify -> propose on the fixture project', () => {
     const c = read<CollectResult>('collect.json');
     expect(c.sources.maps.map(m => [m.map, m.state])).toEqual([['e2e', 'generated'], ['api', 'no-skill'], ['data', 'placeholder']]);
     expect(c.seed.map(s => s.id)).toEqual([
-      'e2e#discovery-gaps',
       'e2e#feature-billing',
       'e2e#feature-billing/BR-001',
       'e2e#feature-billing/BR-002',
@@ -72,6 +71,7 @@ describe('collect -> classify -> propose on the fixture project', () => {
     expect(list.denominators.buckets).toEqual({ 'automated': 1, 'manual-only': 1, 'weak': 1, 'uncovered': 2 });
     expect(list.gaps).toEqual(['e2e#feature-billing/BR-002', 'e2e#feature-catalog/BR-003', 'e2e#feature-catalog/BR-004']);
     expect(list.unjudged_seed).toEqual(['e2e#feature-catalog/FEAT-002']);
+    expect(list.behaviours.find(b => b.id === 'e2e#feature-catalog/BR-003')!.tech_story).toBe('DEMO-51');
     expect(list.behaviours.find(b => b.id === 'e2e#feature-billing/BR-002')!.covered_by[0].outside_regression).toBe(true);
     expect(readdirSync(join(outDir, 'runs'))).toEqual([`${list.run_id}.json`]);
     const md = readFileSync(join(outDir, 'gap-list.md'), 'utf8');

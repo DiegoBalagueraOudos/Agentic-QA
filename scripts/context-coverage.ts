@@ -48,6 +48,7 @@ import { parseMap } from './context-map.ts';
 export const SESSION_DIR = '.session/project-context/coverage';
 export const MTP_CACHE = '.context/PBI/qa-artifacts/master-test-plan.md';
 export const MANIFEST = 'kata-manifest.json';
+export const DISCOVERY_GAPS_SECTION = 'discovery-gaps';
 export const NO_BEHAVIOUR_SOURCE = 'no behaviour source: every business map is a placeholder or missing. Run `project-context e2e` (and `data`, `api`), then collect again.';
 
 export interface Io { out: (s: string) => void, err: (s: string) => void }
@@ -116,6 +117,8 @@ export function seedFromMap(map: MapKey, html: string): { sections: string[], se
   const parsed = parseMap(html);
   const seed: SeedBehaviour[] = [];
   for (const s of parsed.sections) {
+    // The map's own `discovery-gaps` section lists what was not verified: it is not a behaviour.
+    if (s.id === DISCOVERY_GAPS_SECTION) { continue; }
     seed.push({ id: `${map}#${s.id}`, title: s.title, hash: sha(s.text) });
     // A feature block runs from its `#### Feature:` heading to the next heading; its hash covers the whole block.
     const blocks: Array<{ heading: string | null, lines: string[] }> = [{ heading: null, lines: [] }];
