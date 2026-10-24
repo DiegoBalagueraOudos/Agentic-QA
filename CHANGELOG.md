@@ -44,6 +44,10 @@ below names which one it applies to:
   (`PASSED WITH 2 KNOWN DEFECTS`, `EXECUTION FAILED: 4 FAILED (3 NOT OBSERVED: SETUP FAILED, ...)`).
   In GitHub Actions the same counts go to the step summary. The exit code is unchanged. A CI step
   that matched the old failure text should read the records file instead.
+- **Upgrade step for existing projects**: `bun sync` does not write `tests/` (it is the project's
+  own), so the outcome classes reach a project created before this release only by hand: copy
+  `tests/utils/testOutcomes.ts` and `tests/utils/knownDefect.ts`, then merge the `KataReporter.ts`
+  and `tests/utils/decorators.ts` changes into your copies.
 
 ### Added (sprint source layer)
 - **`cli/lib/sprint-source/`**: the configuration layer and `Source` interface the Sprint Board,

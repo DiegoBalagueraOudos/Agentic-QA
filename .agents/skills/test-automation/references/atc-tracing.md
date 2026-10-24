@@ -89,6 +89,8 @@ reports/atc_results.json
 
 Written by `KataReporter.onEnd()` in the coordinator process. Persists after the run — downstream tooling (teardown, TMS sync, dashboards) reads from here.
 
+Beside it, `KataReporter.onEnd()` writes `reports/test-outcomes.json`: one record per Playwright test with its outcome class (`passed`, `failed`, `known-defect`, `unexpected-pass`, `skipped`) and the ATC ids it ran, which `@atc` pushes as an `atc` annotation (ADR-0020). The run headline comes from that file. The TMS write-back keeps reading `atc_results.json`.
+
 ### 3.2 Schema
 
 ```json
