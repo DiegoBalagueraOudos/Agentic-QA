@@ -19,9 +19,9 @@ below names which one it applies to:
 ### Added (CI unit tests)
 - **`.github/workflows/unit-tests.yml`** runs `bun test` (the unit tests of `cli/`, `scripts/`,
   `tests/utils/`, `packages/` and `.agents/skills/`) and the `repo:check` gates no other workflow
-  runs, on every push to any branch and on fork pull requests. It checks out the full history so the
-  `bun sync` end-to-end test runs, installs Chromium so the installer page test runs, and needs no
-  secret. Until now those tests gated only on a laptop, and `build.yml` runs on pull requests only.
+  runs, on every push to any branch (tags excluded), on fork pull requests and on a manual dispatch.
+  It checks out the full history so the `bun sync` end-to-end test runs, installs Chromium so the
+  installer page test runs, and needs no secret. Until now those tests gated only on a laptop, and `build.yml` runs on pull requests only.
 - **Inert in a project created from the template**: the job runs only where `contractsEnforced`
   holds (the boilerplate's own checkout, ADR-0016), because several unit tests assert the
   boilerplate's own files. `.github/` is not a `bun sync` component, so existing projects do not
@@ -32,7 +32,9 @@ below names which one it applies to:
   template into one fixed directory under the OS temp dir and wiped it before every clone, so two
   concurrent runs (two worktrees, two test processes) deleted each other's clone and one stopped
   with `CLONE_FAILED`. Each run now clones into a directory named after its process. This was the
-  intermittent failure of `scripts/ui-up-e2e.test.ts` under load.
+  intermittent failure of `scripts/ui-up-e2e.test.ts` under load. A run that ends badly does not
+  leave that directory behind: it is removed on every exit (an error, Ctrl-C, SIGINT, SIGTERM), and
+  each run removes at start the directories of runs whose process is gone (a SIGKILL).
 - **The `bun sync` and `bun setup` end-to-end tests clean up after themselves.**
   `scripts/ui-up-e2e.test.ts` (two full clones of the repo per test, hundreds of MB a run) and
   `scripts/ui-setup-e2e.test.ts` left every fixture in the OS temp dir; a day of parallel runs filled

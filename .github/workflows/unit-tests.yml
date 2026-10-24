@@ -12,9 +12,14 @@ run-name: ${{ github.actor }} triggered Unit Tests on ${{ github.ref_name }}
 
 on:
   push:
+    # Every branch. Naming only branches leaves tag pushes out: a tag points at
+    # a commit whose branch push already ran.
+    branches:
+      - '**'
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   # A superseded run on a branch is cancelled: it publishes nothing. On main
@@ -33,8 +38,8 @@ jobs:
     name: bun test + repo gates
     # A PR from this repository already got the push run on the same commit,
     # and GitHub shows that run on the PR. Only a fork PR (no push run here)
-    # needs its own.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    # needs its own. A manual dispatch always runs.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
