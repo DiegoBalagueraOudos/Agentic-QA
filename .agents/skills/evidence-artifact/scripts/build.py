@@ -447,6 +447,7 @@ def safe_path(f, root, where, k):
 
 def load_image(path, redact):
     im = Image.open(path).convert("RGB")
+    im.info.clear()                    # no comment, EXIF or text chunk of the capture reaches a page (ADR-0021)
     if redact:
         d = ImageDraw.Draw(im)
         for box in redact:

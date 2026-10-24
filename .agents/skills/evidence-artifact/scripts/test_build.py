@@ -294,6 +294,23 @@ class TestPage(BuildCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue(near(pixel_of(embedded(html)[0]["images"]["a"]["src"], (150, 110)), GRAY))
 
+    def test_capture_metadata_never_reaches_the_page(self):
+        im = Image.new("RGB", (64, 48), (200, 200, 200))
+        exif = Image.Exif(); exif[0x010E] = "gps 40.4,-3.7"
+        im.save(os.path.join(self.dir, "m.jpg"), "JPEG", comment=b"camera note", exif=exif.tobytes())
+        from PIL import PngImagePlugin
+        info = PngImagePlugin.PngInfo(); info.add_text("Comment", "png note")
+        im.save(os.path.join(self.dir, "m.png"), "PNG", pnginfo=info)
+        for f in ("m.jpg", "m.png"):
+            p = base_pack(images={"a": {"file": f}}); p["tcs"][0]["evidence"][0]["annotations"] = []
+            _, html = self.run_build(p)
+            raw = base64.b64decode(embedded(html)[0]["images"]["a"]["src"].split(",", 1)[1])
+            out = Image.open(io.BytesIO(raw))
+            self.assertNotIn("comment", out.info, f)
+            self.assertNotIn("exif", out.info, f)
+            for text in (b"camera note", b"png note", b"gps"):
+                self.assertNotIn(text, raw, f)
+
     def test_image_paths_are_refused_outside_the_repo_and_for_session_state(self):
         os.makedirs(os.path.join(self.dir, ".auth"))
         shot(os.path.join(self.dir, ".auth", "s.png"))
