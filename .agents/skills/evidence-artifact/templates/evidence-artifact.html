@@ -1,0 +1,698 @@
+<title>Ticket Evidence Board</title>
+<meta charset="utf-8"><!-- local previews only; the publish skeleton already declares it -->
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+/*__SHARED_CSS__*/
+/* Evidence artifact page (the standard adopted 2026-10-19 from spike prototype D): a case-file header,
+   the board of test cases and bugs as the landing view (stories AND bugs), and a full-window zoom
+   viewer with a filmstrip of typed evidence (Esc back to the board). Tokens come from shared.css.
+   Rendered by .agents/skills/evidence-artifact/scripts/build.py; never edited per ticket. */
+[hidden] { display: none !important; }   /* the publish skeleton has this too; repeated so a local file behaves the same */
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 18px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+.packbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
+.packbar .btn { font-size: 12.5px; }
+.packbar .btn small { opacity: .7; }
+kbd { font: 600 11px var(--font-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); color: var(--ink); }
+
+/* ---- header (A) ---- */
+.verdict { display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.stamp { padding: 18px 22px; display: grid; align-content: center; gap: 8px; min-width: 180px; color: #fff; }
+/* stamps sit on saturated fills that read the same in both themes, like the marks on screenshots */
+:root { --stamp-pending: #a35f00; }
+.stamp.FAILED { background: var(--mark-defect); } .stamp.PASSED { background: var(--mark-ok); } .stamp.PENDING { background: var(--stamp-pending); }
+.stamp .word { font: 800 36px/1 var(--font-display); letter-spacing: .03em; }
+.stamp .vnote { font-size: 12.5px; line-height: 1.35; opacity: .95; max-width: 22ch; }
+.stamp .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.stamp .chip { font: 600 12px var(--font-body); border: 1px solid rgba(255,255,255,.65); border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.vhead { padding: 18px 22px; display: grid; gap: 8px; min-width: 0; align-content: center; }
+.vhead h1 { font-size: clamp(21px, 2.8vw, 31px); }
+.vhead .tid { font: 700 14px var(--font-mono); color: var(--muted); display: block; margin-bottom: 4px; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 13px; }
+.meta b { color: var(--ink); font-weight: 600; }
+.buildstrip { display: flex; flex-wrap: wrap; border: 1px dashed var(--line); border-radius: 10px; background: var(--surface); }
+.buildstrip > div { padding: 8px 14px; border-right: 1px dashed var(--line); min-width: 0; flex: 1 1 auto; }
+.buildstrip > div:last-child { border-right: 0; }
+.buildstrip .v { font: 12.5px var(--font-mono); overflow-wrap: anywhere; }
+.cov { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+.cov .big { font: 800 40px/1 var(--font-display); white-space: nowrap; }
+.cov .big small { font: 600 14px var(--font-body); color: var(--muted); margin-left: 6px; }
+.bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--surface-2); }
+.bar span { display: block; height: 100%; }
+.bar .PASSED { background: var(--ok); } .bar .FAILED { background: var(--defect); } .bar .DEFERRED, .bar .BLOCKED { background: var(--warn); } .bar .NOTRUN { background: var(--note); }
+.cov .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.cov p { margin: 10px 0 0; font-size: 14.5px; max-width: 82ch; }
+.two { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; min-width: 0; }
+.box h2 { font-size: 16px; margin-bottom: 8px; }
+.box ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.box li, .box p { overflow-wrap: anywhere; }
+.ea { display: grid; gap: 10px; align-content: start; }
+.ea .exp { border-left: 4px solid var(--ok); padding-left: 12px; } .ea .act { border-left: 4px solid var(--defect); padding-left: 12px; }
+.ea p, .repro { margin: 2px 0 0; } .repro { color: var(--muted); font-size: 13px; margin-top: 10px; }
+
+/* ---- board (B) ---- */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters .hint { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 268px), 1fr)); gap: 14px; }
+.card { position: relative; display: grid; grid-template-rows: auto 1fr; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; }
+.card:hover, .card:focus-within { border-color: var(--accent); }
+.card .hit { position: absolute; inset: 0; z-index: 1; border: 0; background: transparent; cursor: pointer; border-radius: 12px; }
+.card .hit:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+/* status band between thumbnail and text: the colour reads from across the room */
+.card .body { border-top: 5px solid var(--line); }
+.card.st-band-PASSED .body { border-top-color: var(--ok); } .card.st-band-FAILED .body, .card.st-band-DEFECT .body { border-top-color: var(--defect); }
+.card.st-band-DEFERRED .body, .card.st-band-BLOCKED .body { border-top-color: var(--warn); } .card.st-band-NOTRUN .body { border-top-color: var(--note); }
+.card.bug { border: 2px solid var(--defect); }
+.card.bug .body { background: var(--defect-bg); }
+.card .body { padding: 12px 14px 14px; display: grid; gap: 7px; align-content: start; }
+.card .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.card .cid { font: 700 15px var(--font-mono); }
+.card .pill { font-size: 13px; padding: 3px 11px; }
+.card h3 { font: 600 14.5px/1.35 var(--font-body); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.card .kinds { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; color: var(--muted); }
+.card .kinds b { color: var(--ink); }
+.card .bugtag { font: 700 11.5px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--defect); }
+.card .ext { position: relative; z-index: 2; justify-self: start; font-size: 13px; font-weight: 600; }
+.empty { padding: 30px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; }
+
+/* thumbnails and type tiles (shared by cards and the filmstrip) */
+.thumb { position: relative; aspect-ratio: 16 / 10; max-width: 100%; overflow: hidden; background: var(--surface-2); line-height: 0; }
+.thumb-in { position: absolute; }
+.thumb-in img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.thumb-in svg.ev-marks { position: absolute; inset: 0; width: 100%; height: 100%; }
+.thumb-cmp { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 2px solid var(--accent); }
+.thumb .flagdefect { position: absolute; z-index: 1; left: 8px; top: 8px; line-height: 1.2; }
+.tile { position: absolute; inset: 0; display: grid; align-content: center; gap: 8px; padding: 12px 14px; line-height: 1.25; background: var(--code-bg); }
+.tile-k { font: 800 13px var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.tile-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.tile-url { font: 12px var(--font-mono); overflow-wrap: anywhere; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tile-api { border-left: 5px solid var(--accent); } .tile-sql { border-left: 5px solid var(--note); } .tile-timeline { border-left: 5px solid var(--warn); }
+.tile-note { border-left: 5px solid var(--muted); } .tile-none .tile-k { text-align: center; }
+.res { font: 700 10.5px var(--font-body); letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; white-space: nowrap; }
+.res.defect { background: var(--mark-defect); color: #fff; } .res.pass { background: var(--mark-ok); color: #fff; } .res.info { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+/* retest history (D10): evidence from an earlier round is amber "before fix", never a current red DEFECT or green PASS */
+.res.before { background: var(--warn-bg); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }
+.st-HIST { color: var(--warn); background: var(--warn-bg); }
+.card.hist { border-style: dashed; opacity: .8; } .card.hist:hover, .card.hist:focus-within { opacity: 1; }
+.card.st-band-HIST .body { border-top-color: var(--warn); border-top-style: dashed; }
+.card .histtag { font: 700 11.5px var(--font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--warn); }
+.card .kinds .old { color: var(--warn); }
+footer.src { font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+footer.src code { overflow-wrap: anywhere; }
+
+/* ---- viewer (C as a full-window overlay) ---- */
+.viewer { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.v-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 10px; border-bottom: 1px solid var(--line); min-width: 0; }
+.v-top .ctx { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 320px; }
+.v-top h2 { font-size: 16.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-top .tid { font: 700 14px var(--font-mono); white-space: nowrap; }
+.v-top select { font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); max-width: min(100%, 420px); }
+.v-top .crumb { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.v-main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; min-height: 0; padding-block: 12px; }
+.v-stage { min-height: 0; min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.v-stage.is-cmp { grid-template-rows: minmax(0, 1fr) auto; gap: 8px; }
+.vp { position: relative; overflow: hidden; border-radius: 12px; border: 1px solid var(--line); touch-action: none; cursor: grab; min-height: 0;
+  background-color: var(--surface-2); background-image: linear-gradient(45deg, var(--line) 25%, transparent 25%), linear-gradient(-45deg, var(--line) 25%, transparent 25%); background-size: 22px 22px; background-position: 0 0, 0 11px; }
+.vp.dragging { cursor: grabbing; } .vp.cmp { cursor: ew-resize; }
+.cv { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.cv.anim { transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+.cv img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.cv .layer { position: absolute; inset: 0; }
+.cv svg.ev-marks { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.cv .left-clip { position: absolute; inset: 0; overflow: hidden; }
+.bb { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.bb .ev-bubble { font-size: 13px; max-width: 260px; }
+.vp.marks-off .ev-marks, .vp.marks-off .ev-bubble { display: none; }
+.zoombar { position: absolute; right: 10px; bottom: 10px; z-index: 3; display: inline-flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.zoombar output { font: 12px var(--font-mono); min-width: 44px; text-align: center; }
+.zoombar .btn { padding: 3px 9px; }
+.cmp-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 3px solid var(--accent); pointer-events: none; z-index: 2; }
+.cmp-line span { position: absolute; top: 50%; left: -17px; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font: 700 15px var(--font-body); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+.corner { position: absolute; top: 10px; z-index: 2; max-width: calc(50% - 24px); font: 700 12px/1.3 var(--font-body); padding: 5px 10px; border-radius: 8px; color: #fff; pointer-events: none; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+.corner.l { left: 10px; background: var(--mark-ok); } .corner.r { right: 10px; background: var(--mark-defect); text-align: right; }
+.corner.t-ok { background: var(--mark-ok); } .corner.t-defect { background: var(--mark-defect); } .corner.t-note { background: var(--mark-note); } .corner.t-before { background: var(--stamp-pending); }
+.cmp-ctl { display: grid; gap: 6px; }
+.cmp-labels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; font-weight: 700; }
+.cmp-labels .l { color: var(--ok); } .cmp-labels .r { color: var(--defect); text-align: right; }
+.cmp-labels .t-ok { color: var(--ok); } .cmp-labels .t-defect { color: var(--defect); } .cmp-labels .t-note { color: var(--note); } .cmp-labels .t-before { color: var(--warn); }
+.cmp-ctl input[type="range"] { width: 100%; accent-color: var(--accent); }
+.cmp-ctl .hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+.docslide { overflow-y: auto; min-height: 0; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); padding: 18px clamp(12px, 3vw, 28px); }
+.docslide .inner { max-width: 980px; margin: 0 auto; display: grid; gap: 12px; }
+.docslide .dk { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.docslide .dk h3 { font-size: clamp(18px, 2.2vw, 24px); }
+.docslide .notecard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; font-size: 15px; max-width: 75ch; }
+.docslide .notecard h4 { margin: 0 0 6px; font: 600 17px var(--font-display); }
+.tl { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 10px; }
+.tl-h { font-size: 15px; }
+.tl-track { position: relative; height: 34px; border-bottom: 2px solid var(--line); margin: 4px 8px 0; }
+.tl-dot { position: absolute; bottom: -7px; width: 12px; height: 12px; border-radius: 50%; transform: translateX(-50%); border: 2px solid var(--surface); }
+.tl-dot.ok { background: var(--ok); } .tl-dot.req { background: var(--accent); } .tl-dot.wait { background: var(--muted); } .tl-dot.bad { background: var(--defect); }
+.tl-scale { display: flex; justify-content: space-between; font: 11px var(--font-mono); color: var(--muted); margin: 0 8px; }
+.tl ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.tl li { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.tl li:last-child { border-bottom: 0; }
+.tl .ms { font: 12px var(--font-mono); color: var(--muted); text-align: right; }
+.rows { font: 700 12px var(--font-mono); padding: 1px 8px; border-radius: 6px; background: var(--surface-2); }
+.rows.bad { background: var(--defect-bg); color: var(--defect); } .rows.ok { background: var(--ok-bg); color: var(--ok); }
+pre.code, table.data { font-variant-ligatures: none; }   /* evidence shows ">=" as typed, not as a ligature */
+.api-note { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+
+.v-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.v-side .case-note { margin: 0; font-size: 13.5px; color: var(--muted); }
+.v-side .sec { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.v-side .kindline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.v-side .kindline .label { color: var(--ink); }
+.v-side .cap { margin: 0; font-size: 14px; }
+.v-side .file { font: 11.5px var(--font-mono); color: var(--muted); overflow-wrap: anywhere; margin: 0; }
+.tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tools output { font: 600 12.5px var(--font-mono); min-width: 54px; text-align: center; }
+.cur { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 9px 11px; background: var(--bg); font-size: 13.5px; }
+.cur.defect { border-left-color: var(--mark-defect); } .cur.ok { border-left-color: var(--mark-ok); } .cur.note { border-left-color: var(--mark-note); } .cur.before { border-left-color: var(--warn); }
+.cur b { display: block; }
+.cur p { margin: 4px 0 0; }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.legend li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: start; }
+.legend .mk { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
+.legend .mk:hover, .legend .mk.on { border-color: var(--accent); background: var(--surface-2); }
+.legend .mk:focus-visible, .legend .eye:focus-visible { outline: 2px solid var(--accent); }
+.legend .t { font-weight: 600; font-size: 13px; line-height: 1.3; }
+.legend .x { font-size: 12.5px; color: var(--muted); line-height: 1.4; display: none; }
+.legend .mk.on .x { display: block; }
+.legend li.hidden .mk { opacity: .45; }
+.legend .eye { all: unset; box-sizing: border-box; cursor: pointer; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line); color: var(--muted); }
+.legend .eye svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.legend .eye[aria-pressed="true"] { color: var(--ink); }
+.num { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 12px var(--font-body); }
+.num.defect { background: var(--mark-defect); } .num.ok { background: var(--mark-ok); } .num.note { background: var(--mark-note); }
+
+.v-film { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: thin; }
+.film-k { flex: 0 0 auto; align-self: center; writing-mode: vertical-rl; transform: rotate(180deg); }
+.fi { all: unset; box-sizing: border-box; cursor: pointer; flex: 0 0 150px; display: grid; gap: 5px; padding: 5px; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); }
+.fi .thumb { border-radius: 6px; }
+.fi.r-defect { border-color: color-mix(in srgb, var(--mark-defect) 55%, var(--line)); }
+.fi.r-pass { border-color: color-mix(in srgb, var(--mark-ok) 45%, var(--line)); }
+.fi.r-before { border-style: dashed; border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+.fi.r-before .fl { flex-wrap: wrap; } .fi.r-before .fl .res { white-space: normal; }
+/* the collapsible "Before the fix (round N)" group of a retest's filmstrip */
+.fgrp { all: unset; box-sizing: border-box; cursor: pointer; flex: 0 0 auto; align-self: stretch; display: grid; align-content: center; gap: 4px; width: 118px; padding: 8px 10px;
+  border-radius: 10px; border: 2px dashed color-mix(in srgb, var(--warn) 55%, var(--line)); background: var(--warn-bg); color: var(--warn); font-size: 12px; line-height: 1.3; }
+.fgrp b { font: 700 13px var(--font-body); color: var(--ink); }
+.fgrp .label { color: var(--warn); }
+.fgrp:hover { border-color: var(--warn); } .fgrp:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fi[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.fi:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fi .fl { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; font-weight: 600; line-height: 1.25; min-width: 0; }
+.fi .fl span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.v-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: stretch; padding-block: 10px 12px; border-top: 1px solid var(--line); padding-left: var(--ts-w, 0px); }
+.tcnav { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 3px; padding: 9px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); min-width: 0; border-left: 6px solid var(--muted); }
+.tcnav.next { text-align: right; border-left: 1px solid var(--line); border-right: 6px solid var(--muted); justify-items: end; }
+.tcnav:hover { border-color: var(--accent); } .tcnav:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tcnav[disabled] { opacity: .35; cursor: default; }
+.tcnav .dir { font: 700 11px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.tcnav .line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 700 15px var(--font-mono); }
+.tcnav .nm { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.tcnav.b-PASSED { border-left-color: var(--ok); } .tcnav.next.b-PASSED { border-left-color: var(--line); border-right-color: var(--ok); }
+.tcnav.b-FAILED, .tcnav.b-DEFECT { border-left-color: var(--defect); } .tcnav.next.b-FAILED, .tcnav.next.b-DEFECT { border-left-color: var(--line); border-right-color: var(--defect); }
+.tcnav.b-DEFERRED, .tcnav.b-BLOCKED, .tcnav.b-HIST { border-left-color: var(--warn); } .tcnav.next.b-DEFERRED, .tcnav.next.b-BLOCKED, .tcnav.next.b-HIST { border-left-color: var(--line); border-right-color: var(--warn); }
+.keys { margin: 0; align-self: center; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.9; max-width: 380px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+html.v-open { overflow: hidden; }
+
+@media (max-width: 900px) {
+  .two { grid-template-columns: 1fr; }
+  /* one scrolling column on phones: canvas, filmstrip, details, then the TC buttons pinned at the bottom */
+  .viewer { display: flex; flex-direction: column; overflow-y: auto; }
+  .v-top { position: sticky; top: 0; z-index: 4; background: var(--bg); order: 0; }
+  .v-main { display: contents; }
+  .v-stage { order: 1; flex: none; height: 58vh; margin-top: 12px; } .v-stage.is-doc { height: auto; } .v-stage.is-cmp { height: 66vh; }
+  .v-film { order: 2; flex: none; padding-top: 10px; }
+  .v-side { order: 3; flex: none; overflow: visible; }
+  .docslide { overflow: visible; }
+  .v-nav { order: 4; margin-top: auto; position: sticky; bottom: 0; z-index: 4; background: var(--bg); grid-template-columns: 1fr 1fr; }
+  .keys { display: none; }
+}
+@media (max-width: 560px) {
+  .verdict { grid-template-columns: 1fr; } .stamp { min-width: 0; } .stamp .word { font-size: 30px; } .stamp .vnote { max-width: none; }
+  .cov { grid-template-columns: 1fr; gap: 10px; }
+  .v-top .ctx { flex-basis: 100%; flex-wrap: wrap; } .v-top h2 { white-space: normal; flex-basis: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } .v-top select { flex: 1 1 100%; max-width: 100%; }
+  .tcnav .nm { display: none; } .tcnav { padding: 8px 10px; } .tcnav .line { font-size: 13px; gap: 5px; }
+  .tcnav .dir { font-size: 10px; letter-spacing: .03em; white-space: nowrap; }
+  .fi { flex-basis: 128px; }
+  .filters .hint { display: none; }
+}
+</style>
+
+<div class="wrap" id="board">
+  <nav class="packbar" id="packbar" aria-label="Evidence packs" hidden></nav>
+  <header id="hdr"></header>
+  <div class="buildstrip" id="build" aria-label="Environment and build"></div>
+  <section class="cov" id="cov" aria-label="Coverage"></section>
+  <div id="repro"></div>
+  <div class="filters" id="filters" role="toolbar" aria-label="Filter cards by status"></div>
+  <section class="grid" id="grid" aria-label="Test cases and bugs"></section>
+  <footer class="src" id="src"></footer>
+</div>
+
+<div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-labelledby="v-title">
+  <header class="v-top">
+    <button class="btn" id="v-back" type="button" title="Back to the board (Esc)">&#8592; Board <kbd>Esc</kbd></button>
+    <div class="ctx"><span class="tid" id="v-tid"></span><span class="pill" id="v-pill"></span><h2 id="v-title"></h2></div>
+    <span class="crumb" id="v-crumb"></span>
+    <label class="sr" for="v-pick">Jump to test case</label><select id="v-pick"></select>
+  </header>
+  <div class="v-main">
+    <section class="v-stage" id="v-stage" aria-live="polite"></section>
+    <aside class="v-side" id="v-side" aria-label="Evidence details and marks"></aside>
+  </div>
+  <nav class="v-film" id="v-film" aria-label="Evidence items of this test case"></nav>
+  <footer class="v-nav">
+    <button class="tcnav prev" id="v-prev" type="button"></button>
+    <p class="keys"><kbd>&#8592;</kbd><kbd>&#8594;</kbd> evidence &nbsp; <kbd>&#8593;</kbd><kbd>&#8595;</kbd> marks &nbsp; <kbd>Shift</kbd>+<kbd>&#8592;</kbd><kbd>&#8594;</kbd> test case<br><kbd>M</kbd> marks on/off &nbsp; <kbd>C</kbd> compare &nbsp; <kbd>+</kbd><kbd>-</kbd><kbd>0</kbd> zoom &nbsp; <kbd>Esc</kbd> board</p>
+    <button class="tcnav next" id="v-next" type="button"></button>
+  </footer>
+</div>
+
+<script>/*__SHARED_JS__*/</script>
+<script>
+const PACKS = /*__PACKS__*/null;
+const { esc, el } = EV;
+const $ = id => document.getElementById(id);
+const stKey = s => String(s || "").replace(/\s/g, "");
+const TYPE_NAME = { image: "Screenshot", api: "API", sql: "SQL", timeline: "Timeline", note: "Note", compare: "Compare", empty: "No evidence" };
+const EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.3 4.2M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 4.4-1"/></svg>';
+
+let P = null, ITEMS = [], filter = "All", opener = null, showHist = false;
+const V = { open: false, ci: 0, si: 0, slides: [], step: -1, hidden: new Set(), marksOn: true, z: null, cmpX: 50, lastNonCmp: 0, histOpen: new Set() };
+
+/* ---------- pack model ---------- */
+function resultOf(item, c) {
+  if (item.hist) return "before";          /* an earlier round (retest history): never a current defect or pass */
+  if (item.result) return item.result;
+  if (item.type === "image" && (item.annotations || []).some(a => a.tone === "defect")) return "defect";
+  return c.status === "PASSED" ? "pass" : "info";
+}
+const SLIDE_ORDER = { image: 1, api: 2, sql: 3, timeline: 4, note: 5 };
+const RES_TEXT = (r, s) => r === "defect" ? "Defect" : r === "pass" ? "Pass" : r === "before" ? `Before fix · round ${s.histRound}` : esc(TYPE_NAME[s.type]);
+function roundMeta(n) { const m = (P.rounds || []).find(r => r.round === n) || {}; return [m.date, m.build && `build ${m.build}`].filter(Boolean).join(", "); }
+function slidesOf(c) {
+  /* D14: defect evidence first, then screenshots, API, SQL, timeline, note (stable within a group).
+     A retest with history: current-round items (D14 order), then the compare, then the earlier rounds' items. */
+  const rank = e => resultOf(e, c) === "defect" ? 0 : (SLIDE_ORDER[e.type] ?? 6);
+  const all = c.evidence.map((e, i) => ({ e: { ...e }, i }));
+  const s = all.filter(x => !x.e.hist).sort((a, b) => rank(a.e) - rank(b.e) || a.i - b.i).map(x => x.e);
+  const old = all.filter(x => x.e.hist).sort((a, b) => a.e.histRound - b.e.histRound || rank(a.e) - rank(b.e) || a.i - b.i).map(x => x.e);
+  if (c.compare) {
+    const at = old.length ? s.length : s.map(x => x.type).lastIndexOf("image") + 1;
+    s.splice(at, 0, { type: "compare", label: "Compare", result: "info", left: c.compare.left, right: c.compare.right,
+      caption: c.compare.caption || `${c.compare.left.label} vs ${c.compare.right.label}` });
+  }
+  s.push(...old);
+  return s.length ? s : [{ type: "empty", label: "No evidence", result: "info" }];
+}
+function itemsOf(pack) {
+  const tcs = pack.tcs.map(c => ({ ...c, kind: c.kind || "tc" }));
+  const bugs = (pack.bugs || []).map(b => ({ ...b, kind: "bug" }));
+  const rank = pack.kind === "bug"          /* a bug page leads with its reproduction (or the failing case) */
+    ? c => c.hist ? 9 : c.kind === "repro" ? 0 : c.kind === "retest" ? 1 : c.status === "FAILED" ? 2 : 3
+    : c => c.hist ? 9 : 0;                  /* an earlier round's case (retest history) always goes last */
+  tcs.sort((a, b) => rank(a) - rank(b));
+  return [...tcs, ...bugs];
+}
+const statusOf = c => c.hist ? "History" : c.status;
+const stOf = c => c.hist ? "HIST" : stKey(c.status);
+function findCase(token) {               /* "TC-381" in the current pack, or "DEMO-423.TC-454" anywhere */
+  let [pid, cid] = token.includes(".") ? token.split(".") : [null, token];
+  const packs = pid ? PACKS.filter(p => p.ticket.id === pid) : [P, ...PACKS.filter(p => p !== P)];
+  for (const p of packs) { const i = itemsOf(p).findIndex(c => c.id === cid); if (i >= 0) return { pack: p, index: i }; }
+  return null;
+}
+
+/* ---------- board ---------- */
+function renderBoard(pack) {
+  P = pack; ITEMS = itemsOf(pack); filter = "All"; showHist = false;
+  const t = pack.ticket, bug = pack.kind === "bug";
+  document.title = `${t.id} evidence`;
+  const chips = bug ? [t.severity && `Severity ${t.severity}`, t.priority && `Priority ${t.priority}`].filter(Boolean) : (t.bugs || []).map(b => `Bug ${b}`);
+  $("hdr").className = "verdict";
+  $("hdr").innerHTML = `<div class="stamp ${esc(t.verdict)}"><span class="label" style="color:inherit;opacity:.85">Verdict</span><span class="word">${esc(t.verdict)}</span>
+      ${t.verdictNote ? `<span class="vnote">${esc(t.verdictNote)}</span>` : ""}<div class="chips">${chips.map(c => `<span class="chip">${esc(c)}</span>`).join("")}</div></div>
+    <div class="vhead"><span class="label">${bug ? "Bug report" : "Story test evidence"} · ${esc(t.module || "")}</span>
+      <h1><span class="tid">${esc(t.id)}</span>${esc(t.title)}</h1>
+      <div class="meta">${t.parent ? `<span>Found testing <b>${esc(t.parent)}</b>${t.parentTitle ? ` (${esc(t.parentTitle)})` : ""}</span>` : ""}${t.case ? `<span>Case <b>${esc(t.case)}</b></span>` : ""}
+        ${t.assignee ? `<span>Assignee <b>${esc(t.assignee)}</b></span>` : ""}${t.qa ? `<span>QA <b>${esc(t.qa)}</b></span>` : ""}${t.date ? `<span>Date <b>${esc(t.date)}</b></span>` : ""}
+        ${t.atp ? `<span>ATP <b>${esc(t.atp)}</b></span>` : ""}${t.atr ? `<span>ATR <b>${esc(t.atr)}</b></span>` : ""}</div></div>`;
+  $("build").innerHTML = Object.entries(pack.env || {}).map(([k, v]) => `<div><div class="label">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join("");
+  const live = pack.tcs.filter(c => !c.hist);          /* an earlier round's case is history: never counted */
+  const counts = {}; live.forEach(c => counts[stKey(c.status)] = (counts[stKey(c.status)] || 0) + 1);
+  const total = live.length, pass = counts.PASSED || 0;
+  const pills = Object.entries(counts).map(([s, n]) => `<span class="pill st-${s}">${n} ${esc(s === "NOTRUN" ? "NOT RUN" : s)}</span>`).join("")
+    + (pack.bugs || []).map(b => /^RETEST /.test(b.status || "") ? `<span class="pill st-${stKey(b.status)}">Bug ${esc(b.id)} · ${esc(b.severity)} · ${esc(b.status.toLowerCase())}</span>` : `<span class="pill st-DEFECT">Bug ${esc(b.id)} · ${esc(b.severity)}</span>`).join("");
+  $("cov").innerHTML = `<div class="big tabular">${pass}/${total}<small>${bug ? "cases passed" : "TCs passed"}</small></div>
+    <div style="min-width:0"><div class="bar" role="img" aria-label="${pass} of ${total} passed">${Object.entries(counts).map(([s, n]) => `<span class="${s}" style="width:${n / (total || 1) * 100}%"></span>`).join("")}</div>
+    <div class="pills">${pills}</div><p>${esc(pack.summary)}</p></div>`;
+  const r = pack.repro;
+  $("repro").innerHTML = r ? `<div class="two"><section class="box"><h2>Reproduction steps</h2><ol>${(r.steps || []).map(s => `<li>${esc(s)}</li>`).join("")}</ol>${r.frequency ? `<p class="repro"><b>How often:</b> ${esc(r.frequency)}</p>` : ""}</section>
+    <section class="box ea"><h2>Expected and actual</h2><div class="exp"><span class="label">Expected</span><p>${esc(r.expected)}</p></div><div class="act"><span class="label">Actual</span><p>${esc(r.actual)}</p></div></section></div>` : "";
+  drawFilters(); drawGrid();
+  const files = Object.values(pack.images || {}).map(i => `<code>${esc(i.file)}</code> (${i.w}x${i.h}, ${Math.round(i.bytes / 1024)} KB)`);
+  $("src").innerHTML = `Rendered from evidence pack <code>${esc(pack.schema)}</code>. ${files.length ? `Screenshots at native size, JPEG q88: ${files.join(", ")}.` : "No screenshots in this pack."} Tokens are redacted when the pack is written; traces, HAR files and raw network dumps are never embedded.`;
+  $("packbar").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.pack === t.id)));
+}
+
+const FILTERS = [["All", () => true], ["PASSED", i => i.kind !== "bug" && i.status === "PASSED"], ["FAILED", i => i.kind !== "bug" && i.status === "FAILED"],
+  ["DEFERRED", i => i.status === "DEFERRED"], ["BLOCKED", i => i.status === "BLOCKED"], ["NOT RUN", i => i.status === "NOT RUN"], ["Bugs", i => i.kind === "bug"]];
+/* the cards on the board: the current round's cases matching the filter, plus the earlier rounds' cases when History is on */
+function boardList() {
+  const fn = FILTERS.find(f => f[0] === filter)[1];
+  return [...ITEMS.filter(i => !i.hist && fn(i)), ...(showHist ? ITEMS.filter(i => i.hist) : [])];
+}
+function drawFilters() {
+  const f = $("filters"); f.innerHTML = `<span class="label">Show</span>`;
+  FILTERS.forEach(([name, fn]) => {
+    const n = ITEMS.filter(i => !i.hist && fn(i)).length;
+    if (!n && name !== "All" && name !== "FAILED" && name !== "Bugs") return;     /* empty rare statuses stay out of the way */
+    const b = el("button", { class: "btn", type: "button", "aria-pressed": String(name === filter) }, `${esc(name)} <span class="tabular" style="opacity:.7">${n}</span>`);
+    b.onclick = () => { filter = name; f.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); drawGrid(); };
+    f.appendChild(b);
+  });
+  const nHist = ITEMS.filter(i => i.hist).length;
+  if (nHist) {                               /* earlier retest rounds: off by default, a toggle independent of the status filter */
+    const h = el("button", { class: "btn", type: "button", "aria-pressed": String(showHist), title: "Cases from an earlier round, before the fix. Not counted in the verdict." }, `History <span class="tabular" style="opacity:.7">${nHist}</span>`);
+    h.onclick = () => { showHist = !showHist; h.setAttribute("aria-pressed", String(showHist)); drawGrid(); };
+    f.appendChild(h);
+  }
+  f.appendChild(el("span", { class: "hint" }, "Open a card to zoom into its evidence"));
+}
+function cardThumbItem(c) {
+  const cur = c.evidence.filter(e => !e.hist), ev = cur.length ? cur : c.evidence;   /* a retest card shows its current round */
+  const img = (c.status === "FAILED" || c.kind === "bug" || c.kind === "repro") ? (ev.find(e => e.type === "image" && resultOf(e, c) === "defect") || ev.find(e => e.type === "image")) : ev.find(e => e.type === "image");
+  return img || ev[0] || null;
+}
+function drawGrid() {
+  const g = $("grid"); g.innerHTML = "";
+  const list = boardList();
+  if (!list.length) { g.appendChild(el("div", { class: "empty" }, `No ${esc(filter)} cards on this ticket.`)); return; }
+  list.forEach(c => {
+    const card = el("article", { class: `card st-band-${stOf(c)}${c.kind === "bug" ? " bug" : ""}${c.hist ? " hist" : ""}`, id: "card-" + c.id });
+    const th = EV.thumb(P, cardThumbItem(c));
+    const nDefect = c.evidence.filter(e => resultOf(e, c) === "defect").length;
+    if (nDefect && c.kind !== "bug") th.appendChild(el("span", { class: "res defect flagdefect" }, `${nDefect} defect item${nDefect > 1 ? "s" : ""}`));
+    card.appendChild(th);
+    const curEv = c.hist ? c.evidence : c.evidence.filter(e => !e.hist), nOld = c.evidence.length - curEv.length;
+    const k = { image: 0, api: 0, sql: 0, timeline: 0, note: 0 }; curEv.forEach(e => k[e.type]++);
+    const parts = [k.image && `${k.image} shot${k.image > 1 ? "s" : ""}`, k.api && `${k.api} API`, k.sql && `${k.sql} SQL`, k.timeline && "timeline", c.compare && "compare"].filter(Boolean);
+    const body = el("div", { class: "body" }, `${c.hist ? `<span class="histtag">Before the fix · round ${esc(c.histRound)} · was ${esc(c.status)}</span>` : c.kind === "bug" ? `<span class="bugtag">Bug · ${esc(c.severity)} · ${esc(c.priority)}${c.from ? ` · from ${esc(c.from)}` : ""}</span>` : c.kind === "repro" ? `<span class="bugtag">Reproduction</span>` : c.kind === "retest" ? `<span class="bugtag">Retest${c.round ? ` ${esc(c.round)}` : ""}${c.date ? ` · ${esc(c.date)}` : ""}</span>` : ""}
+      <div class="row"><span class="cid">${esc(c.id)}</span><span class="pill st-${stOf(c)}">${esc(statusOf(c))}</span></div>
+      <h3>${esc(c.title)}</h3>
+      <div class="kinds"><span><b>${curEv.length}</b> evidence${parts.length ? " · " + parts.join(" · ") : ""}${nOld ? ` · <span class="old">${nOld} before fix</span>` : ""}</span></div>`);
+    if (c.url) {
+      const internal = c.url.startsWith("#");
+      body.appendChild(el("a", { class: "ext", href: c.url, ...(internal ? {} : { target: "_blank", rel: "noopener" }) }, c.kind === "bug" ? "Open bug page &#8599;" : "Open on its own page &#8599;"));
+    }
+    card.appendChild(body);
+    const hit = el("button", { class: "hit", type: "button", "aria-label": `Open ${c.id}: ${c.title}, ${c.hist ? `history, round ${c.histRound}, was ${c.status}` : c.status}, ${c.evidence.length} evidence items` });
+    hit.onclick = () => { opener = hit; openViewer(ITEMS.indexOf(c), 0); };
+    card.prepend(hit);
+    g.appendChild(card);
+  });
+}
+
+/* ---------- viewer ---------- */
+function navList() { const l = boardList(); return l.includes(ITEMS[V.ci]) ? l : ITEMS; }
+function openViewer(ci, si) {
+  V.ci = ci; V.open = true; const c = ITEMS[ci]; V.histOpen = new Set();     /* history starts collapsed on every case */
+  V.slides = slidesOf(c); V.si = Math.min(si || 0, V.slides.length - 1);
+  $("viewer").hidden = false; document.documentElement.classList.add("v-open");
+  const ts = document.querySelector(".theme-switch"); document.querySelector(".v-nav").style.setProperty("--ts-w", ts ? (ts.offsetWidth + 16) + "px" : "0px");
+  $("v-tid").textContent = c.id;
+  $("v-pill").className = `pill st-${stOf(c)}`; $("v-pill").textContent = c.hist ? `History · was ${c.status}` : c.status;
+  $("v-title").textContent = c.title;
+  $("v-crumb").textContent = `${P.ticket.id} · ${P.kind === "bug" ? "bug" : "story"} · ${navList().indexOf(c) + 1} of ${navList().length}`;
+  const pick = $("v-pick"); pick.innerHTML = "";
+  ITEMS.forEach((x, i) => pick.appendChild(el("option", { value: i }, `${esc(x.id)} · ${esc(x.hist ? `history (round ${x.histRound})` : x.status)} · ${esc(x.title.slice(0, 70))}`)));
+  pick.value = ci;
+  drawTcNav(); drawFilm(); showSlide(V.si);
+  try { history.replaceState(null, "", "#" + P.ticket.id + "." + c.id); } catch (e) {}
+  if (!$("viewer").contains(document.activeElement)) $("v-back").focus();
+}
+function closeViewer(keepHash) {
+  V.open = false; $("viewer").hidden = true; document.documentElement.classList.remove("v-open");
+  if (!keepHash) try { history.replaceState(null, "", "#" + P.ticket.id); } catch (e) {}
+  const cur = ITEMS[V.ci], card = cur && $("card-" + cur.id);
+  (card ? card.querySelector(".hit") : opener)?.focus();
+}
+function drawTcNav() {
+  const l = navList(), i = l.indexOf(ITEMS[V.ci]);
+  [["v-prev", -1, "&#8592; Previous TC"], ["v-next", 1, "Next TC &#8594;"]].forEach(([id, d, dir]) => {
+    const b = $(id);
+    if (l.length < 2) { b.disabled = true; b.className = `tcnav ${d < 0 ? "prev" : "next"}`; b.innerHTML = `<span class="dir">${dir}</span><span class="nm">Only one case</span>`; return; }
+    const t = l[(i + d + l.length) % l.length];
+    b.disabled = false; b.className = `tcnav ${d < 0 ? "prev" : "next"} b-${stOf(t)}`;
+    const kind = t.kind === "bug" ? "Bug" : d < 0 ? "Previous" : "Next";
+    b.innerHTML = `<span class="dir">${d < 0 ? "&#8592; " : ""}${kind}${t.kind === "bug" ? "" : " TC"}${d > 0 ? " &#8594;" : ""}</span><span class="line">${esc(t.id)} <span class="pill st-${stOf(t)}">${esc(statusOf(t))}</span></span><span class="nm">${esc(t.title)}</span>`;
+    b.setAttribute("aria-label", `${d < 0 ? "Previous" : "Next"}: ${t.id}, ${statusOf(t)}, ${t.title}`);
+    b.onclick = () => openViewer(ITEMS.indexOf(t), 0);
+  });
+}
+function gotoTc(d) { const l = navList(); if (l.length < 2) return; const i = l.indexOf(ITEMS[V.ci]); openViewer(ITEMS.indexOf(l[(i + d + l.length) % l.length]), 0); }
+function drawFilm() {
+  const f = $("v-film"); f.innerHTML = ""; const c = ITEMS[V.ci];
+  const nNow = V.slides.filter(s => !s.hist).length;
+  f.appendChild(el("span", { class: "label film-k" }, `${nNow} item${nNow > 1 ? "s" : ""}`));
+  let group = null;
+  V.slides.forEach((s, i) => {
+    if (s.hist && s.histRound !== group) {   /* one collapsible group per earlier round, collapsed by default */
+      group = s.histRound; const rnd = group, n = V.slides.filter(x => x.hist && x.histRound === rnd).length, meta = roundMeta(rnd);
+      const g = el("button", { class: "fgrp", type: "button", "data-round": rnd, "aria-expanded": "false", title: meta ? `Round ${rnd}: ${meta}` : `Round ${rnd}` },
+        `<span class="label">Before the fix</span><b>Round ${esc(rnd)}</b><span class="fg-n">${n} item${n > 1 ? "s" : ""} &#9656;</span>`);
+      g.onclick = () => toggleHist(rnd);
+      f.appendChild(g);
+    }
+    const r = s.type === "empty" ? "info" : resultOf(s, c);
+    const b = el("button", { class: `fi r-${r}`, type: "button", "aria-label": `${TYPE_NAME[s.type]}: ${s.label || ""}, ${r === "before" ? `before the fix, round ${s.histRound}` : r}` });
+    if (s.hist) { b.dataset.round = s.histRound; b.hidden = !V.histOpen.has(s.histRound); }
+    b.appendChild(EV.thumb(P, s.type === "empty" ? null : s));
+    b.appendChild(el("span", { class: "fl" }, `<span>${esc(s.label || TYPE_NAME[s.type])}</span><span class="res ${r}">${RES_TEXT(r, s)}</span>`));
+    b.onclick = () => showSlide(i);
+    f.appendChild(b);
+  });
+}
+function toggleHist(rnd, open) {
+  const on = open ?? !V.histOpen.has(rnd);
+  on ? V.histOpen.add(rnd) : V.histOpen.delete(rnd);
+  const f = $("v-film");
+  f.querySelectorAll(`.fi[data-round="${rnd}"]`).forEach(b => b.hidden = !on);
+  const g = f.querySelector(`.fgrp[data-round="${rnd}"]`);
+  if (g) { g.setAttribute("aria-expanded", String(on)); const n = g.querySelector(".fg-n"); n.innerHTML = n.innerHTML.replace(/[\u25B8\u25BE]/, on ? "\u25BE" : "\u25B8"); }
+  const s = V.slides[V.si];
+  if (!on && s && s.hist && s.histRound === rnd) showSlide(0);
+}
+function stepSlide(d) {                      /* arrow keys walk the visible filmstrip; a collapsed history group is skipped */
+  const vis = V.slides.map((s, i) => i).filter(i => !(V.slides[i].hist && !V.histOpen.has(V.slides[i].histRound)));
+  const k = vis.indexOf(V.si);
+  showSlide(vis[((k < 0 ? 0 : k + d) + vis.length) % vis.length]);
+}
+function showSlide(i) {
+  V.si = (i + V.slides.length) % V.slides.length; V.step = -1; V.hidden = new Set();
+  const s = V.slides[V.si], c = ITEMS[V.ci];
+  if (s.hist && !V.histOpen.has(s.histRound)) toggleHist(s.histRound, true);
+  if (s.type !== "compare") V.lastNonCmp = V.si;
+  $("v-film").querySelectorAll(".fi").forEach((b, k) => b.setAttribute("aria-current", String(k === V.si)));
+  $("v-film").querySelectorAll(".fi")[V.si]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  const stage = $("v-stage"); stage.innerHTML = ""; stage.className = "v-stage"; V.z = null;
+  const side = $("v-side"); side.innerHTML = "";
+  side.appendChild(el("p", { class: "case-note" }, esc(c.note || "")));
+  const r = s.type === "empty" ? "info" : resultOf(s, c);
+  const meta = s.hist ? roundMeta(s.histRound) : "";
+  const sec = el("div", { class: "sec" }, `<div class="kindline"><span class="label">${esc(TYPE_NAME[s.type])} ${V.si + 1} of ${V.slides.length}</span><span class="res ${r}">${r === "defect" ? "Shows the defect" : r === "pass" ? "Passing evidence" : r === "before" ? `Before fix · round ${esc(s.histRound)}` : "Context"}</span></div>
+    ${s.hist ? `<div class="cur before"><b>Before the fix, round ${esc(s.histRound)}</b><p>Kept as history${meta ? ` (${esc(meta)})` : ""}. The verdict is judged on round ${esc(P.currentRound || 0)}.</p></div>` : ""}
+    ${s.caption ? `<p class="cap">${esc(s.caption)}</p>` : ""}${s.type === "image" || s.type === "compare" ? EV.flags(s.flags) : ""}`);
+  side.appendChild(sec);
+  if (s.type === "image") imageSlide(stage, side, s);
+  else if (s.type === "compare") compareSlide(stage, side, s);
+  else docSlide(stage, side, s, c);
+}
+
+/* image slide: zoom canvas + SVG marks + legend with per-mark toggles + stepper */
+function imageSlide(stage, side, s) {
+  const im = P.images[s.ref], anns = s.annotations || [];
+  const vp = el("div", { class: "vp" + (V.marksOn ? "" : " marks-off"), "aria-label": `${s.caption || s.label}. Drag to pan, Ctrl or Cmd and scroll (or pinch) to zoom` });
+  const cv = el("div", { class: "cv" }), bb = el("div", { class: "bb" });
+  cv.appendChild(el("img", { src: im.src, width: im.w, height: im.h, alt: s.caption || s.label || "" }));
+  const { svg, bubbles } = EV.drawMarks(anns, im.w, im.h); cv.appendChild(svg);
+  const badges = [...svg.querySelectorAll(".badge")].map(g => ({ c: g.querySelector("circle"), t: g.querySelector("text") }));
+  bubbles.forEach(b => { const a = anns.find(x => String(x.n) === b.dataset.ann); b.dataset.fx = a.x; b.dataset.fy = a.y; bb.appendChild(b); });
+  vp.append(cv, bb, zoombar());
+  stage.appendChild(vp);
+  V.z = EV.zoomer(vp, cv, { onApply: z => {
+    const rr = 13 / z.s; badges.forEach(b => { b.c.setAttribute("r", rr); b.t.setAttribute("font-size", rr * 1.15); });
+    bb.querySelectorAll(".ev-bubble").forEach(b => { b.style.left = (z.tx + +b.dataset.fx * z.W * z.s) + "px"; b.style.top = (z.ty + +b.dataset.fy * z.H * z.s) + "px"; });
+    const o = stage.querySelector(".zoombar output"); if (o) o.textContent = Math.round(z.s * 100) + "%";
+  } });
+  V.z.size(im.w, im.h); V.z.fit("auto", false);
+  const foc = EV.focusOf(anns); if (!foc.none) V.z.centerOn(foc.fx, foc.fy);   /* a tall page opens on its defect */
+  if (anns.length) {
+    const tools = el("div", { class: "sec" }, `<div class="tools"><button class="btn" type="button" id="m-all" aria-pressed="${V.marksOn}">${V.marksOn ? "All marks on" : "All marks off"}</button>
+      <span style="flex:1"></span><button class="btn" type="button" id="m-prev" aria-label="Previous mark">&#8592;</button><output id="m-pos"></output><button class="btn" type="button" id="m-next" aria-label="Next mark">&#8594;</button></div>
+      <div id="m-cur"></div><ol class="legend" id="m-list"></ol>`);
+    side.appendChild(tools);
+    $("m-all").onclick = toggleMarks; $("m-prev").onclick = () => stepMark(-1); $("m-next").onclick = () => stepMark(1);
+    const ol = $("m-list");
+    anns.forEach((a, k) => {
+      const li = el("li", { "data-n": a.n });
+      const mk = el("button", { class: "mk", type: "button" }, `<span class="num ${a.tone}">${esc(a.n)}</span><span><span class="t">${esc(a.title)}</span><span class="x">${esc(a.explain)}</span></span>`);
+      mk.onmouseenter = () => { if (V.step < 0) isolate(a.n); };
+      mk.onmouseleave = () => { if (V.step < 0) isolate(null); };
+      mk.onclick = () => { if (V.step === k) { V.step = -1; renderStep(); V.z.fit("auto", true); } else goMark(k); };
+      const eye = el("button", { class: "eye", type: "button", "aria-pressed": "true", "aria-label": `Show mark ${a.n}`, title: `Hide or show mark ${a.n}` }, EYE);
+      eye.onclick = () => toggleOne(a.n, eye, li);
+      li.append(mk, eye); ol.appendChild(li);
+    });
+    renderStep();
+  } else side.appendChild(el("div", { class: "sec" }, `<p class="case-note">No marks on this screenshot.</p>`));
+  side.appendChild(el("p", { class: "file" }, `${esc(im.file)} · ${im.w}x${im.h}`));
+}
+function zoombar() {
+  const z = el("div", { class: "zoombar" }, `<button class="btn" type="button" data-z="out" aria-label="Zoom out">-</button><output>100%</output><button class="btn" type="button" data-z="in" aria-label="Zoom in">+</button><button class="btn" type="button" data-z="fit">Fit</button>`);
+  z.onclick = e => { const b = e.target.closest("button"); if (!b || !V.z) return; if (b.dataset.z === "in") V.z.zoomAt(1.25, ...V.z.center()); else if (b.dataset.z === "out") V.z.zoomAt(.8, ...V.z.center()); else V.z.fit("fit", true); };
+  return z;
+}
+function isolate(n) { const st = $("v-stage"); EV.focus(st, n); }
+function anns() { const s = V.slides[V.si]; return s.type === "image" ? (s.annotations || []) : []; }
+function goMark(k) {
+  const A = anns(); if (!A.length) return;
+  V.step = (k + A.length) % A.length; const a = A[V.step];
+  if (V.hidden.has(String(a.n))) { const li = document.querySelector(`#m-list li[data-n="${a.n}"]`); toggleOne(a.n, li.querySelector(".eye"), li); }
+  if (!V.marksOn) toggleMarks();
+  renderStep(); V.z.focusBox(EV.centerOf(a));
+}
+function stepMark(d) { const A = anns(); if (!A.length) return; goMark(V.step < 0 ? (d > 0 ? 0 : A.length - 1) : V.step + d); }
+function renderStep() {
+  const A = anns(); if (!$("m-pos")) return;
+  $("m-pos").textContent = V.step < 0 ? `all ${A.length}` : `${V.step + 1} / ${A.length}`;
+  document.querySelectorAll("#m-list .mk").forEach((b, k) => b.classList.toggle("on", k === V.step));
+  isolate(V.step < 0 ? null : A[V.step].n);
+  const a = A[V.step];
+  $("m-cur").innerHTML = a ? `<div class="cur ${a.tone}"><b>${esc(a.n)}. ${esc(a.title)}</b><p>${esc(a.explain)}</p></div>` : `<div class="cur"><b>All marks</b><p>Step with the arrows or pick a mark to zoom to it. Hover a mark to isolate it; the eye hides it.</p></div>`;
+}
+function toggleOne(n, eye, li) {
+  const key = String(n), off = !V.hidden.has(key);
+  off ? V.hidden.add(key) : V.hidden.delete(key);
+  $("v-stage").querySelectorAll(`[data-ann="${key}"]`).forEach(g => g.style.visibility = off ? "hidden" : "");
+  eye.setAttribute("aria-pressed", String(!off)); eye.innerHTML = off ? EYE_OFF : EYE; li.classList.toggle("hidden", off);
+}
+function toggleMarks() {
+  V.marksOn = !V.marksOn;
+  $("v-stage").querySelector(".vp")?.classList.toggle("marks-off", !V.marksOn);
+  const b = $("m-all") || $("c-marks"); if (b) { b.setAttribute("aria-pressed", String(V.marksOn)); b.textContent = V.marksOn ? (b.id === "m-all" ? "All marks on" : "Marks on") : (b.id === "m-all" ? "All marks off" : "Marks off"); }
+}
+
+/* compare slide: before/after divider with labelled sides */
+function compareSlide(stage, side, s) {
+  stage.classList.add("is-cmp");
+  const R = P.images[s.right.image], L = P.images[s.left.image];
+  const vp = el("div", { class: "vp cmp" + (V.marksOn ? "" : " marks-off"), "aria-label": "Compare: drag across the image to move the divider" });
+  const cv = el("div", { class: "cv" });
+  const right = el("div", { class: "layer" }); right.appendChild(el("img", { src: R.src, alt: s.right.label }));
+  if ((s.right.annotations || []).length) right.appendChild(EV.drawMarks(s.right.annotations.filter(a => a.shape !== "bubble"), R.w, R.h).svg);
+  const left = el("div", { class: "left-clip" }); left.appendChild(el("img", { src: L.src, alt: s.left.label }));
+  if ((s.left.annotations || []).length) left.appendChild(EV.drawMarks(s.left.annotations.filter(a => a.shape !== "bubble"), L.w, L.h).svg);
+  cv.append(right, left);
+  const line = el("div", { class: "cmp-line" }, "<span>&#8596;</span>");
+  /* tones: EXPECTED green / ACTUAL red (D15); a retest's BEFORE FIX is amber history and its AFTER FIX follows the retest's status */
+  const lt = s.left.tone || "ok", rt = s.right.tone || "defect", short = x => esc(x.short || x.label.split("·")[0].trim().toLowerCase());
+  vp.append(cv, line, el("span", { class: `corner l t-${lt}` }, esc(s.left.label)), el("span", { class: `corner r t-${rt}` }, esc(s.right.label)), zoombar());
+  const ctl = el("div", { class: "cmp-ctl" }, `<div class="cmp-labels"><span class="l t-${lt}">&#9664; ${esc(s.left.label)}</span><span class="r t-${rt}">${esc(s.right.label)} &#9654;</span></div>
+    <label class="sr" for="cmp-x">Divider position</label><input id="cmp-x" type="range" min="0" max="100" value="${V.cmpX}">
+    <p class="hint">Drag across the image (or the slider, or press &#8592; &#8594;) to move the divider: left of it is ${short(s.left)}, right of it is ${short(s.right)}. Ctrl or Cmd + scroll zooms.</p>`);
+  stage.append(vp, ctl);
+  const inp = ctl.querySelector("input");
+  const setX = v => { V.cmpX = Math.max(0, Math.min(100, v)); inp.value = V.cmpX; left.style.clipPath = `inset(0 ${100 - V.cmpX}% 0 0)`; if (V.z) place(V.z); };
+  const place = z => { line.style.left = (z.tx + V.cmpX / 100 * z.W * z.s) + "px"; const o = vp.querySelector(".zoombar output"); if (o) o.textContent = Math.round(z.s * 100) + "%"; };
+  V.z = EV.zoomer(vp, cv, { onApply: place, onDrag: (e, z) => { const r = vp.getBoundingClientRect(); setX((e.clientX - r.left - z.tx) / (z.W * z.s) * 100); return true; } });
+  V.z.size(R.w, R.h); V.z.fit("auto", false);
+  const foc = EV.focusOf(s.right.annotations || []); if (!foc.none) V.z.centerOn(foc.fx, foc.fy);
+  inp.oninput = e => setX(+e.target.value); setX(V.cmpX);
+  V.setCmp = setX;
+  side.appendChild(el("div", { class: "sec" }, `<div class="tools"><button class="btn" type="button" id="c-marks" aria-pressed="${V.marksOn}">${V.marksOn ? "Marks on" : "Marks off"}</button></div>
+    <div class="cur ${lt}"><b>Left · ${esc(s.left.label)}</b></div><div class="cur ${rt}"><b>Right · ${esc(s.right.label)}</b></div>`));
+  $("c-marks").onclick = toggleMarks;
+}
+
+/* API / SQL / timeline / note slides render inside the viewer as their own page, A's panel styling */
+function docSlide(stage, side, s, c) {
+  stage.classList.add("is-doc");
+  const box = el("div", { class: "docslide" }), inner = el("div", { class: "inner" });
+  const head = s.type === "api" ? `${esc(s.method)} ${esc(s.url)} &#8594; ${esc(s.status)}` : s.type === "sql" ? esc(s.db) : s.type === "timeline" ? esc(s.title) : s.type === "note" ? esc(s.title || "Note") : "No evidence attached";
+  inner.appendChild(el("div", { class: "dk" }, `<span class="label">${esc(TYPE_NAME[s.type])} evidence</span><h3>${head}</h3>`));
+  if (s.type === "api") inner.appendChild(EV.api(s));
+  else if (s.type === "sql") inner.appendChild(EV.db(s));
+  else if (s.type === "timeline") inner.appendChild(EV.timeline(s));
+  else if (s.type === "note") inner.appendChild(el("div", { class: "notecard" }, `${EV.flags(s.flags)}<p style="margin:0">${esc(s.body)}</p>`));
+  else inner.appendChild(el("div", { class: "notecard" }, `<p style="margin:0">${esc(c.note || "This case has no evidence attached.")}</p>${c.url ? `<p style="margin:10px 0 0"><a href="${esc(c.url)}">${c.kind === "bug" ? "Open the bug's own page" : "Open where its evidence lives"} &#8599;</a></p>` : ""}`));
+  box.appendChild(inner); stage.appendChild(box);
+  if (s.type === "api" || s.type === "sql") side.appendChild(el("div", { class: "sec" }, `<span class="label">How to read it</span><p class="case-note">${s.type === "api"
+    ? "Response, Request and curl are tabs. Credentials are replaced with &lt;redacted&gt; when the pack is written; the chips above the tabs say what else was trimmed or summarised."
+    : "The query is shown first, the result below it. Green rows confirm the expectation, red rows are the defect. The chips say whether the columns were verified live and whether the query text was written for display."}</p>`));
+}
+
+/* ---------- keyboard ---------- */
+document.addEventListener("keydown", e => {
+  if (!V.open) return;
+  const tag = e.target.tagName, s = V.slides[V.si];
+  if (e.key === "Escape") { e.preventDefault(); closeViewer(); return; }
+  if (tag === "SELECT" || (tag === "INPUT" && e.target.type !== "range") || e.altKey) return;
+  if (tag === "INPUT" && e.target.type === "range" && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;  /* the slider moves itself */
+  if ((e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) || e.key === "PageUp" || e.key === "PageDown") {
+    e.preventDefault(); gotoTc(e.key === "ArrowRight" || e.key === "PageDown" ? 1 : -1); return;
+  }
+  if (e.metaKey || e.ctrlKey) return;
+  /* Left/Right walk the evidence items (they sit left to right in the filmstrip);
+     Up/Down step through the marks (they are listed top to bottom in the side panel),
+     and move the divider on a compare slide. Owner ruling 2026-10-19. */
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); stepSlide(e.key === "ArrowRight" ? 1 : -1); return; }
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    const d = e.key === "ArrowDown" ? 1 : -1;
+    if (s.type === "image") { e.preventDefault(); stepMark(d); }
+    else if (s.type === "compare") { e.preventDefault(); V.setCmp(V.cmpX + d * 5); }
+    return;
+  }
+  const k = e.key.toLowerCase();
+  if (k === "m") toggleMarks();
+  else if (k === "c") { const ci = V.slides.findIndex(x => x.type === "compare"); if (ci >= 0) showSlide(s.type === "compare" ? V.lastNonCmp : ci); }
+  else if ((k === "+" || k === "=") && V.z) V.z.zoomAt(1.25, ...V.z.center());
+  else if (k === "-" && V.z) V.z.zoomAt(.8, ...V.z.center());
+  else if (k === "0" && V.z) V.z.fit("fit", true);
+});
+$("v-back").onclick = () => closeViewer();
+$("v-pick").onchange = e => openViewer(+e.target.value, 0);
+window.addEventListener("resize", () => { if (V.open && V.z) V.z.fit("auto", false); });
+
+/* ---------- packs, deep links ---------- */
+function route(first) {
+  const token = decodeURIComponent((location.hash || "").slice(1));
+  const packHit = PACKS.find(p => p.ticket.id === token);
+  if (packHit) { if (V.open) closeViewer(true); if (packHit !== P) renderBoard(packHit); return; }
+  const hit = token && findCase(token);
+  if (hit) { if (hit.pack !== P) renderBoard(hit.pack); openViewer(hit.index, 0); return; }
+  if (!P) { let start = PACKS[0]; try { const sv = localStorage.getItem("evidence.pack"); start = PACKS.find(p => p.ticket.id === sv) || start; } catch (e) {} renderBoard(start); }
+}
+/* D13 (2026-10-19): a bug page opens on its board like a story page; only a #TK-n.CASE deep link opens the viewer */
+if (PACKS.length > 1) {
+  const bar = $("packbar"); bar.hidden = false;
+  bar.appendChild(el("span", { class: "label" }, "Evidence packs"));
+  PACKS.forEach(p => {
+    const b = el("button", { class: "btn", type: "button", "data-pack": p.ticket.id, "aria-pressed": "false" }, `${esc(p.ticket.id)} <small>${p.kind} · ${p.tcs.length} case${p.tcs.length > 1 ? "s" : ""}${(p.bugs || []).length ? ` + ${p.bugs.length} bug${p.bugs.length > 1 ? "s" : ""}` : ""}</small>`);
+    b.onclick = () => { if (V.open) closeViewer(true); renderBoard(p); try { localStorage.setItem("evidence.pack", p.ticket.id); history.replaceState(null, "", "#" + p.ticket.id); } catch (e) {} };
+    bar.appendChild(b);
+  });
+}
+window.addEventListener("hashchange", () => route(true));
+/* after DOMContentLoaded so the theme switch is mounted and the viewer can reserve room for it */
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => route(true)); else route(true);
+</script>
