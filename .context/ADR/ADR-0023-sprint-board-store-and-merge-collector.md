@@ -42,3 +42,7 @@ We will ship `cli/sprint-board/` with this storage and these contracts:
 
 - `cli/sprint-board/README.md` (commands, views, counting rules), `.agents/skills/sprint-testing/references/sprint-board.md` (the conductor's side), `.agents/skills/git-flow-master/references/observer.md` (Merge Line).
 - ADR-0019 (the `board:` block and the source adapter), ADR-0020 (test outcome classes), ADR-0021 (evidence pack and host seam).
+
+## Amendment (2026-10-24): the Bugs view's second source is read
+
+Added by the `e5-evidence-complete` delivery; the decision above is unchanged. The deferral under "Negative / trade-offs" is closed: `sync --discover` returns the sprint's own bug rows (`SourceSnapshot.discover.bugs`): every `bugs:` row of the `none` source's file, and for the Jira sources one more search, `board.bug_jql` or, when it is `null`, `board.jql` with its issuetype clause swapped for the bug work types (nothing is derived across an `OR`, a `NOT` or several clauses, and the view keeps saying "not checked"). A bug row in a status no bucket lists, or not of a bug type, follows point 6: it is stored in `discover.unclassifiedBugs`, named on the Bugs view's search line, and never counted as open.

@@ -17,13 +17,23 @@
         {
           "type": "paragraph",
           "content": [
-            { "type": "text", "text": "The order total ignores the discount after a page reload." }
+            {
+              "type": "text",
+              "text": "The order total ignores the discount after a page reload."
+            }
           ]
         },
         {
           "type": "heading",
-          "attrs": { "level": 2 },
-          "content": [{ "type": "text", "text": "Evidence" }]
+          "attrs": {
+            "level": 2
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Evidence"
+            }
+          ]
         },
         {
           "type": "paragraph",
@@ -32,12 +42,46 @@
               "type": "text",
               "text": "evidence page",
               "marks": [
-                { "type": "link", "attrs": { "href": "https://claude.ai/artifact/0000aaaa-7101" } }
+                {
+                  "type": "link",
+                  "attrs": {
+                    "href": "https://claude.ai/artifact/0000aaaa-7101"
+                  }
+                }
               ]
             }
           ]
         }
       ]
+    },
+    "comment": {
+      "comments": [
+        {
+          "id": "7300",
+          "author": {
+            "displayName": "Dev Bot"
+          },
+          "body": {
+            "type": "doc",
+            "version": 1,
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Looking into it."
+                  }
+                ]
+              }
+            ]
+          },
+          "created": "2026-01-14T15:00:00.000+0000"
+        }
+      ],
+      "maxResults": 50,
+      "total": 1,
+      "startAt": 0
     }
   }
 }

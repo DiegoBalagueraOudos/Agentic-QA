@@ -183,7 +183,16 @@ export interface TrackerSnapshot {
    * `bugs`: the sprint's own bug rows (the same read, no extra call);
    * absent until a source returns the sprint's own bug rows.
    */
-  discover?: { at: string, sprintRows: number, untracked: UntrackedTicket[], bugs?: TrackerBugRow[], /** Untracked sprint rows in a status no bucket lists. */ unclassified?: { id: string, status: string }[] }
+  discover?: {
+    at: string
+    sprintRows: number
+    untracked: UntrackedTicket[]
+    bugs?: TrackerBugRow[]
+    /** Untracked sprint rows in a status no bucket lists. */
+    unclassified?: { id: string, status: string }[]
+    /** The sprint's own bug rows left out of `bugs` (a status no bucket lists, or not a bug type): named on the Bugs view, never counted. */
+    unclassifiedBugs?: { id: string, status: string, reason?: string }[]
+  }
   /** Bugs linked on the board that the tracker could not find at the last sync. */
   missing?: { bugs: string[] }
 }
@@ -297,7 +306,8 @@ export interface SprintBug {
 }
 /** What the Bugs view searched (fail loudly). null = never checked (no `sync --discover` with bug rows yet). */
 /** `missing`: bugs linked on the board that the tracker could not find (named on the page, never counted as found). */
-export interface BugSearch { linked: number, sprintRows: number | null, bugRows: number | null, createdInSprint: number | null, discoveredAt?: string, missing?: string[] }
+/** `unclassified`: the sprint's own bug rows the source left out (status in no bucket): named, never counted. */
+export interface BugSearch { linked: number, sprintRows: number | null, bugRows: number | null, createdInSprint: number | null, discoveredAt?: string, missing?: string[], unclassified?: { id: string, status: string }[] }
 
 export interface TicketView {
   id: string
@@ -1092,6 +1102,7 @@ export function sprintBugs(input: { sprint: Sprint, tickets: TicketView[], track
       createdInSprint,
       discoveredAt: rows ? tracker?.discover?.at : undefined,
       missing: tracker?.missing?.bugs.length ? [...tracker.missing.bugs] : undefined,
+      unclassified: tracker?.discover?.unclassifiedBugs?.length ? tracker.discover.unclassifiedBugs.map(u => ({ id: u.id, status: u.status })) : undefined,
     },
   };
 }

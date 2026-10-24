@@ -1,13 +1,13 @@
 import type { AdfDoc, MediaHelpers, TrackerIO, UploadedAttachment, XrayDocs } from './tracker.ts';
 
-import { copyFileSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'bun:test';
+import { afterAll, describe, expect, it } from 'bun:test';
 
 import { MUTATIONS, QUERIES } from '../../xray/lib/graphql.ts';
 import { JiraHttpError } from '../sprint-source/transport.ts';
-import { adfHasMedia, appendToDoc, createEvidenceTracker, deepLinkLine, dryRunIO, evidenceGlobalId, loadMediaHelpers, xrayDocs } from './tracker.ts';
+import { adfHasMedia, appendToDoc, createEvidenceTracker, deepLinkLine, dryRunIO, evidenceGlobalId, loadMediaHelpers, removeMedia, xrayDocs } from './tracker.ts';
 
 const HERE = import.meta.dir;
 const recorded = <T>(name: string): T => JSON.parse(readFileSync(join(HERE, 'fixtures', 'recorded', name), 'utf8')) as T;
@@ -16,9 +16,20 @@ const DOCS: XrayDocs = xrayDocs(QUERIES, MUTATIONS);
 const MEDIA = '0a1b2c3d-0000-4000-8000-000000007202';
 const PAGE = 'https://claude.ai/artifact/0000aaaa-7001';
 
+/** Every temp dir a test made, removed after the suite whatever its outcome. */
+const TEMP: string[] = [];
+function tempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'evidence-tracker-'));
+  TEMP.push(dir);
+  return dir;
+}
+afterAll(() => {
+  for (const dir of TEMP) { rmSync(dir, { recursive: true, force: true }); }
+});
+
 /** The bug's thumbnail: a real PNG, under the name the build gives it. */
 function thumbnail(): { path: string, size: number } {
-  const dir = mkdtempSync(join(tmpdir(), 'evidence-tracker-'));
+  const dir = tempDir();
   const path = join(dir, 'ACME-7101-thumbnail.png');
   copyFileSync(join(HERE, 'fixtures', 'demo', 'checkout-error.png'), path);
   return { path, size: statSync(path).size };
@@ -90,7 +101,7 @@ function withThumbnail(view: IssueView, size: number, inDescription: boolean): I
   if (inDescription) { next.fields.description = appendToDoc(next.fields.description, { type: 'mediaSingle', attrs: { layout: 'center' }, content: [{ type: 'media', attrs: { type: 'file', id: MEDIA, collection: '' } }] }); }
   return next;
 }
-const ISSUE = '/rest/api/3/issue/ACME-7101?fields=attachment,description';
+const ISSUE = '/rest/api/3/issue/ACME-7101?fields=attachment,description,comment';
 
 describe('adf helpers', () => {
   it('appends at the end and never edits what is there', () => {
@@ -102,8 +113,14 @@ describe('adf helpers', () => {
     expect(adfHasMedia(doc, MEDIA)).toBe(false);
   });
 
-  it('turns a missing Description into a fresh doc', () => {
+  it('turns a missing Description into a fresh doc, and refuses one that is not ADF', () => {
     expect(appendToDoc(null, { type: 'mediaSingle' })).toEqual({ type: 'doc', version: 1, content: [{ type: 'mediaSingle' }] });
+    expect(() => appendToDoc('plain text', { type: 'mediaSingle' })).toThrow('not an ADF document');
+  });
+
+  it('removes only the blocks that hold the media id', () => {
+    const doc = appendToDoc(before().fields.description, { type: 'mediaSingle', content: [{ type: 'media', attrs: { id: MEDIA } }] });
+    expect(removeMedia(doc, MEDIA)).toEqual(before().fields.description as AdfDoc);
   });
 
   it('keys a link by the page, not by the deep link', () => {
@@ -235,8 +252,7 @@ describe('attachThumbnail on jira-native', () => {
   });
 
   it('refuses a file that is not a PNG before any call', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'evidence-tracker-'));
-    const path = join(dir, 'ACME-7101-thumbnail.png');
+    const path = join(tempDir(), 'ACME-7101-thumbnail.png');
     writeFileSync(path, 'not an image');
     const io = replay([]);
     const result = await createEvidenceTracker('jira-native', io, DOCS, media).attachThumbnail('ACME-7101', path);
@@ -291,6 +307,119 @@ describe('attachThumbnail on jira-xray with a Test Run', () => {
     const result = await createEvidenceTracker('jira-xray', io, DOCS, media).attachThumbnail('ACME-7101', png.path, { test: 'ACME-7999', execution: 'ACME-7141' });
     expect(result.error).toContain('ACME-7999 has no run in ACME-7141');
     expect(io.left()).toBe(0);
+  });
+});
+
+describe('a second attach and an earlier thumbnail (review round)', () => {
+  const OLD = '0a1b2c3d-0000-4000-8000-000000007209';
+  const OLD_URL = 'https://acme.example/rest/api/3/attachment/content/7209';
+  /** The bug after an earlier attach: a thumbnail of the same name, OTHER bytes, embedded where `where` says. */
+  function withEarlier(where: 'description' | 'comment' | 'nowhere'): IssueView & { fields: { comment?: { comments: Array<{ id: string, body: unknown }> } } } {
+    const view = structuredClone(before()) as IssueView & { fields: { comment?: { comments: Array<{ id: string, body: unknown }> } } };
+    view.fields.attachment.push({ id: '7209', filename: 'ACME-7101-thumbnail.png', size: 1234, content: OLD_URL });
+    const node = { type: 'mediaSingle', attrs: { layout: 'center' }, content: [{ type: 'media', attrs: { type: 'file', id: OLD, collection: '' } }] };
+    if (where === 'description') { view.fields.description = appendToDoc(view.fields.description, node); }
+    if (where === 'comment') { view.fields.comment!.comments.push({ id: '7302', body: { type: 'doc', version: 1, content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Evidence' }] }, node] } }); }
+    return view;
+  }
+
+  it('M1: after a comment fallback, a second attach finds the image in the Evidence comment and writes nothing', async () => {
+    const png = thumbnail();
+    const view = withThumbnail(before(), png.size, false) as IssueView & { fields: { comment: { comments: Array<{ id: string, body: unknown }> } } };
+    view.fields.comment.comments.push({ id: '7301', body: { type: 'doc', version: 1, content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Evidence' }] }, { type: 'mediaSingle', content: [{ type: 'media', attrs: { id: MEDIA } }] }] } });
+    const io = replay([
+      { op: 'jira', method: 'GET', path: ISSUE, reply: view },
+      { op: 'mediaId', url: 'https://acme.example/rest/api/3/attachment/content/7202', reply: MEDIA },
+    ]);
+    const result = await createEvidenceTracker('jira-native', io, DOCS, media).attachThumbnail('ACME-7101', png.path);
+    expect(result).toMatchObject({ ok: true, embedded: true, fellBack: true });
+    expect(result.lines.at(-1)).toContain('already in its "Evidence" comment 7301');
+    expect(io.left()).toBe(0);
+  });
+
+  it('M1 (reviewer repro): two attach runs on a tracker whose Description refuses edits post ONE comment and ONE upload', async () => {
+    const png = thumbnail();
+    const io = dryRunIO();
+    const refusing = { ...io, jira: async <T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown) => {
+      if (method === 'PUT') { throw new JiraHttpError(method, path, 400, 'Bad Request: Field description cannot be set'); }
+      return io.jira<T>(method, path, body);
+    } };
+    const tracker = createEvidenceTracker('jira-native', refusing, DOCS, media);
+    const first = await tracker.attachThumbnail('ACME-7101', png.path);
+    const second = await tracker.attachThumbnail('ACME-7101', png.path);
+    expect(first).toMatchObject({ ok: true, fellBack: true });
+    expect(first.lines.join('\n')).toContain('Field description cannot be set');
+    expect(second).toMatchObject({ ok: true, embedded: true, fellBack: true });
+    expect(io.calls.filter(c => c.startsWith('POST /rest/api/3/issue/ACME-7101/comment'))).toHaveLength(1);
+    expect(io.calls.filter(c => c.includes('/attachments multipart'))).toHaveLength(1);
+  });
+
+  it('S3: an earlier thumbnail with other bytes is refused without --replace, before any write', async () => {
+    const png = thumbnail();
+    const io = replay([{ op: 'jira', method: 'GET', path: ISSUE, reply: withEarlier('description') }]);
+    const result = await createEvidenceTracker('jira-native', io, DOCS, media).attachThumbnail('ACME-7101', png.path);
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('ACME-7101: an earlier thumbnail of this bug is in the tracker (attachment 7209); it may be unredacted; rerun with --replace after a person confirms');
+    expect(io.left()).toBe(0);
+  });
+
+  it('S3: --replace takes the old image out of the Description, deletes its attachment, reads back, then attaches the new one', async () => {
+    const png = thumbnail();
+    const earlier = withEarlier('description');
+    const cleaned = structuredClone(before());
+    const io = replay([
+      { op: 'jira', method: 'GET', path: ISSUE, reply: earlier },
+      { op: 'mediaId', url: OLD_URL, reply: OLD },
+      { op: 'jira', method: 'PUT', path: '/rest/api/3/issue/ACME-7101', check: body => expect((body as { fields: { description: AdfDoc } }).fields.description).toEqual(before().fields.description as AdfDoc) },
+      { op: 'jira', method: 'DELETE', path: '/rest/api/3/attachment/7209' },
+      { op: 'jira', method: 'GET', path: ISSUE, reply: cleaned },
+      { op: 'upload', key: 'ACME-7101', reply: uploaded(png.size) },
+      { op: 'mediaId', url: 'https://acme.example/rest/api/3/attachment/content/7202', reply: MEDIA },
+      { op: 'jira', method: 'PUT', path: '/rest/api/3/issue/ACME-7101', check: body => expect(adfHasMedia((body as { fields: { description: AdfDoc } }).fields.description, OLD)).toBe(false) },
+      { op: 'jira', method: 'GET', path: ISSUE, reply: withThumbnail(cleaned, png.size, true) },
+    ]);
+    const result = await createEvidenceTracker('jira-native', io, DOCS, media).attachThumbnail('ACME-7101', png.path, undefined, { replace: true });
+    expect(result.error).toBeUndefined();
+    expect(result.lines).toContain('read-back OK: ACME-7101 no longer holds the earlier thumbnail (attachment 7209)');
+    expect(io.left()).toBe(0);
+  });
+
+  it('S3: --replace deletes an earlier Evidence comment the fallback wrote', async () => {
+    const png = thumbnail();
+    const io = replay([
+      { op: 'jira', method: 'GET', path: ISSUE, reply: withEarlier('comment') },
+      { op: 'mediaId', url: OLD_URL, reply: OLD },
+      { op: 'jira', method: 'DELETE', path: '/rest/api/3/issue/ACME-7101/comment/7302' },
+      { op: 'jira', method: 'DELETE', path: '/rest/api/3/attachment/7209' },
+      { op: 'jira', method: 'GET', path: ISSUE, reply: before() },
+      { op: 'upload', key: 'ACME-7101', reply: uploaded(png.size) },
+      { op: 'mediaId', url: 'https://acme.example/rest/api/3/attachment/content/7202', reply: MEDIA },
+      { op: 'jira', method: 'PUT', path: '/rest/api/3/issue/ACME-7101' },
+      { op: 'jira', method: 'GET', path: ISSUE, reply: withThumbnail(before(), png.size, true) },
+    ]);
+    const result = await createEvidenceTracker('jira-native', io, DOCS, media).attachThumbnail('ACME-7101', png.path, undefined, { replace: true });
+    expect(result.error).toBeUndefined();
+    expect(io.left()).toBe(0);
+  });
+
+  it('S3: --replace leaves an attachment it did not embed to a person', async () => {
+    const png = thumbnail();
+    const io = replay([
+      { op: 'jira', method: 'GET', path: ISSUE, reply: withEarlier('nowhere') },
+      { op: 'mediaId', url: OLD_URL, reply: OLD },
+    ]);
+    const result = await createEvidenceTracker('jira-native', io, DOCS, media).attachThumbnail('ACME-7101', png.path, undefined, { replace: true });
+    expect(result.error).toContain('evidence attach did not embed it; remove it by hand');
+    expect(io.left()).toBe(0);
+  });
+
+  it('S3: --replace --dry-run prints the removal calls against a seeded earlier thumbnail', async () => {
+    const png = thumbnail();
+    const io = dryRunIO(undefined, { earlier: { bugKey: 'ACME-7101', filename: 'ACME-7101-thumbnail.png' } });
+    const result = await createEvidenceTracker('jira-native', io, DOCS, media, { dryRun: true }).attachThumbnail('ACME-7101', png.path, undefined, { replace: true });
+    expect(result.error).toBeUndefined();
+    expect(io.calls).toContain('DELETE /rest/api/3/attachment/<earlier attachment id>');
+    expect(io.calls.some(c => c.startsWith('PUT /rest/api/3/issue/ACME-7101 {"fields":{"description":{"type":"doc","version":1,"content":[]}}}'))).toBe(true);
   });
 });
 
@@ -352,6 +481,17 @@ describe('none and dry run', () => {
     const tracker = createEvidenceTracker('none', replay([]), DOCS, media);
     expect((await tracker.attachThumbnail('ACME-7101', png.path)).lines[0]).toContain(`the thumbnail stays at ${png.path}`);
     expect((await tracker.linkEvidence('ACME-7001', { url: PAGE })).lines[0]).toContain('bun run board evidence-artifact ACME-7001');
+  });
+
+  it('S1: a dry run never claims a read-back and nothing counts as embedded', async () => {
+    const png = thumbnail();
+    const tracker = createEvidenceTracker('jira-native', dryRunIO(), DOCS, media, { dryRun: true });
+    for (const result of [await tracker.attachThumbnail('ACME-7101', png.path), await tracker.linkEvidence('ACME-7001', { url: PAGE })]) {
+      expect(result).toMatchObject({ ok: true, dryRun: true });
+      expect(result.lines.join('\n')).not.toContain('read-back OK');
+      expect(result.lines.some(l => l.startsWith('DRY RUN: read-back not performed'))).toBe(true);
+      expect(result.embedded ?? false).toBe(false);
+    }
   });
 
   it('a dry run records every call of a first run and sends nothing', async () => {

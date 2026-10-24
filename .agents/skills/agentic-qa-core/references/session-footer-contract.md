@@ -33,7 +33,7 @@ Other evidence:
 Rules:
 
 - Omit the "Bug annotations" group entirely if none exist this session — no empty headings.
-- **Repo-relative paths** here (they open inline in chat/editor). The Evidence Handoff (`sprint-testing/references/reporting-templates.md` §3.5) deliberately uses FULL ABSOLUTE paths because it instructs the human to open the OS file browser. Produce both where both apply — they don't conflict.
+- **Repo-relative paths** here (they open inline in chat/editor). The Evidence Handoff (`sprint-testing/references/reporting-templates.md` §3.5) links the evidence pages and names the local pack by its FULL ABSOLUTE path, for the operator on this machine (and lists absolute screenshot paths only while a page is not published yet). Produce both where both apply — they don't conflict.
 - List only files verified on disk (`ls` the evidence dir) — never claim a capture a subagent only *said* it took. Canon: `evidence-conventions.md` §3.
 
 ## Part 2 — Session-close footer: tools used + testing levels touched

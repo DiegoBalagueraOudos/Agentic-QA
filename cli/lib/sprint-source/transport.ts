@@ -45,7 +45,7 @@ export function jiraAuth(): JiraAuth {
  * One Jira REST call with any verb, for the writers (the evidence tracker
  * adapter). An empty response body (a `PUT` answers 204) returns `null`.
  */
-export async function jiraRequest<T>(auth: JiraAuth, method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<T | null> {
+export async function jiraRequest<T>(auth: JiraAuth, method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T | null> {
   const response = await fetch(`${auth.baseUrl}${path}`, {
     method,
     headers: { 'Authorization': auth.header, 'Accept': 'application/json', 'Content-Type': 'application/json' },

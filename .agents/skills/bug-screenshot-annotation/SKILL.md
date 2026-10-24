@@ -86,7 +86,7 @@ So: **QA evidence containing real product or customer data never routes through 
      --caption "Annotated evidence — <one-line defect summary>" --publish
    ```
 
-   The annotated image is the "money shot": it leads the bug's Evidence section and ranks first (ahead of the raw capture) in the Stage 3 Evidence Handoff (`../sprint-testing/references/reporting-templates.md` §3.5).
+   The annotated image is the "money shot": it leads the bug's Evidence section, ahead of the raw capture. When the bug has an evidence page (the `evidence-artifact` skill), the image goes into the bug's pack as the reproduction's first defect image, so it leads the page and becomes the bug's one tracker thumbnail; the Stage 3 Evidence Handoff (`../sprint-testing/references/reporting-templates.md` §3.5) links that page, not image files.
 
 ## Known gotchas
 

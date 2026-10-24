@@ -43,6 +43,15 @@ describe('views render', () => {
     expect(viewBugs(ctx({ bugGroup: 'resolved' }))).toContain('None.');
   });
 
+  test('Bugs view: sprint bug rows the source left out (status in no bucket) are named on the search line, never counted', () => {
+    const withLost = fold({ sprint, tracker: { ...tracker, discover: { ...tracker.discover!, unclassifiedBugs: [{ id: 'DEMO-7095', status: 'Triage', reason: 'status not in a bucket' }] } }, now: '2026-10-05T12:00:00Z', events: [] });
+    expect(withLost.bugSearch?.unclassified).toEqual([{ id: 'DEMO-7095', status: 'Triage' }]);
+    expect(withLost.bugs?.some(b => b.id === 'DEMO-7095')).toBe(false);
+    const html = viewBugs(ctxOf(withLost, { filter: '', canWrite: true, img: p => `/files/${p}`, sprints: [], archives: [] }));
+    expect(html).toContain('1 Bug rows not counted (status in no bucket of board.statuses)');
+    expect(html).toContain('DEMO-7095 (Triage)');
+  });
+
   test('Evidence view: closed accordions render no thumbnails; an open case renders its images', () => {
     const closed = viewEvidence(ctx());
     expect(closed).toContain('data-acc="DEMO-1"');

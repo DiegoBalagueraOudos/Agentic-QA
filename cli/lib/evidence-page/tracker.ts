@@ -35,7 +35,7 @@ import { JiraHttpError } from '../sprint-source/transport.ts';
 // IO
 // ============================================================================
 
-export type JiraMethod = 'GET' | 'POST' | 'PUT';
+export type JiraMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 /** What the acli helper's upload returns (the first attachment of the response). */
 export interface UploadedAttachment { id: string, filename: string, content: string, size?: number }
@@ -58,6 +58,7 @@ export interface XrayDocs {
   getTestExecution: string
   getTestRunById: string
   addEvidenceToTestRun: string
+  removeEvidenceFromTestRun: string
   updateTestRunComment: string
 }
 
@@ -76,11 +77,27 @@ export interface TrackerResult {
   embedded?: boolean
   /** attach: the Description could not be written; the image went into a comment instead. */
   fellBack?: boolean
+  /** Simulated (`--dry-run`): nothing was sent and nothing was read back. */
+  dryRun?: boolean
+}
+
+export interface AttachOptions {
+  /**
+   * An earlier thumbnail of this bug (same name, other bytes) is in the tracker: remove its
+   * image and the attachment this tool embedded, then attach the new one. A person confirms
+   * first: deleting a tracker attachment cannot be undone.
+   */
+  replace?: boolean
+}
+
+export interface TrackerOptions {
+  /** The IO only records the calls: result lines say so, never claim a read-back, and nothing counts as embedded. */
+  dryRun?: boolean
 }
 
 export interface EvidenceTracker {
   readonly kind: SourceKind
-  attachThumbnail: (bugKey: string, pngPath: string, run?: RunRef) => Promise<TrackerResult>
+  attachThumbnail: (bugKey: string, pngPath: string, run?: RunRef, options?: AttachOptions) => Promise<TrackerResult>
   linkEvidence: (targetKey: string, page: { url: string, title?: string }, run?: RunRef & { caseId?: string }) => Promise<TrackerResult>
 }
 
@@ -105,12 +122,24 @@ export function adfHasMedia(node: unknown, mediaId: string): boolean {
   return Array.isArray(n.content) && n.content.some(child => adfHasMedia(child, mediaId));
 }
 
-/** The document with one node appended at the end; a missing Description becomes a fresh doc. Never edits what is there. */
+function isDoc(doc: unknown): doc is AdfDoc {
+  return typeof doc === 'object' && doc !== null && (doc as AdfDoc).type === 'doc' && Array.isArray((doc as AdfDoc).content);
+}
+
+/**
+ * The document with one node appended at the end; a missing (`null`) Description becomes a
+ * fresh doc. Never edits what is there, and refuses anything that is neither `null` nor an
+ * ADF doc rather than replacing it.
+ */
 export function appendToDoc(doc: unknown, node: AdfNode): AdfDoc {
-  const base = (typeof doc === 'object' && doc !== null && (doc as AdfDoc).type === 'doc' && Array.isArray((doc as AdfDoc).content))
-    ? doc as AdfDoc
-    : { type: 'doc' as const, version: 1 as const, content: [] };
-  return { ...base, version: 1, content: [...base.content, node] };
+  if (doc === null || doc === undefined) { return { type: 'doc', version: 1, content: [node] }; }
+  if (!isDoc(doc)) { throw new Error('the Description is not an ADF document; nothing written (edit it by hand)'); }
+  return { ...doc, version: 1, content: [...doc.content, node] };
+}
+
+/** The document without every top-level block that holds this media id (the `mediaSingle` this tool appended). */
+export function removeMedia(doc: AdfDoc, mediaId: string): AdfDoc {
+  return { ...doc, content: doc.content.filter(block => !adfHasMedia(block, mediaId)) };
 }
 
 // ============================================================================
@@ -118,7 +147,7 @@ export function appendToDoc(doc: unknown, node: AdfNode): AdfDoc {
 // ============================================================================
 
 interface JiraAttachment { id: string, filename: string, size?: number, content: string }
-interface JiraIssueView { key: string, fields: { attachment?: JiraAttachment[], description?: unknown } }
+interface JiraIssueView { key: string, fields: { attachment?: JiraAttachment[], description?: unknown, comment?: { comments?: JiraComment[] } } }
 interface JiraComment { id: string, body?: unknown }
 interface JiraRemoteLink { id?: number | string, globalId?: string, object?: { url?: string, title?: string } }
 interface XrayRun { id: string, comment?: string | null, evidence?: Array<{ id: string, filename: string }> | null, test?: { jira?: { key?: string } } }
@@ -143,9 +172,14 @@ export function deepLinkLine(url: string, ticketKey: string, caseId: string): st
 // FACTORY
 // ============================================================================
 
-export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: XrayDocs, media: () => Promise<MediaHelpers>): EvidenceTracker {
+export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: XrayDocs, media: () => Promise<MediaHelpers>, options: TrackerOptions = {}): EvidenceTracker {
   if (kind === 'none') { return noneTracker(); }
   const xray = kind === 'jira-xray';
+  const dryRun = options.dryRun === true;
+  /** A write line; in a dry run it says nothing was sent. */
+  const wrote = (lines: string[], text: string) => lines.push(dryRun ? `(dry run, not sent) ${text}` : text);
+  /** A read-back line; a dry run never claims one. */
+  const readBack = (lines: string[], text: string) => lines.push(dryRun ? `DRY RUN: read-back not performed (a live run checks that ${text})` : `read-back OK: ${text}`);
 
   /** Resolve a Test Run before any write: a wrong TC or execution writes nothing. */
   const resolveRun = async (run: RunRef | undefined): Promise<XrayRun | null> => {
@@ -159,7 +193,7 @@ export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: Xra
       const execId = await io.issueId(run.execution);
       const exec = await io.xray<{ getTestExecution: { testRuns?: { results?: XrayRun[] } } | null }>(docs.getTestExecution, { issueId: execId });
       const found = exec.getTestExecution?.testRuns?.results?.find(r => r.test?.jira?.key === run.test);
-      if (found === undefined) { throw new Error(`${run.test} has no run in ${run.execution}: add the test to the execution first (bun xray exec add-tests)`); }
+      if (found === undefined) { throw new Error(`${run.test} has no run in ${run.execution} (the first 100 runs were read): add the test to the execution first (bun xray exec add-tests), or pass --run <id>`); }
       runId = found.id;
     }
     const read = await io.xray<{ getTestRunById: XrayRun | null }>(docs.getTestRunById, { id: runId });
@@ -173,20 +207,73 @@ export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: Xra
     return read.getTestRunById;
   };
 
+  /**
+   * `--replace`: take out an earlier thumbnail this tool embedded (same name, other bytes): its
+   * media node leaves the Description, or its "Evidence" comment is deleted, then the attachment
+   * is deleted; read back before the new one goes in. An attachment of that name that this tool
+   * did not embed (its media id is in neither place) is left for a person.
+   */
+  const removeEarlier = async (bugKey: string, issuePath: string, view: JiraIssueView, earlier: JiraAttachment[], lines: string[]): Promise<JiraIssueView> => {
+    const gone: Array<{ attachment: JiraAttachment, mediaId: string }> = [];
+    let description = view.fields.description;
+    for (const attachment of earlier) {
+      const old = await io.mediaId(attachment.content);
+      const ownComments = commentsOf(view).filter(c => adfHasMedia(c.body, old));
+      if (!adfHasMedia(description, old) && ownComments.length === 0) {
+        throw new Error(`${bugKey}: attachment ${attachment.id} (${attachment.filename}) is in neither the Description nor an "Evidence" comment, so evidence attach did not embed it; remove it by hand`);
+      }
+      const foreign = ownComments.filter(c => !isEvidenceComment(c.body));
+      if (foreign.length > 0) {
+        throw new Error(`${bugKey}: comment ${foreign.map(c => c.id).join(', ')} holds the earlier image beside other text; remove it by hand`);
+      }
+      if (adfHasMedia(description, old)) {
+        if (!isDoc(description)) { throw new Error(`${bugKey}: the Description is not an ADF document; edit it by hand`); }
+        description = removeMedia(description, old);
+        await io.jira('PUT', `/rest/api/3/issue/${bugKey}`, { fields: { description } });
+        wrote(lines, `${bugKey}: earlier thumbnail (media ${old}) removed from the Description`);
+      }
+      for (const comment of ownComments) {
+        await io.jira('DELETE', `/rest/api/3/issue/${bugKey}/comment/${comment.id}`);
+        wrote(lines, `${bugKey}: earlier "Evidence" comment ${comment.id} deleted`);
+      }
+      await io.jira('DELETE', `/rest/api/3/attachment/${attachment.id}`);
+      wrote(lines, `${bugKey}: earlier attachment ${attachment.id} (${attachment.filename}) deleted`);
+      gone.push({ attachment, mediaId: old });
+    }
+    const after = await io.jira<JiraIssueView>('GET', issuePath);
+    if (after === null) { throw new Error(`read-back: ${bugKey}: empty response`); }
+    for (const { attachment, mediaId } of gone) {
+      if ((after.fields.attachment ?? []).some(a => a.id === attachment.id)) { throw new Error(`read-back: ${bugKey} still holds attachment ${attachment.id}`); }
+      if (adfHasMedia(after.fields.description, mediaId) || commentsOf(after).some(c => adfHasMedia(c.body, mediaId))) { throw new Error(`read-back: ${bugKey} still shows media ${mediaId}`); }
+    }
+    readBack(lines, `${bugKey} no longer holds the earlier thumbnail (${gone.map(g => `attachment ${g.attachment.id}`).join(', ')})`);
+    return after;
+  };
+
   return {
     kind,
 
-    async attachThumbnail(bugKey, pngPath, run) {
+    async attachThumbnail(bugKey, pngPath, run, attachOptions = {}) {
       const lines: string[] = [];
       try {
         const bytes = readPng(pngPath);
         const name = basename(pngPath);
         const target = await resolveRun(run);
 
-        // 1. what the bug already holds
-        const issuePath = `/rest/api/3/issue/${bugKey}?fields=attachment,description`;
-        const before = await io.jira<JiraIssueView>('GET', issuePath);
+        // 1. what the bug already holds: attachments, Description, comments (a fallback may have used one)
+        const issuePath = `/rest/api/3/issue/${bugKey}?fields=attachment,description,comment`;
+        let before = await io.jira<JiraIssueView>('GET', issuePath);
         if (before === null) { throw new Error(`${bugKey}: empty response`); }
+
+        // An earlier thumbnail (same name, other bytes) may be unredacted: never appended beside it
+        const earlier = (before.fields.attachment ?? []).filter(a => a.filename === name && a.size !== bytes.length);
+        if (earlier.length > 0) {
+          if (attachOptions.replace !== true) {
+            throw new Error(`${bugKey}: an earlier thumbnail of this bug is in the tracker (${earlier.map(a => `attachment ${a.id}`).join(', ')}); it may be unredacted; rerun with --replace after a person confirms`);
+          }
+          before = await removeEarlier(bugKey, issuePath, before, earlier, lines);
+        }
+
         const same = (before.fields.attachment ?? []).find(a => a.filename === name && a.size === bytes.length);
         let mediaId: string | null = null;
         if (same !== undefined) {
@@ -196,26 +283,33 @@ export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: Xra
 
         let embedded = false;
         let fellBack = false;
+        const inComment = mediaId === null ? undefined : commentsOf(before).find(c => adfHasMedia(c.body, mediaId as string));
         if (mediaId !== null && adfHasMedia(before.fields.description, mediaId)) {
           lines.push(`${bugKey}: the thumbnail is already in the Description, nothing written`);
           embedded = true;
+        }
+        else if (inComment !== undefined) {
+          lines.push(`${bugKey}: the thumbnail is already in its "Evidence" comment ${inComment.id}, nothing written`);
+          embedded = true;
+          fellBack = true;
         }
         else {
           // 2. upload unless it is there, 3. its media id
           if (mediaId === null) {
             const uploaded = await io.upload(bugKey, pngPath);
-            lines.push(`${bugKey}: attached ${uploaded.filename} (attachment ${uploaded.id})`);
+            wrote(lines, `${bugKey}: attached ${uploaded.filename} (attachment ${uploaded.id})`);
             mediaId = await io.mediaId(uploaded.content);
           }
           const helpers = await media();
           const size = helpers.imageSize(bytes);
           const node = helpers.buildMediaNode(mediaId, { width: size?.width, height: size?.height, alt: name });
 
-          // 4. append to the Description, or fall back to a structured comment
+          // 4. append to the Description, or fall back to a structured comment. The Description read in
+          // step 1 is written back whole: an edit someone makes in between is lost (a short window).
           let commentId: string | null = null;
           try {
             await io.jira('PUT', `/rest/api/3/issue/${bugKey}`, { fields: { description: appendToDoc(before.fields.description, node) } });
-            lines.push(`${bugKey}: thumbnail appended to the end of the Description`);
+            wrote(lines, `${bugKey}: thumbnail appended to the end of the Description`);
           }
           catch (err) {
             if (!(err instanceof JiraHttpError) || err.status !== 400) { throw err; }
@@ -223,7 +317,7 @@ export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: Xra
             if (comment === null || !comment.id) { throw new Error(`${bugKey}: the fallback comment returned no id`); }
             commentId = comment.id;
             fellBack = true;
-            lines.push(`${bugKey}: the Description cannot be edited (HTTP 400: not on the edit screen?); thumbnail posted in an "Evidence" comment ${commentId} instead`);
+            wrote(lines, `${bugKey}: the Description could not be written (${err.message}); thumbnail posted in an "Evidence" comment ${commentId} instead`);
           }
 
           // 5. read back at the destination
@@ -239,26 +333,32 @@ export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: Xra
             if (!adfHasMedia(back?.body, mediaId)) { throw new Error(`read-back: comment ${commentId} on ${bugKey} does not hold media ${mediaId}`); }
           }
           embedded = true;
-          lines.push(`read-back OK: ${bugKey} holds ${name} (${bytes.length} bytes) and the image is in its ${fellBack ? 'Evidence comment' : 'Description'}`);
+          readBack(lines, `${bugKey} holds ${name} (${bytes.length} bytes) and the image is in its ${fellBack ? 'Evidence comment' : 'Description'}`);
         }
 
         // jira-xray: the same PNG as the Test Run's evidence
         if (target !== null) {
-          if ((target.evidence ?? []).some(e => e.filename === name)) {
+          const there = (target.evidence ?? []).some(e => e.filename === name);
+          if (there && attachOptions.replace !== true) {
             lines.push(`Test Run ${target.id}: ${name} is already its evidence, nothing written`);
           }
           else {
+            if (there) {
+              await io.xray(docs.removeEvidenceFromTestRun, { id: target.id, evidenceFilenames: [name], evidenceIds: null });
+              wrote(lines, `Test Run ${target.id}: earlier ${name} removed from its evidence`);
+            }
             const evidence: AttachmentDataInput[] = [{ filename: name, mimeType: 'image/png', data: Buffer.from(bytes).toString('base64') }];
             await io.xray(docs.addEvidenceToTestRun, { id: target.id, evidence });
+            wrote(lines, `Test Run ${target.id}: ${name} added as evidence`);
             const back = await readRun(target.id);
-            if (!(back.evidence ?? []).some(e => e.filename === name)) { throw new Error(`read-back: Test Run ${target.id} evidence does not list ${name}`); }
-            lines.push(`read-back OK: Test Run ${target.id} lists ${name} as evidence`);
+            if ((back.evidence ?? []).filter(e => e.filename === name).length !== 1) { throw new Error(`read-back: Test Run ${target.id} evidence does not list ${name} exactly once`); }
+            readBack(lines, `Test Run ${target.id} lists ${name} as evidence`);
           }
         }
-        return { ok: true, lines, embedded, fellBack };
+        return { ok: true, lines, embedded: embedded && !dryRun, fellBack, ...(dryRun ? { dryRun } : {}) };
       }
       catch (err) {
-        return { ok: false, lines, error: (err as Error).message };
+        return { ok: false, lines, error: (err as Error).message, ...(dryRun ? { dryRun } : {}) };
       }
     },
 
@@ -269,13 +369,13 @@ export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: Xra
         const globalId = evidenceGlobalId(page.url);
         const title = page.title ?? `${targetKey} Evidence page`;
         await io.jira('POST', `/rest/api/3/issue/${targetKey}/remotelink`, { globalId, relationship: 'Evidence', object: { url: page.url, title } });
-        lines.push(`${targetKey}: remote link "${title}" -> ${page.url} (globalId ${globalId}: a republish updates it)`);
+        wrote(lines, `${targetKey}: remote link "${title}" -> ${page.url} (globalId ${globalId}: a republish updates it)`);
         const back = await io.jira<JiraRemoteLink | JiraRemoteLink[]>('GET', `/rest/api/3/issue/${targetKey}/remotelink?globalId=${encodeURIComponent(globalId)}`);
         const links = back === null ? [] : Array.isArray(back) ? back : [back];
         const found = links.find(l => l.globalId === globalId);
         if (found === undefined) { throw new Error(`read-back: ${targetKey} has no remote link with globalId ${globalId}`); }
         if (found.object?.url !== page.url) { throw new Error(`read-back: ${targetKey}'s evidence link points at ${found.object?.url ?? '(none)'}, not ${page.url}`); }
-        lines.push(`read-back OK: ${targetKey} links ${page.url}`);
+        readBack(lines, `${targetKey} links ${page.url}`);
 
         if (target !== null) {
           const caseId = run?.caseId ?? target.test?.jira?.key;
@@ -289,13 +389,13 @@ export function createEvidenceTracker(kind: SourceKind, io: TrackerIO, docs: Xra
             await io.xray(docs.updateTestRunComment, { id: target.id, comment: current === '' ? line : `${current}\n${line}` });
             const after = await readRun(target.id);
             if (!(after.comment ?? '').split('\n').includes(line)) { throw new Error(`read-back: Test Run ${target.id} comment does not carry ${line}`); }
-            lines.push(`read-back OK: Test Run ${target.id} comment carries ${line}`);
+            readBack(lines, `Test Run ${target.id} comment carries ${line}`);
           }
         }
-        return { ok: true, lines };
+        return { ok: true, lines, ...(dryRun ? { dryRun } : {}) };
       }
       catch (err) {
-        return { ok: false, lines, error: (err as Error).message };
+        return { ok: false, lines, error: (err as Error).message, ...(dryRun ? { dryRun } : {}) };
       }
     },
   };
@@ -319,6 +419,17 @@ function evidenceCommentDoc(node: AdfNode): AdfDoc {
   return { type: 'doc', version: 1, content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Evidence' }] }, node] };
 }
 
+/** A comment this tool wrote: exactly the `Evidence` heading and one image. */
+function isEvidenceComment(body: unknown): boolean {
+  if (!isDoc(body) || body.content.length !== 2) { return false; }
+  const [heading, image] = body.content;
+  return heading.type === 'heading' && heading.content?.[0]?.text === 'Evidence' && image.type === 'mediaSingle';
+}
+
+function commentsOf(view: JiraIssueView): JiraComment[] {
+  return view.fields.comment?.comments ?? [];
+}
+
 function readPng(pngPath: string): Uint8Array {
   if (!existsSync(pngPath)) { throw new Error(`${pngPath}: no such file (build it with bun run evidence build --pack <bug pack> --thumb <png>)`); }
   const bytes = new Uint8Array(readFileSync(pngPath));
@@ -337,12 +448,18 @@ function printable(body: unknown): string {
   return JSON.stringify(body, (key, value) => (key === 'data' && typeof value === 'string' && value.length > 120 ? `<base64, ${value.length} chars>` : value));
 }
 
+export interface DryRunSeed {
+  /** `--replace`: the bug starts with an earlier thumbnail of this name (other bytes) in its Description, so the removal calls print too. */
+  earlier?: { bugKey: string, filename: string }
+}
+
 /**
  * An empty tracker: every issue starts with no attachment, no Description, no
- * link; the named Test Run exists with no evidence and no comment. So the dry run
- * prints the calls of a first run; a live run reads first and may skip some.
+ * comment, no link; the named Test Run exists with no evidence and no comment. So
+ * the dry run prints the calls of a first run; a live run reads first and may skip
+ * some. With `seed.earlier`, the bug holds an earlier thumbnail, as `--replace` expects.
  */
-export function dryRunIO(run?: RunRef): DryRunIO {
+export function dryRunIO(run?: RunRef, seed: DryRunSeed = {}): DryRunIO {
   const calls: string[] = [];
   const issues = new Map<string, { attachments: JiraAttachment[], description: unknown, comments: JiraComment[], links: JiraRemoteLink[] }>();
   const issue = (key: string) => {
@@ -353,6 +470,11 @@ export function dryRunIO(run?: RunRef): DryRunIO {
     }
     return state;
   };
+  if (seed.earlier !== undefined) {
+    const state = issue(seed.earlier.bugKey);
+    state.attachments.push({ id: '<earlier attachment id>', filename: seed.earlier.filename, size: 0, content: '<earlier attachment content url>' });
+    state.description = { type: 'doc', version: 1, content: [{ type: 'mediaSingle', content: [{ type: 'media', attrs: { id: '<earlier media id>' } }] }] };
+  }
   const runs = new Map<string, XrayRun>();
   const runOf = (id: string): XrayRun => {
     let state = runs.get(id);
@@ -367,11 +489,16 @@ export function dryRunIO(run?: RunRef): DryRunIO {
     calls,
     async jira<T>(method: JiraMethod, path: string, body?: unknown): Promise<T | null> {
       calls.push(`${method} ${path}${body === undefined ? '' : ` ${printable(body)}`}`);
+      const deleted = /^\/rest\/api\/3\/attachment\/(.+)$/.exec(path);
+      if (deleted !== null && method === 'DELETE') {
+        for (const state of issues.values()) { state.attachments = state.attachments.filter(a => a.id !== decodeURIComponent(deleted[1])); }
+        return null;
+      }
       const m = /^\/rest\/api\/3\/issue\/([^/?]+)(\/[^?]*)?(?:\?(.*))?$/.exec(path);
       if (m === null) { return null; }
       const [, key, sub = '', query = ''] = m;
       const state = issue(key);
-      if (sub === '' && method === 'GET') { return { key, fields: { attachment: state.attachments, description: state.description } } as T; }
+      if (sub === '' && method === 'GET') { return { key, fields: { attachment: state.attachments, description: state.description, comment: { comments: state.comments } } } as T; }
       if (sub === '' && method === 'PUT') {
         state.description = (body as { fields: { description: unknown } }).fields.description;
         return null;
@@ -381,7 +508,14 @@ export function dryRunIO(run?: RunRef): DryRunIO {
         state.comments.push(comment);
         return comment as T;
       }
-      if (sub.startsWith('/comment/')) { return (state.comments.find(c => c.id === decodeURIComponent(sub.slice('/comment/'.length))) ?? null) as T; }
+      if (sub.startsWith('/comment/')) {
+        const id = decodeURIComponent(sub.slice('/comment/'.length));
+        if (method === 'DELETE') {
+          state.comments = state.comments.filter(c => c.id !== id);
+          return null;
+        }
+        return (state.comments.find(c => c.id === id) ?? null) as T;
+      }
       if (sub === '/remotelink' && method === 'POST') {
         const link = body as JiraRemoteLink;
         state.links = [...state.links.filter(l => l.globalId !== link.globalId), { ...link, id: '<link id>' }];
@@ -402,7 +536,7 @@ export function dryRunIO(run?: RunRef): DryRunIO {
     },
     async mediaId(contentUrl) {
       calls.push(`GET ${contentUrl} (redirect not followed: the media id is read from its Location)`);
-      return '<media id>';
+      return contentUrl.includes('earlier') ? '<earlier media id>' : '<media id>';
     },
     async xray<T>(query: string, variables: Record<string, unknown>): Promise<T> {
       const name = /\b(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? 'GraphQL';
@@ -415,6 +549,11 @@ export function dryRunIO(run?: RunRef): DryRunIO {
         const target = runOf(String(variables.id));
         target.evidence = [...(target.evidence ?? []), ...(variables.evidence as AttachmentDataInput[]).map(e => ({ id: '<evidence id>', filename: e.filename }))];
         return { addEvidenceToTestRun: { addedEvidence: [], warnings: [] } } as T;
+      }
+      if (name === 'RemoveEvidenceFromTestRun') {
+        const target = runOf(String(variables.id));
+        target.evidence = (target.evidence ?? []).filter(e => !(variables.evidenceFilenames as string[]).includes(e.filename));
+        return { removeEvidenceFromTestRun: { removedEvidence: [], warnings: [] } } as T;
       }
       if (name === 'UpdateTestRunComment') {
         runOf(String(variables.id)).comment = String(variables.comment);
@@ -441,17 +580,20 @@ export async function loadMediaHelpers(): Promise<MediaHelpers & { readCredentia
 }
 
 /**
- * The live IO, built from the repo's existing clients. Both credential readers
- * (the acli helper reads the environment then `.env.local` / `.env`; the REST
- * transport reads the environment then the `bun xray auth login` store) are
- * checked BEFORE the first call, so a run never writes half of its steps.
+ * The live IO, built from the repo's existing clients. For `attach`, both credential
+ * readers (the acli helper reads the environment then `.env.local` / `.env`; the REST
+ * transport reads the environment then the `bun xray auth login` store) are checked
+ * BEFORE the first call, so a run never writes half of its steps. `link` never
+ * uploads, so it checks the transport's only.
  */
-export async function liveTrackerIO(): Promise<{ io: TrackerIO, docs: XrayDocs }> {
+export async function liveTrackerIO(operation: 'attach' | 'link'): Promise<{ io: TrackerIO, docs: XrayDocs }> {
   const helper = await loadMediaHelpers();
-  const names = ['ATLASSIAN_EMAIL', 'ATLASSIAN_API_TOKEN'];
-  const missing = names.filter(n => helper.readCredential(n) === null);
-  if (missing.length > 0) {
-    throw new Error(`Jira credentials not set for the upload: ${missing.join(', ')}. Fill them in .env (see .env.example), then restart the agent session.`);
+  if (operation === 'attach') {
+    const names = ['ATLASSIAN_EMAIL', 'ATLASSIAN_API_TOKEN'];
+    const missing = names.filter(n => helper.readCredential(n) === null);
+    if (missing.length > 0) {
+      throw new Error(`Jira credentials not set for the upload: ${missing.join(', ')}. Fill them in .env (see .env.example), then restart the agent session.`);
+    }
   }
   const { jiraAuth, jiraRequest } = await import('../sprint-source/transport.ts');
   const auth = jiraAuth();
@@ -474,6 +616,7 @@ export function xrayDocs(queries: Record<string, string>, mutations: Record<stri
     getTestExecution: queries.getTestExecution,
     getTestRunById: queries.getTestRunById,
     addEvidenceToTestRun: mutations.addEvidenceToTestRun,
+    removeEvidenceFromTestRun: mutations.removeEvidenceFromTestRun,
     updateTestRunComment: mutations.updateTestRunComment,
   };
 }

@@ -142,7 +142,15 @@ inline; everything else is the link. An API/DB-only bug has no thumbnail: link o
 
 `attach` embeds it in the bug, after the Description already carries the page link (step 1 of §3):
 
-1. It reads the bug. The same file already attached and already in the Description: nothing to do.
+1. It reads the bug: attachments, Description and comments. The same file already attached and
+   already in the Description, or in the `Evidence` comment an earlier fallback wrote: nothing to do.
+   An EARLIER thumbnail of the bug (same name, other bytes, for instance before a missed `redact` box
+   was fixed) may be unredacted, so it is never appended beside the new one: `attach` stops and says
+   so. Ask a person; on their OK, rerun with `--replace`, which takes that image out of the
+   Description (or deletes its `Evidence` comment), DELETES the attachment this tool embedded, reads
+   the bug back, then attaches the new one (on `jira-xray` it also swaps the run's evidence file).
+   Deleting a tracker attachment cannot be undone, so `--replace` never runs without that OK; an
+   attachment of that name `attach` did not embed is left for the person.
 2. It attaches the PNG to the bug (unless that copy is already there), resolves the attachment's
    media id, and appends ONE image node at the END of the Description. The text above it is never
    rewritten.
@@ -153,7 +161,10 @@ inline; everything else is the link. An API/DB-only bug has no thumbnail: link o
 5. On `jira-xray`, `--test <TC> --exec <ATR>` (or `--run <id>`) also adds the PNG to that Test Run's
    evidence and reads the run back. The run is resolved before any write, so a wrong TC writes nothing.
 
-Write "(image embedded below)" in a report only after the read-back passed (after a fallback, name the
+`--dry-run` prints every call and sends nothing; its result lines say `DRY RUN: read-back not
+performed`, never `read-back OK`, and nothing counts as embedded.
+
+Write "(image embedded below)" in a report only after a live `read-back OK` (after a fallback, name the
 `Evidence` comment instead), then `bun run board bug <KEY> <BUG> --title "<title>" --severity <...>
 --evidence-embedded --by worker` (the command prints that line, filled from the bug pack). With
 no tracker (`board.source: none`) `attach` writes nothing: the thumbnail stays on disk and the report

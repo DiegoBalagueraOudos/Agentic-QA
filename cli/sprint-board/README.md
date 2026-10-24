@@ -213,7 +213,8 @@ Every bug of the sprint, from two sources, with what was searched printed under 
    `tickets.yaml`; the jira sources: `board.bug_jql`, else `board.jql` with its issuetype clause
    swapped for the bug types, printed by `board:check`). Until a discover read, or when no bug query
    can be derived, this part reads "not checked", never zero. A bug row in a status no bug bucket
-   lists is printed by `sync` and left out, never counted as open.
+   lists (or not of a bug type) is left out and never counted as open: `sync` prints it, the store
+   keeps it, and the search line names it ("N Bug rows not counted").
 
 A bug filed into another sprint (or none) and linked to nothing tracked is not found, and the
 search line says so.

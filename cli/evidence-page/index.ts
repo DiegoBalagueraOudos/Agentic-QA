@@ -7,7 +7,7 @@
  *   bun run evidence extract --page <page.html> --out <pack.json>
  *   bun run evidence record  --pack <pack.json> --url <url>
  *   bun run evidence attach  --pack <bug pack.json> | --key <BUG> --png <png>  [--run <id> | --test <TC> --exec <EXEC>]
- *                            [--source jira-xray|jira-native|none] [--dry-run] [--json]
+ *                            [--replace] [--source jira-xray|jira-native|none] [--dry-run] [--json]
  *   bun run evidence link    --pack <pack.json> | --key <KEY> --url <url>  [--run <id> [--case <id>] | --test <TC> --exec <EXEC>]
  *                            [--source ...] [--dry-run] [--json]
  *   bun run evidence demo    [--out <dir>]
@@ -30,7 +30,11 @@
  *     a remote link (`cli/lib/evidence-page/tracker.ts`); on jira-xray a named Test
  *     Run also gets the PNG as evidence / the TC deep link in its comment; `none`
  *     writes nothing. Every write is read back before the command says done.
- *     `--dry-run` prints every call of a first run and sends nothing.
+ *     An earlier thumbnail of the bug (same name, other bytes, so possibly
+ *     unredacted) is never appended beside the new one: `attach` refuses, and
+ *     `--replace` (after a person confirms) removes its image and attachment first.
+ *     `--dry-run` prints every call of a first run, sends nothing and never prints a
+ *     read-back as done (`--json`: `dryRun: true, sent: false`).
  *   - The ticket key pattern and the allowed hosts come from the `board:` block when
  *     it is configured, else the generic key shape and the shipped hosts. The tracker
  *     modality is `--source`, else `board.source`, else `testing.tms_cli`.
@@ -40,11 +44,11 @@
 
 import type { EvidenceHost } from '../lib/evidence-page/hosts.ts';
 import type { Pack } from '../lib/evidence-page/pack.ts';
-import type { EvidenceTracker, RunRef, TrackerResult } from '../lib/evidence-page/tracker.ts';
+import type { DryRunSeed, EvidenceTracker, RunRef, TrackerResult } from '../lib/evidence-page/tracker.ts';
 import type { SourceKind } from '../lib/sprint-source/index.ts';
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 import { parse as parseYaml } from 'yaml';
 
@@ -75,6 +79,8 @@ const USAGE = `Usage: bun run evidence <command> [options]
   attach   --pack <bug pack.json> | --key <BUG> --png <png>
                                 embed the bug's thumbnail in its tracker Description, read back
            [--run <id> | --test <TC> --exec <EXEC>]  jira-xray: also the Test Run's evidence
+           [--replace]          an earlier thumbnail of this bug (same name, other bytes) is removed first;
+                                a person confirms before: deleting a tracker attachment cannot be undone
   link     --pack <pack.json> | --key <KEY> --url <url>
                                 link the published page from the issue (remote link), read back
            [--run <id> [--case <id>] | --test <TC> --exec <EXEC>]  jira-xray: the TC deep link in the run comment
@@ -375,22 +381,31 @@ function trackerSource(values: Record<string, string | string[] | boolean | unde
   return flag as SourceKind;
 }
 
-async function tracker(source: SourceKind, dryRun: boolean, run: RunRef | undefined): Promise<{ tracker: EvidenceTracker, calls: string[] | null }> {
-  if (dryRun || source === 'none') {
-    const io = dryRunIO(run);
-    return { tracker: createEvidenceTracker(source, io, xrayDocs(QUERIES, MUTATIONS), loadMediaHelpers), calls: io.calls };
+interface TrackerRun { operation: 'attach' | 'link', source: SourceKind, dryRun: boolean, run: RunRef | undefined, seed?: DryRunSeed }
+
+/** The tracker for one command; a missing credential is a result (exit 1, one line or one JSON line), never an unhandled throw. */
+async function tracker(spec: TrackerRun): Promise<{ tracker: EvidenceTracker, calls: string[] | null } | { error: string }> {
+  if (spec.dryRun || spec.source === 'none') {
+    const io = dryRunIO(spec.run, spec.seed);
+    return { tracker: createEvidenceTracker(spec.source, io, xrayDocs(QUERIES, MUTATIONS), loadMediaHelpers, { dryRun: spec.dryRun }), calls: io.calls };
   }
-  const live = await liveTrackerIO();
-  return { tracker: createEvidenceTracker(source, live.io, live.docs, loadMediaHelpers), calls: null };
+  try {
+    const live = await liveTrackerIO(spec.operation);
+    return { tracker: createEvidenceTracker(spec.source, live.io, live.docs, loadMediaHelpers), calls: null };
+  }
+  catch (err) {
+    return { error: (err as Error).message };
+  }
 }
 
 function report(result: TrackerResult, json: boolean, dryRun: boolean, calls: string[] | null, done: string[]): number {
   if (json) {
-    console.log(JSON.stringify({ ok: result.ok, dryRun, lines: result.lines, ...(result.error === undefined ? {} : { error: result.error }), ...(dryRun && calls !== null ? { calls } : {}), ...(result.ok ? { next: done } : {}) }));
+    // A dry run is never reported as a real write: `dryRun` and `sent: false` travel with `ok`
+    console.log(JSON.stringify({ ok: result.ok, dryRun, sent: !dryRun, lines: result.lines, ...(result.error === undefined ? {} : { error: result.error }), ...(dryRun && calls !== null ? { calls } : {}), ...(result.ok && !dryRun ? { next: done } : {}) }));
     return result.ok ? 0 : 1;
   }
   if (dryRun && calls !== null) {
-    console.log('dry run: nothing sent. The calls of a first run (a live run reads first and may skip some):');
+    console.log('DRY RUN: nothing sent, nothing read back. The calls of a first run (a live run reads first and may skip some):');
     calls.forEach((call, i) => console.log(`  ${i + 1}. ${call}`));
   }
   result.lines.forEach(line => console.log(`${result.ok || line !== result.lines.at(-1) ? '✓' : '·'} ${line}`));
@@ -423,8 +438,13 @@ async function runAttach(values: Record<string, string | string[] | boolean | un
   const source = trackerSource(values, config);
   const run = runRef(values, source);
   const dryRun = values['dry-run'] === true;
-  const { tracker: t, calls } = await tracker(source, dryRun, run);
-  const result = await t.attachThumbnail(target.key, resolve(png), run);
+  const replace = values.replace === true;
+  const made = await tracker({ operation: 'attach', source, dryRun, run, seed: replace ? { earlier: { bugKey: target.key, filename: basename(png) } } : undefined });
+  if ('error' in made) {
+    return report({ ok: false, lines: [], error: made.error }, json, dryRun, null, []);
+  }
+  const { tracker: t, calls } = made;
+  const result = await t.attachThumbnail(target.key, resolve(png), run, { replace });
   const ticket = target.pack?.ticket;
   const board = `bun run board bug ${ticket?.parent ?? '<ticket>'} ${target.key} --title ${JSON.stringify(ticket?.title ?? '<title>')} --severity ${ticket?.severity ?? '<Critical|High|Medium|Low>'} --evidence-embedded --by worker`;
   const next = source === 'none' || !result.embedded
@@ -454,6 +474,9 @@ async function runLink(values: Record<string, string | string[] | boolean | unde
   // The deep link names the case by the run's test key unless --case gives the pack's case id;
   // with a pack, the id must be one of its cases, or the link would open nothing
   const caseId = values.case as string | undefined;
+  if (run !== undefined && target.pack === null && caseId === undefined) {
+    usage('a run deep link needs the case id the page uses: pass --pack <pack.json> or --case <id>');
+  }
   if (run !== undefined && target.pack !== null) {
     const wanted = caseId ?? ('test' in run ? run.test : undefined);
     if (wanted === undefined) {
@@ -465,7 +488,11 @@ async function runLink(values: Record<string, string | string[] | boolean | unde
     }
   }
   const dryRun = values['dry-run'] === true;
-  const { tracker: t, calls } = await tracker(source, dryRun, run);
+  const made = await tracker({ operation: 'link', source, dryRun, run });
+  if ('error' in made) {
+    return report({ ok: false, lines: [], error: made.error }, json, dryRun, null, []);
+  }
+  const { tracker: t, calls } = made;
   const result = await t.linkEvidence(target.key, { url }, run === undefined ? undefined : { ...run, caseId });
   return report(result, json, dryRun, calls, []);
 }
@@ -529,6 +556,7 @@ async function main(argv: string[]): Promise<number> {
         'exec': { type: 'string' },
         'source': { type: 'string' },
         'dry-run': { type: 'boolean' },
+        'replace': { type: 'boolean' },
       },
       strict: true,
       allowPositionals: false,

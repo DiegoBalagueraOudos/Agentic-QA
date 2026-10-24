@@ -242,6 +242,8 @@ suite('sync through jira-native (recorded responses)', () => {
     expect(t.discover?.untracked).toEqual([]);
     // The sprint's own bug rows reach the store; the one in an unmapped status does not.
     expect(t.discover?.bugs?.map(b => `${b.id}:${b.bucket}`)).toEqual(['ACME-21:open', 'ACME-7022:open', 'ACME-7024:open']);
+    // ...and the one left out is stored, so the Bugs view names it (ADR-0023 point 6, like a ticket row)
+    expect(t.discover?.unclassifiedBugs).toMatchObject([{ id: 'ACME-7023', status: 'Triage' }]);
   });
 });
 

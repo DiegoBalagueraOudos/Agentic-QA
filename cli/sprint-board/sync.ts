@@ -167,7 +167,7 @@ async function syncOpen(slug: string, sprint: Sprint, config: BoardConfig, opts:
     const lostBugs = first.discover?.unclassifiedBugs ?? [];
     if (lostBugs.length) { console.warn(`discover: ${lostBugs.length} sprint bug row(s) left out, never counted: ${lostBugs.map(u => `${u.id} (${u.status || 'no status'}): ${u.reason}`).join('; ')}`); }
     if (sprintBugRows) { console.log(`discover: ${sprintBugRows.length} bug rows in the sprint's bug query`); }
-    discovered = { at: now.toISOString(), sprintRows, untracked: untrackedInTest(untracked, onBoard), ...(unclassified.length ? { unclassified } : {}), ...(sprintBugRows ? { bugs: sprintBugRows } : {}) };
+    discovered = { at: now.toISOString(), sprintRows, untracked: untrackedInTest(untracked, onBoard), ...(unclassified.length ? { unclassified } : {}), ...(sprintBugRows ? { bugs: sprintBugRows } : {}), ...(lostBugs.length ? { unclassifiedBugs: lostBugs.map(u => ({ id: u.id, status: u.status, reason: u.reason })) } : {}) };
   }
 
   if (!ids.size) {
