@@ -19,11 +19,22 @@ import type {
   TestStep,
 } from '@playwright/test/reporter';
 import type { AtcResult } from '@utils/decorators';
+import type { OutcomeAnnotation, OutcomeInput, OutcomeRecord, OutcomesDocument } from '@utils/testOutcomes';
 
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, relative } from 'node:path';
 
 import { ATC_PARTIAL_PATH } from '@utils/decorators';
+import {
+  actionItemLines,
+  buildOutcomeRecords,
+  buildOutcomesDocument,
+  outcomeCountsLine,
+  outcomeHeadline,
+  OUTCOMES_PATH,
+  stepSummaryMarkdown,
+} from '@utils/testOutcomes';
+import { env, config as testConfig } from '@variables';
 
 // ANSI Color Codes
 const colors = {
@@ -50,6 +61,8 @@ class KataReporter implements Reporter {
   private runningTests: TestCase[];
   private parallelTests: boolean;
   private totalTests: number;
+  private rootSuite: Suite | undefined;
+  private fullConfig: FullConfig | undefined;
 
   constructor() {
     this.startTime = 0;
@@ -68,6 +81,8 @@ class KataReporter implements Reporter {
     }
 
     this.startTime = Date.now();
+    this.rootSuite = suite;
+    this.fullConfig = config;
     this.totalTests = suite.allTests().length;
     this.parallelTests = config.workers > 1;
     this.runningTests = suite.allTests();
@@ -267,6 +282,8 @@ class KataReporter implements Reporter {
 
   onEnd(result: FullResult) {
     this.generateAtcReport();
+    const outcomes = this.generateOutcomesReport(result);
+    const classOf = new Map(outcomes?.records.map(r => [r.id, r]) ?? []);
 
     this.endTime = Date.now();
     const duration = (this.endTime - this.startTime) / 1000;
@@ -294,12 +311,14 @@ class KataReporter implements Reporter {
       }
 
       const durationSec = (test.testDuration / 1000).toFixed(3);
-      const icon = this.getStatusIcon(test.testStatus);
-      const color = test.testStatus === 'passed' ? colors.green : colors.red;
+      const record = classOf.get(test.testID);
+      const label = record ? this.getOutcomeLabel(record) : test.testStatus;
+      const icon = record ? this.getOutcomeIcon(record) : this.getStatusIcon(test.testStatus);
+      const color = this.getOutcomeColor(record, test.testStatus);
 
       console.log(
         `${color}%s${colors.reset}`,
-        `${test.testStatus} ${icon} ${test.testNumber} 🧪 ${test.testName} ${durationSec}s`,
+        `${label} ${icon} ${test.testNumber} 🧪 ${test.testName} ${durationSec}s`,
       );
     }
     console.groupEnd();
@@ -307,9 +326,13 @@ class KataReporter implements Reporter {
     // Overall result
     console.log('\n', `⏰ Test Execution Ended in ${duration.toFixed(2)} seconds.`);
 
-    const message = resultMessages[result.status];
+    // The headline comes from the outcome records, never from Playwright's
+    // ok() alone: a setup cascade is ok() there, a known defect is not a pass.
+    const headline = outcomes ? outcomeHeadline(outcomes.summary, result.status) : undefined;
+    const message = headline ? ` ${headline.text} ` : resultMessages[result.status];
+    const green = headline ? headline.ok : result.status === 'passed';
 
-    if (result.status === 'passed') {
+    if (green) {
       console.log(
         `${colors.bold}${colors.white}%s${colors.reset}${colors.bgGreen}${colors.bgBlack}%s${colors.reset}`,
         '🚀 Overall Output: ✅ ',
@@ -324,10 +347,124 @@ class KataReporter implements Reporter {
       );
     }
 
+    if (outcomes) {
+      console.log(`${colors.dim}%s${colors.reset}`, `   ${outcomeCountsLine(outcomes.summary)}`);
+      for (const line of actionItemLines(outcomes.records)) {
+        console.log(`${colors.yellow}%s${colors.reset}`, `   ⚑ ${line}`);
+      }
+    }
+
     console.log(colors.reset);
   }
 
   // Helper Methods
+
+  /**
+   * One outcome record per test the run knew about, built from the whole
+   * suite (a test whose dependency project failed has no result at all), then
+   * written to reports/test-outcomes.json and, in GitHub Actions, the step
+   * summary. Never changes the exit code: Playwright still owns it.
+   */
+  private generateOutcomesReport(result: FullResult): OutcomesDocument | undefined {
+    if (this.rootSuite === undefined || this.fullConfig === undefined) {
+      return undefined;
+    }
+
+    const rootDir = this.fullConfig.rootDir;
+    const inputs: OutcomeInput[] = this.rootSuite.allTests().map((test) => {
+      const project = test.parent.project()?.name ?? '';
+      const lastResult = test.results.at(-1);
+      const annotations: OutcomeAnnotation[] = [];
+      for (const a of [...test.annotations, ...(lastResult?.annotations ?? [])]) {
+        if (!annotations.some(b => b.type === a.type && b.description === a.description)) {
+          annotations.push({ type: a.type, description: a.description });
+        }
+      }
+      return {
+        id: test.id,
+        title: test.title,
+        titlePath: test.titlePath(),
+        file: relative(rootDir, test.location.file),
+        line: test.location.line,
+        project,
+        parentKey: [project, ...test.parent.titlePath()].join(' > '),
+        expectedStatus: test.expectedStatus,
+        annotations,
+        tags: test.tags,
+        attempts: test.results.map(r => ({ status: r.status, durationMs: r.duration, error: r.error?.message })),
+      };
+    });
+
+    const dependencies: Record<string, string[]> = {};
+    for (const project of this.fullConfig.projects) {
+      dependencies[project.name] = project.dependencies;
+    }
+
+    // `playwright test --list` reaches onEnd too, with no attempt anywhere:
+    // nothing ran, so there is no outcome to record (and no headline to bend)
+    if (result.status === 'passed' && inputs.every(i => i.attempts.length === 0)) {
+      return undefined;
+    }
+
+    const records: OutcomeRecord[] = buildOutcomeRecords(inputs, dependencies);
+    const runUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
+      ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+      : null;
+    const document = buildOutcomesDocument(records, {
+      status: result.status,
+      environment: env.current,
+      baseUrl: testConfig.baseUrl,
+      ci: runUrl ? { runUrl, sha: process.env.GITHUB_SHA ?? null } : null,
+      playwright: this.fullConfig.version,
+    });
+
+    mkdirSync(dirname(OUTCOMES_PATH), { recursive: true });
+    writeFileSync(OUTCOMES_PATH, `${JSON.stringify(document, null, 2)}\n`);
+    console.log(`📊 Test outcomes generated: ${OUTCOMES_PATH}`);
+
+    const stepSummary = process.env.GITHUB_STEP_SUMMARY;
+    if (stepSummary) {
+      try {
+        appendFileSync(stepSummary, `\n${stepSummaryMarkdown(document.summary, records, result.status)}`);
+      }
+      catch {
+        // The step summary is a convenience; the records file is the contract
+      }
+    }
+
+    return document;
+  }
+
+  private getOutcomeLabel(record: OutcomeRecord): string {
+    if (record.class === 'failed' && record.testStatus === 'BLOCKED') {
+      return 'setup failed';
+    }
+    return record.class.replace('-', ' ');
+  }
+
+  private getOutcomeIcon(record: OutcomeRecord): string {
+    const icons: Record<OutcomeRecord['class'], string> = {
+      'passed': '✅',
+      'failed': record.testStatus === 'BLOCKED' ? '⛔' : '❌',
+      'known-defect': '🐞',
+      'unexpected-pass': '❗',
+      'skipped': '⏭️',
+    };
+    return icons[record.class];
+  }
+
+  private getOutcomeColor(record: OutcomeRecord | undefined, status?: string): string {
+    if (record === undefined) {
+      return status === 'passed' ? colors.green : colors.red;
+    }
+    if (record.class === 'passed') {
+      return colors.green;
+    }
+    if (record.class === 'known-defect' || record.class === 'skipped') {
+      return colors.yellow;
+    }
+    return colors.red;
+  }
 
   /**
    * Aggregate NDJSON partial results into the final JSON report.

@@ -143,6 +143,19 @@ export function atc(testId: string, options: AtcOptions = {}) {
         // Allure might not be available in all contexts
       }
 
+      // Tag the running test with this ATC id. KataReporter reads the `atc`
+      // annotations into the outcome records (reports/test-outcomes.json),
+      // which is how a test outcome maps to its TC ids (ADR-0020).
+      try {
+        const annotations = test.info().annotations;
+        if (!annotations.some(a => a.type === 'atc' && a.description === testId)) {
+          annotations.push({ type: 'atc', description: testId });
+        }
+      }
+      catch {
+        // Called outside a running test: there is nothing to tag
+      }
+
       try {
         // Execute within test.step (visible in KataReporter + auto-captured by allure-playwright)
         const stepTitle = `ATC [${testId}]: ${methodName}${formatArgs(args)}`;
