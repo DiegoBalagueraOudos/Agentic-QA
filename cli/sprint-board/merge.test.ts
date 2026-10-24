@@ -115,6 +115,13 @@ describe('the view', () => {
     expect(prDrawer(r, 20, NOW)).toContain('#20');
     expect(prDrawer(r, 99, NOW)).toBeNull();
   });
+  test('with no repository known and no PR url, links render as plain text, never an empty href', () => {
+    const r = raw([pr(22)], { day: { merged: [{ n: 19, title: 'Merged', base: 'main', mergedAt: '2026-10-22T10:00:00Z', mergeSha: 'abc1234', overnight: false }] } });
+    expect(viewMerge(r, { live: true, now: NOW })).not.toContain('href=""');
+    expect(prDrawer(r, 22, NOW)).not.toContain('href=""');
+    const withRepo = raw([pr(22)], { state: { checkedAt: '2026-10-22T17:59:00Z', repo: 'acme/shop' }, day: r.day });
+    expect(viewMerge(withRepo, { live: true, now: NOW })).toContain('href="https://github.com/acme/shop/pull/19"');
+  });
   test('a frozen copy says Merge Line is live only', () => {
     expect(viewMerge(null, { live: false })).toContain('live only');
   });

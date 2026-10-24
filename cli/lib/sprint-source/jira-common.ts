@@ -313,8 +313,16 @@ export function createJiraSource(parts: JiraSourceParts): Source {
         const untracked: UntrackedRow[] = rows
           .filter(r => !tracked.has(r.key))
           .map((r) => {
-            const row = common(r);
-            return { id: r.key, title: row.title, status: row.status, statusKey: row.statusKey, bucket: classifyTicket(config.statusMap, r.key, row.statusKey), qaOwner: row.qaOwner };
+            const status = r.fields.status?.name ?? '';
+            const qaOwner = qaField ? userName(r.fields[qaField]) : null;
+            // A row the board does not track never fails the discover read: it is listed unclassified, named.
+            try {
+              const row = common(r);
+              return { id: r.key, title: row.title, status: row.status, statusKey: row.statusKey, bucket: classifyTicket(config.statusMap, r.key, row.statusKey), qaOwner };
+            }
+            catch (err) {
+              return { id: r.key, title: r.fields.summary ?? r.key, status, statusKey: '', bucket: null, unclassified: (err as Error).message, qaOwner };
+            }
           });
         snapshot.discover = { at: now.toISOString(), sprintRows: rows.length, untracked };
       }

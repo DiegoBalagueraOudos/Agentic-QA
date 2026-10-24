@@ -55,7 +55,7 @@ export const EVENT_KINDS = [
   'ask.state',
   'evidence',
   'evidence.artifact',
-  /** The pre-2026-10-19 name of `evidence.artifact`; still read so older logs keep their links. */
+  /** The older name of `evidence.artifact`; still read so older logs keep their links. */
   'evidence.page',
   'accept-risk',
   'note',
@@ -183,7 +183,7 @@ export interface TrackerSnapshot {
    * `bugs`: the sprint's own bug rows (the same read, no extra call);
    * absent until a source returns the sprint's own bug rows.
    */
-  discover?: { at: string, sprintRows: number, untracked: UntrackedTicket[], bugs?: TrackerBugRow[] }
+  discover?: { at: string, sprintRows: number, untracked: UntrackedTicket[], bugs?: TrackerBugRow[], /** Untracked sprint rows in a status no bucket lists. */ unclassified?: { id: string, status: string }[] }
   /** Bugs linked on the board that the tracker could not find at the last sync. */
   missing?: { bugs: string[] }
 }
@@ -306,7 +306,7 @@ export interface TicketView {
   dev?: string
   priority?: string
   module?: string
-  /** The tracker's Sprint field ("Sprint 23"): the report counts only tickets of this board's own sprint. */
+  /** The tracker's Sprint field ("Sprint 7"): the report counts only tickets of this board's own sprint. */
   sprint?: string
   inScope: boolean
   trackerStatus?: string
@@ -541,7 +541,7 @@ export function laneOf(t: Omit<TicketView, 'lane' | 'laneSince' | 'atRisk' | 'dr
   if (t.needs.some(n => !n.answer)) { return 'Needs you'; }
   if (t.worker.state === 'running') { return 'Running'; }
   if (t.verdict === 'FAILED' || c.FAILED > 0) { return 'Failed'; }
-  // A PASSED verdict with a case still NOT RUN or BLOCKED is not Passed (a measured shape): it is Held.
+  // A PASSED verdict with a case still NOT RUN or BLOCKED is not Passed: it is Held.
   if (t.verdict === 'PASSED') { return c.total === 0 || c.PASSED + c.DEFERRED === c.total ? 'Passed' : 'Held'; }
   if (t.hold || t.verdict === 'BLOCKED' || c.BLOCKED > 0) { return 'Held'; }
   // A closed sprint imported without verdict events: the tracker past the gate and every case settled.

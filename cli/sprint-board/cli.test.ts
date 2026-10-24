@@ -1,6 +1,6 @@
 /**
  * The CLI end to end, against a throwaway SPRINT_BOARD_DIR. Every case is a
- * finding from the 2026-10-15 review or claim check of this branch.
+ * finding from a review of the source board.
  */
 import type { BoardEvent, Sprint } from './model.ts';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
@@ -217,26 +217,26 @@ describe('arrivals: sprint tickets in test off the board', () => {
 
   test('prints one UNTRACKED line per row with its QA, and the denominator searched', () => {
     trackerJson({ discover: { at: '2026-10-16T09:00:00Z', sprintRows: 41, untracked: [
-      { id: 'DEMO-1620', status: 'Ready for QA', bucket: 'in_test', title: 'Blank QA ticket' },
-      { id: 'DEMO-1844', status: 'Ready for QA', bucket: 'in_test', qa: 'Other QA', title: 'Someone else' },
+      { id: 'DEMO-360', status: 'Ready for QA', bucket: 'in_test', title: 'Blank QA ticket' },
+      { id: 'DEMO-440', status: 'Ready for QA', bucket: 'in_test', qa: 'Other QA', title: 'Someone else' },
     ] } });
     const out = ok('arrivals');
     expect(out).toContain('untracked: 2 of 41 sprint rows in staging but not on the board');
-    expect(out).toContain('UNTRACKED DEMO-1620  Ready for QA  QA:blank  Blank QA ticket');
-    expect(out).toContain('UNTRACKED DEMO-1844  Ready for QA  QA:Other QA  Someone else');
+    expect(out).toContain('UNTRACKED DEMO-360  Ready for QA  QA:blank  Blank QA ticket');
+    expect(out).toContain('UNTRACKED DEMO-440  Ready for QA  QA:Other QA  Someone else');
   });
 
   test('a ticket added since the discover is no longer listed, and the count says so', () => {
     trackerJson({ discover: { at: '2026-10-16T09:00:00Z', sprintRows: 41, untracked: [
-      { id: 'DEMO-1620', status: 'Ready for QA', bucket: 'in_test', title: 'Blank QA ticket' },
-      { id: 'DEMO-1844', status: 'Ready for QA', bucket: 'in_test', qa: 'Other QA', title: 'Someone else' },
+      { id: 'DEMO-360', status: 'Ready for QA', bucket: 'in_test', title: 'Blank QA ticket' },
+      { id: 'DEMO-440', status: 'Ready for QA', bucket: 'in_test', qa: 'Other QA', title: 'Someone else' },
     ] } });
-    ok('add', 'demo-1620');
+    ok('add', 'demo-360');
     const out = ok('arrivals');
     expect(out).toContain('untracked: 1 of 41 sprint rows in staging but not on the board');
     expect(out).toContain('1 more listed then are on the board now');
-    expect(out).not.toContain('UNTRACKED DEMO-1620');
-    expect(out).toContain('UNTRACKED DEMO-1844');
+    expect(out).not.toContain('UNTRACKED DEMO-360');
+    expect(out).toContain('UNTRACKED DEMO-440');
   });
 
   test('says it did not check when no discover ever ran', () => {

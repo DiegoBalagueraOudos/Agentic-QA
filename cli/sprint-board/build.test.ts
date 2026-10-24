@@ -55,6 +55,19 @@ describe('brand slot', () => {
     }
   });
 
+  test('an SVG that already has a class keeps it, folded into ours (one class attribute)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sprint-board-brand-'));
+    try {
+      writeFileSync(join(dir, 'logo.svg'), '<svg class="brand-art" viewBox="0 0 10 10"><path d="M0 0h10"/></svg>');
+      const out = brandMarkup({ name: 'Shop', logo: 'logo.svg' }, dir);
+      expect(out).toContain('<svg class="logo-full brand-art" focusable="false" viewBox');
+      expect(out.match(/class=/g)).toHaveLength(2);
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('a logo path that does not exist falls back to the text brand', () => {
     expect(brandMarkup({ name: 'Shop', logo: 'missing/logo.svg' })).toContain('logo-text');
   });

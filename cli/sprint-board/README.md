@@ -80,31 +80,31 @@ $B add PROJ-1,PROJ-2 [--out-of-scope]       $B remove PROJ-1 <why>
 $B sprint --person "Dana Dev=Product,en,Dana;D. Dev"   name=role,lang,aliases
 
 # what a worker (or the conductor for it) reports
-$B start PROJ-1602 [--worker w-1602]        running; a second start after a verdict opens attempt n+1
-$B worker PROJ-1602 --stage execute         plan | execute | report | close
-$B tc PROJ-1602 PROJ-1263 PASSED            DEFERRED needs --reason "QA decision <date>: <why>" (or --approval "<who>, <where>")
-$B bug PROJ-1602 PROJ-1820 --title "..." --severity Medium [--evidence-embedded]   reminds you to embed a screenshot
-$B evidence PROJ-1602 <image> --caption "..." [--tc PROJ-1263] [--outcome passed|failed|blocked]
-$B evidence-artifact PROJ-1602 https://claude.ai/artifact/<id> --by worker|conductor|owner [--bug PROJ-1820] [--title "..."]
+$B start PROJ-340 [--worker w-340]        running; a second start after a verdict opens attempt n+1
+$B worker PROJ-340 --stage execute         plan | execute | report | close
+$B tc PROJ-340 PROJ-320 PASSED            DEFERRED needs --reason "QA decision <date>: <why>" (or --approval "<who>, <where>")
+$B bug PROJ-340 PROJ-410 --title "..." --severity Medium [--evidence-embedded]   reminds you to embed a screenshot
+$B evidence PROJ-340 <image> --caption "..." [--tc PROJ-320] [--outcome passed|failed|blocked]
+$B evidence-artifact PROJ-340 https://claude.ai/artifact/<id> --by worker|conductor|owner [--bug PROJ-410] [--title "..."]
                                             the published evidence page of the ticket (a claude.ai artifact by
                                             default, `bun run evidence`), or with --bug of one bug; the newest per
                                             ticket or bug wins, history kept
-$B fixture PROJ-1602 "store 1777 has no orders in 7 days" [--module checkout]   reusable test data found
-$B verdict PROJ-1602 FAILED --note "5/7, bug PROJ-1820"
-$B hold PROJ-1601 --reason deploy "sync worker not on staging" [--on Tom]   / unhold
-$B needs-you PROJ-1602 "Defer case b or fix AC5?" --option "a: ..." --option "b: ..."
-$B needs-you PROJ-1602 "Defer TC-3?" --blocked "TC-3 cannot run" --why "the worker is not on staging"
+$B fixture PROJ-340 "store 42 has no orders in 7 days" [--module checkout]   reusable test data found
+$B verdict PROJ-340 FAILED --note "5/7, bug PROJ-410"
+$B hold PROJ-330 --reason deploy "sync worker not on staging" [--on Tom]   / unhold
+$B needs-you PROJ-340 "Defer case b or fix AC5?" --option "a: ..." --option "b: ..."
+$B needs-you PROJ-340 "Defer TC-3?" --blocked "TC-3 cannot run" --why "the worker is not on staging"
     --option "a: wait for the deploy | cost: 1 day, Tom redeploys" --option "b: recreate on staging | cost: 20 min, one DB write restored after"
     --recommend a --decider Dana            the structured decision card (every new flag optional)
 
 # owner side
-$B answer PROJ-1602 "b, Dana approved" [--id need-x]   owner, or the conductor for them (or from the page);
+$B answer PROJ-340 "b, Dana approved" [--id need-x]   owner, or the conductor for them (or from the page);
                                             --id must be an unanswered question on that ticket
-$B resolve PROJ-1602 [--id need-x]          close a question; --id is required when the ticket has more than one
-$B wait PROJ-1776 --on Lee --what "..."     / unwait
-$B ask --to Dana --ticket PROJ-1602 --kind decision --file draft.txt [--attach img]   a Slack draft for you to send
+$B resolve PROJ-340 [--id need-x]          close a question; --id is required when the ticket has more than one
+$B wait PROJ-390 --on Lee --what "..."     / unwait
+$B ask --to Dana --ticket PROJ-340 --kind decision --file draft.txt [--attach img]   a Slack draft for you to send
 $B ask-state <ask-id> sent|answered|dropped (or from the page; dropped = no longer needed, kept on record)
-$B accept-risk PROJ-1776 --by "Dana, Slack 10-08"   clears "shipped at risk"
+$B accept-risk PROJ-390 --by "Dana, Slack 10-08"   clears "shipped at risk"
 $B log [PROJ-1] "text" | release "label" --at <iso> --ref <sha>
 $B fixtures [--module checkout] [--json]    recorded test data, newest first, for the next seeds
 
@@ -134,7 +134,7 @@ ticket must already be on the board, and a person (`--to`, `--on`, `--decider`)
 must resolve to exactly one name, or the command stops and says why. A time (`--at`, `--started`,
 `--closed`) is stored as ISO and an unparseable one is refused. Boolean flags (`--ask`, `--all`,
 `--json`, `--sync`, `--reuse`, ...) never take the next word, so `say --ask "text"` keeps its text.
-A test case id is a tracker key (`PROJ-1263`) or a file's own id (`DEMO-101-T1`, `TC-12`).
+A test case id is a tracker key (`PROJ-320`) or a file's own id (`DEMO-101-T1`, `TC-12`).
 
 ## Worker protocol
 
@@ -205,7 +205,9 @@ exactly as they are; the page is an extra link. Pages never reach the share snap
 Every bug of the sprint, from two sources, with what was searched printed under the counts:
 
 1. **Linked on this board** with `bug <ticket> <bug>`, or **linked to a tracked ticket in the
-   tracker**, whatever sprint the tracker files it under.
+   tracker**, whatever sprint the tracker files it under. `sync` reads every board-linked bug from the
+   tracker (`bugKeys`); one the tracker cannot find is printed and named on the search line as not
+   found, never shown as open.
 2. **The sprint's own bug rows**, created inside the sprint (start to close, or now), when the
    source returns them. No source returns them yet, so this part reads "not checked", never zero.
 
@@ -314,7 +316,9 @@ was re-armed surfaced only because the owner mentioned it in chat).
 ## Test-environment watch
 
 `arrivals --sync` refreshes the tracker (`sync --discover`) and lists every ticket on the board in the
-`in_test` bucket that nobody has dealt with yet. Dealt with = a worker started, a verdict
+`in_test` bucket that nobody has dealt with yet. An arrival is a move INTO the bucket from another
+one: a move between two statuses of the bucket (Ready for QA -> In Test after a launch) is not new.
+Dealt with = a worker started, a verdict
 landed, or `arrival launched|skipped`. `arrival held` (or a `hold`) keeps it coming back as
 `RECHECK` on every pass, so a ticket waiting on a deploy is re-examined without anyone
 remembering it. A later tracker move back into `in_test` (a fix for a retest) makes a tested ticket
@@ -326,7 +330,9 @@ The same `--discover` read also lists the sprint's tickets in test that are NOT 
 owner blank or another QA). `arrivals` prints them as
 `UNTRACKED PROJ-n <status> QA:<name|blank> <title>`, after a line with the denominator ("2 of 41
 sprint rows"); no extra tracker call is made. Without any `--discover` on the board it says "not
-checked" instead of "0". Each run filters that list again against the board as it is now, so a
+checked" instead of "0". A sprint row in a status `board.statuses` does not list is printed as
+`UNCLASSIFIED PROJ-n <status>` (add the status to a bucket) and never counted in test; the discover
+read does not fail for it. Each run filters that list again against the board as it is now, so a
 ticket `add`ed after the discover drops out (the count line says how many). Why the list exists:
 `.agents/skills/sprint-testing/references/sprint-board.md` §Sentinel.
 

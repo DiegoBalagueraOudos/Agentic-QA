@@ -249,7 +249,7 @@ function connect(): void {
   setInterval(() => { if (es.readyState === EventSource.OPEN) { lastEventAt = Math.max(lastEventAt, Date.now() - 1000); connected = true; } }, 4000);
 }
 
-/** "Last watch pass HH:MM": red when the test-environment watch went quiet in working hours (D4). Live board only. */
+/** "Last watch pass HH:MM": red when the test-environment watch went quiet in working hours. Live board only. */
 function tickWatch(): void {
   const chip = $('#watch-chip')!;
   const w = live() && !demoState && real && !real.sprint.closedAt ? watchLiveness(real.watch?.lastPassAt, new Date()) : null;
@@ -258,7 +258,7 @@ function tickWatch(): void {
   chip.classList.toggle('stale', w.state === 'stale');
   chip.textContent = `${tr('Last watch pass', 'Última pasada del watch')} ${localHhmm(w.lastPassAt)}`;
   chip.title = w.state === 'stale'
-    ? tr(`No watch pass in the last ${WATCH_STALE_MIN} min of working hours. Check the conductor's sentinel (or its fallback cron).`, `Sin pasada del watch en los últimos ${WATCH_STALE_MIN} min de horario laboral. Revisa el sentinel del conductor (o su cron de respaldo).`)
+    ? tr(`No ${real!.sprint.env ?? 'test environment'} watch pass in the last ${WATCH_STALE_MIN} min of working hours. Check the conductor's sentinel (or its fallback cron).`, `Sin pasada del watch de ${real!.sprint.env ?? 'entorno de pruebas'} en los últimos ${WATCH_STALE_MIN} min de horario laboral. Revisa el sentinel del conductor (o su cron de respaldo).`)
     : w.state === 'off-hours'
       ? tr('Outside working hours (Mon-Fri 09:00-18:00)', 'Fuera de horario laboral (lun-vie 09:00-18:00)')
       : `${w.ageMin} min ${tr('ago', 'atrás')}`;

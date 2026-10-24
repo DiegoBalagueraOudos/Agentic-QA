@@ -96,6 +96,18 @@ describe('none source', () => {
     expect(snapshot.searched.bugs).toBe(3);
   });
 
+  test('an untracked row in a status no bucket lists is named as unclassified; the discover read does not fail', async () => {
+    const parked = demoTickets.replace(/(DEMO-103:\n\s+title: [^\n]+\n\s+status: )Ready for QA/, '$1Parked');
+    expect(parked).not.toBe(demoTickets);
+    const source = createNoneSource(demoConfig(), { repoRoot: REPO_ROOT, readFile: () => parked });
+    const snapshot = await source.snapshot({ now: DEMO_NOW, keys: ['DEMO-101', 'DEMO-102'], discover: true });
+    const row = snapshot.discover?.untracked.find(r => r.id === 'DEMO-103');
+    expect(row).toMatchObject({ status: 'Parked', bucket: null });
+    expect(row?.unclassified).toContain('Parked');
+    // Tracking that ticket still fails loudly.
+    expect(await rejection(source.snapshot({ now: DEMO_NOW, keys: ['DEMO-103'] }))).toThrow(UnknownStatusError);
+  });
+
   test('keys narrow the board, discover lists the rest of the sprint', async () => {
     const snapshot = await createNoneSource(demoConfig(), { repoRoot: REPO_ROOT }).snapshot({ now: DEMO_NOW, keys: ['DEMO-101', 'DEMO-102'], discover: true });
     expect(Object.keys(snapshot.tickets)).toEqual(['DEMO-101', 'DEMO-102']);

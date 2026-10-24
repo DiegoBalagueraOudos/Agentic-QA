@@ -144,7 +144,7 @@ function lockWait(a: Args): number {
   return s * 1000;
 }
 
-/** One small `watch.pass` event per test-environment watch pass (D4 liveness). */
+/** One small `watch.pass` event per test-environment watch pass (liveness). */
 function recordPass(slug: string, note?: string, counts?: Record<string, number>): BoardEvent {
   return appendEvent(slug, { kind: 'watch.pass', by: 'conductor', text: `Watch pass${note ? `: ${note}` : ''}`, data: counts });
 }
@@ -268,7 +268,7 @@ const commands: Record<string, (a: Args) => void | Promise<void>> = {
     const status = oneOf(TC_STATUSES, need(rest(a, 2) || undefined, 'TC status'), 'TC status');
     const approval = flag(a, 'approval');
     const reason = flag(a, 'reason');
-    // QA owns a deferral once the case cannot be recreated in the test environment (owner ruling 2026-10-16):
+    // QA owns a deferral once the case cannot be recreated in the test environment (an owner ruling):
     // a QA reason is enough; --approval stays for an owner or team decision.
     if (status === 'DEFERRED' && !reason && !approval) { throw new Error('DEFERRED needs --reason "QA decision <date>: <why it cannot be recreated>" (or --approval "<who>, <where>" for an owner decision). Rule: agentic-qa-core/references/discovery-driven-doctrine.md §5 (DEFERRED (execution))'); }
     appendEvent(slug, { kind: 'tc', ticket: id, text: `${tc} ${status}${flag(a, 'name') ? `: ${flag(a, 'name')}` : ''}`, by: by(a), at: flag(a, 'at'), data: { tc, status, name: flag(a, 'name'), approval, reason } });
@@ -280,7 +280,7 @@ const commands: Record<string, (a: Args) => void | Promise<void>> = {
     const id = knownTicket(slug, a._[0]);
     const v = oneOf(VERDICTS, need(a._[1], 'verdict'), 'verdict');
     // PENDING is the board's own "no verdict yet" state; recording it reads as a worker that
-    // stopped without a verdict (measured 2026-10-15). An owner or developer wait is BLOCKED + hold.
+    // stopped without a verdict (measured on the source board). An owner or developer wait is BLOCKED + hold.
     if (v === 'PENDING') { throw new Error(`verdict PENDING means "no verdict yet". For a ticket waiting on an owner or developer decision record \`verdict ${id} BLOCKED --note "<why>"\` and \`hold ${id} --reason no-data|other --on <who> "<what>"\`.`); }
     const note = flag(a, 'note');
     appendEvent(slug, { kind: 'verdict', ticket: id, text: `${id} ${v}${note ? `. ${note}` : ''}`, by: by(a), at: flag(a, 'at'), data: { verdict: v, note } });
@@ -430,7 +430,7 @@ const commands: Record<string, (a: Args) => void | Promise<void>> = {
   /**
    * The page published as a ticket's (or, with --bug, one bug's) evidence page (a claude.ai artifact
    * by default, `bun run evidence`; the host must be in `board.evidence.allowed_hosts`). The newest per ticket or bug wins on the page; older ones stay in
-   * the log and the history. `evidence-page` is the pre-2026-10-19 name, kept as an alias below.
+   * the log and the history. `evidence-page` is the older name, kept as an alias below.
    */
   'evidence-artifact': function (a) {
     const slug = slugOf(a);
@@ -457,7 +457,7 @@ const commands: Record<string, (a: Args) => void | Promise<void>> = {
     console.log(`${bug ? `${bug} (bug on ${id})` : id} evidence page ${url}${prev ? `; replaces the page recorded ${prev.at.slice(0, 16).replace('T', ' ')}Z (kept in history)` : ''}`);
   },
 
-  /** The pre-2026-10-19 name of `evidence-artifact`, kept so a session briefed with the old name still records its link. */
+  /** The older name of `evidence-artifact`, kept so a session briefed with the old name still records its link. */
   'evidence-page': async function (a) {
     await commands['evidence-artifact'](a);
   },
@@ -466,7 +466,7 @@ const commands: Record<string, (a: Args) => void | Promise<void>> = {
   fixture(a) {
     const slug = slugOf(a);
     const id = knownTicket(slug, a._[0]);
-    const text = need(rest(a, 1) || undefined, 'the test data found, e.g. "store 1777 has no orders in the last 7 days"');
+    const text = need(rest(a, 1) || undefined, 'the test data found, e.g. "store 42 has no orders in the last 7 days"');
     let module = flag(a, 'module')?.trim();
     if (module) {
       // Fail loudly: a module is one a ticket on this board carries (its tracker module / component).
@@ -617,6 +617,7 @@ const commands: Record<string, (a: Args) => void | Promise<void>> = {
       : 'untracked: not checked, no sync --discover on this board yet (run arrivals --sync)');
     for (const x of r.list) { console.log(`${x.state === 'new' ? 'NEW    ' : 'RECHECK'} ${x.id}  ${x.priority ?? '-'}  ${x.dev ?? 'no dev'}  ${x.module ?? 'no module'}  ${x.title ?? ''}${x.note ? `\n        last note: ${x.note}` : ''}`); }
     for (const x of untracked) { console.log(`UNTRACKED ${x.id}  ${x.status ?? '?'}  QA:${x.qa ?? 'blank'}  ${x.title ?? ''}`); }
+    for (const x of tracker?.discover?.unclassified ?? []) { console.log(`UNCLASSIFIED ${x.id}  ${x.status}  (a status board.statuses does not list; add it to a bucket)`); }
   },
 
   /** Records what the conductor did with an arrival: launched, held (rechecked every pass) or skipped. */

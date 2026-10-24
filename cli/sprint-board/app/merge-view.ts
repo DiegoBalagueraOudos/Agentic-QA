@@ -17,6 +17,8 @@ const laneName = (l: MergeLane) => tr(l, LANE_ES[l]);
 const say = (o: { en: string, es: string }) => (getLang() === 'es' ? o.es : o.en);
 /** A PR link from the reading's own repository; no repository known = no link. */
 const ghPr = (n: number, repo?: string) => (repo ? `https://github.com/${repo}/pull/${n}` : '');
+/** An anchor when there is a URL, the plain label otherwise (an empty href would reload the page). */
+const linkOr = (href: string, label: string) => (href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${label}</a>` : label);
 
 // ---------------------------------------------------------------------------
 // Gates
@@ -191,10 +193,10 @@ function rail(v: MergeView): string {
     <span class="lbl">${tr('Interference', 'Interferencia')} · ${conflicts.length} ${tr('conflicts', 'conflictos')}, ${shared.length} ${tr('shared only', 'solo compartidos')}</span>
     ${v.pairs.length ? v.pairs.map(pairLine).join('') : `<p class="empty">${tr('No two open PRs touch the same files.', 'Ningún par de PR abiertos toca los mismos archivos.')}</p>`}
     <span class="lbl">${tr('Passed today', 'Pasaron hoy')}</span>
-    ${v.mergedToMain.length ? `<ul class="ml-passed">${v.mergedToMain.map(m => `<li><a href="${esc(ghPr(m.n, v.repo))}" target="_blank" rel="noopener">#${m.n}</a> <span class="mono">${localHhmm(m.mergedAt)} · ${esc(m.mergeSha)}</span>${m.overnight ? ` <span class="flag">${tr('overnight', 'de noche')}</span>` : ''}<br><span class="hint">${esc(m.title)}</span></li>`).join('')}</ul>` : `<p class="hint">${tr('Nothing merged into main yet today.', 'Todavía nada mergeado a main hoy.')}</p>`}
+    ${v.mergedToMain.length ? `<ul class="ml-passed">${v.mergedToMain.map(m => `<li>${linkOr(ghPr(m.n, v.repo), `#${m.n}`)} <span class="mono">${localHhmm(m.mergedAt)} · ${esc(m.mergeSha)}</span>${m.overnight ? ` <span class="flag">${tr('overnight', 'de noche')}</span>` : ''}<br><span class="hint">${esc(m.title)}</span></li>`).join('')}</ul>` : `<p class="hint">${tr('Nothing merged into main yet today.', 'Todavía nada mergeado a main hoy.')}</p>`}
     ${v.mergedToTrunks ? `<p class="hint">${v.mergedToTrunks} ${tr('more merged into trunks', 'más mergeados a troncos')}</p>` : ''}
     <details class="acc"><summary><span class="chev" aria-hidden="true">›</span><span class="acc-title">${tr('Branches with no PR', 'Ramas sin PR')}</span><span class="hint">${v.branchesWithoutPr} ${tr('local', 'locales')} · ${v.remoteOnly} ${tr('remote only', 'solo remotas')}</span></summary>
-      ${v.orphans.length ? `<p class="hint">${v.orphans.length} ${tr('look stale: upstream gone, or a worktree whose work already merged.', 'parecen viejas: sin upstream, o un worktree cuyo trabajo ya se mergeó.')} ${tr('Clean them with the orphan audit (Rule 17).', 'Se limpian con la auditoría de huérfanos (regla 17).')}</p><ul class="ml-files">${v.orphans.map(b => `<li class="mono">${esc(b.name)}${b.worktree ? ` <span class="hint">· ${esc(b.worktree.name)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="hint">${tr('None look stale.', 'Ninguna parece vieja.')}</p>`}
+      ${v.orphans.length ? `<p class="hint">${v.orphans.length} ${tr('look stale: upstream gone, or a worktree whose work already merged.', 'parecen viejas: sin upstream, o un worktree cuyo trabajo ya se mergeó.')} ${tr('Clean them with the orphan audit (<code>bun run worktree:audit</code>).', 'Se limpian con la auditoría de huérfanos (<code>bun run worktree:audit</code>).')}</p><ul class="ml-files">${v.orphans.map(b => `<li class="mono">${esc(b.name)}${b.worktree ? ` <span class="hint">· ${esc(b.worktree.name)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="hint">${tr('None look stale.', 'Ninguna parece vieja.')}</p>`}
     </details>
   </aside>`;
 }
@@ -238,7 +240,7 @@ export function prDrawer(raw: MergeRaw, n: number, now?: number): string | null 
   return `<button class="btn ghost close" type="button" data-close>Esc ✕</button>
   <div><div class="row" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="id">#${p.n}</span><span class="pill ${LANE_CLASS[c.lane]}">${laneName(c.lane)}</span>${p.feeder ? `<span class="flag">${tr('into', 'hacia')} ${esc(p.base)}</span>` : ''}</div>
   <h2 style="margin-top:6px">${esc(p.title)}</h2>
-  <p class="hint"><span class="mono">${esc(p.head)} → ${esc(p.base)}</span> · ${esc(p.author)} · <a href="${esc(p.url || ghPr(p.n, raw.state?.repo))}" target="_blank" rel="noopener">${tr('open on GitHub', 'abrir en GitHub')}</a></p></div>
+  <p class="hint"><span class="mono">${esc(p.head)} → ${esc(p.base)}</span> · ${esc(p.author)} · ${linkOr(p.url || ghPr(p.n, raw.state?.repo), tr('open on GitHub', 'abrir en GitHub'))}</p></div>
   <div class="need-box ${LANE_CLASS[c.lane]}"><b>${LANE_GLYPH[c.lane]} ${esc(say(c.why))}</b>${note?.held ? `<span class="hint">${esc(getLang() === 'es' ? (note.held.es ?? note.held.en) : note.held.en)}</span>` : ''}${note?.deadline ? `<span class="hint">${tr('Deadline', 'Plazo')} ${esc(note.deadline.date)} · ${esc(note.deadline.by)}: "${esc(note.deadline.quote)}"</span>` : ''}</div>
   <section><span class="lbl">${tr('Signals', 'Señales')}</span><table class="grid">${GATES.map(g => `<tr><td>${dot(p.gates[g].lamp, '')}</td><td>${gateName(g, p.feeder)}</td><td>${esc(gateText(p, g, nowMs))}</td></tr>`).join('')}</table></section>
   <section><span class="lbl">${tr('Session', 'Sesión')}</span><div>${sessionLabel(c)}${p.owner.basis === 'checkout' ? ` <span class="hint">${tr('has the branch checked out', 'tiene la rama')}</span>` : p.owner.basis === 'title' ? ` <span class="hint">${tr('named in a terminal title', 'nombrado en el título de una terminal')}</span>` : ''}</div>

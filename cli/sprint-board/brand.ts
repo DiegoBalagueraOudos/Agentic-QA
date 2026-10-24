@@ -34,13 +34,17 @@ export function brandMarkup(b: Brand, root = CODE_ROOT): string {
       const svg = readFileSync(file, 'utf8').replace(/<\?xml[\s\S]*?\?>/, '').replace(/<!--[\s\S]*?-->/g, '').trim();
       // Scripts and event handlers never reach the page, whoever wrote the file.
       const clean = svg.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
-      return ['logo-full', 'logo-mark'].map(c => clean.replace(/^<svg\b/i, `<svg class="${c}" focusable="false"`)).join('');
+      // Its own class attribute, if any, is folded into ours: two class attributes would drop one.
+      const own = /^<svg\b[^>]*?\sclass="([^"]*)"/i.exec(clean)?.[1];
+      const bare = own === undefined ? clean : clean.replace(/^(<svg\b[^>]*?)\sclass="[^"]*"/i, '$1');
+      return ['logo-full', 'logo-mark'].map(c => bare.replace(/^<svg\b/i, `<svg class="${own ? `${c} ${own}` : c}" focusable="false"`)).join('');
     }
     if (ext === '.png') {
       const src = `data:image/png;base64,${readFileSync(file).toString('base64')}`;
       return `<img class="logo-full logo-img" src="${src}" alt="" /><img class="logo-mark logo-img" src="${src}" alt="" />`;
     }
   }
+  if (file && !existsSync(file)) { console.warn(`sprint-board: board.brand.logo ${b.logo} not found, showing the brand name`); }
   const name = b.name.trim() || 'Sprint Board';
   return `<span class="logo-full logo-text">${esc(name)}</span><span class="logo-mark logo-text">${esc(name.slice(0, 1).toUpperCase())}</span>`;
 }

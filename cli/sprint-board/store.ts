@@ -97,7 +97,7 @@ const SOURCE_LOCK_STALE_MS = 10 * 60_000;
 /**
  * How long a CLI sync waits for the server's periodic sync to release the lock.
  * 240 s, not 120: board:up's first sync of the morning held it ~130 s and the
- * 09:04 watch pass gave up (measured 2026-10-19).
+ * morning watch pass gave up (measured on the source board).
  */
 export const SOURCE_LOCK_WAIT_MS = 240_000;
 
@@ -113,7 +113,7 @@ export interface SourceLockWait {
  * Run `fn` as the only writer of this sprint's source.json. A held lock refuses
  * at once by default (the server's tick just skips); with `waitMs` the caller
  * polls for it instead, because a CLI pass that starts right after `board:up`
- * meets the server's first sync (measured 2026-10-16 09:06).
+ * meets the server's first sync (measured on the source board).
  */
 export async function withSourceLock<T>(slug: string, fn: () => Promise<T>, wait: SourceLockWait = {}): Promise<T> {
   const lock = join(sprintDir(slug), 'source.json.lock');

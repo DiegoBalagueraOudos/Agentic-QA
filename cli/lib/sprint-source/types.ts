@@ -96,7 +96,13 @@ export interface UntrackedRow {
   status: string
   /** Classified exactly like a tracked ticket's, so the board can tell which untracked rows are in test. */
   statusKey: string
-  bucket: TicketBucket
+  /**
+   * `null` when `board.statuses` (or the catalog) does not know the row's status: the row is
+   * listed as unclassified with `unclassified` saying why, and the discover read does not fail.
+   * A TRACKED ticket in such a status still fails the snapshot.
+   */
+  bucket: TicketBucket | null
+  unclassified?: string
   qaOwner: string | null
 }
 

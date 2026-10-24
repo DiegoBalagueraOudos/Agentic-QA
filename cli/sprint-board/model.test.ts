@@ -49,8 +49,8 @@ const NOW = '2026-10-05T12:00:00Z';
 const one = (events: BoardEvent[], c?: TrackerSnapshot) => fold({ sprint, events, tracker: c, now: NOW }).tickets[0];
 
 describe('laneOf through fold', () => {
-  test('DEMO-1776 shape: tracker past the gate with FAILED cases is Failed and shipped at risk', () => {
-    const t = one([], tracker({ 'DEMO-1776': { status: 'QA Approved', tcs: [
+  test('tracker past the gate with FAILED cases is Failed and shipped at risk', () => {
+    const t = one([], tracker({ 'DEMO-390': { status: 'QA Approved', tcs: [
       { id: 'TC-1', status: 'PASSED' },
       { id: 'TC-2', status: 'FAILED' },
       { id: 'TC-3', status: 'FAILED' },
@@ -61,8 +61,8 @@ describe('laneOf through fold', () => {
     expect(t.drift).toBe('Tracker moved it to QA Approved');
   });
 
-  test('a PASSED verdict with a case still NOT RUN or BLOCKED is Held, not Passed (DEMO-1219 shape)', () => {
-    const t = one([ev('2026-10-05T10:00:00Z', 'verdict', 'DEMO-1219', { verdict: 'PASSED' })], tracker({ 'DEMO-1219': { status: 'Ready for QA', tcs: [
+  test('a PASSED verdict with a case still NOT RUN or BLOCKED is Held, not Passed', () => {
+    const t = one([ev('2026-10-05T10:00:00Z', 'verdict', 'DEMO-310', { verdict: 'PASSED' })], tracker({ 'DEMO-310': { status: 'Ready for QA', tcs: [
       { id: 'TC-1', status: 'PASSED' },
       { id: 'TC-2', status: 'BLOCKED' },
     ] } }));
@@ -78,7 +78,7 @@ describe('laneOf through fold', () => {
   });
 
   test('accept-risk clears the at-risk flag but not the lane', () => {
-    const t = one([ev('2026-10-05T10:00:00Z', 'accept-risk', 'DEMO-1776', { by: 'Kim, Slack' })], tracker({ 'DEMO-1776': { status: 'Done', tcs: [{ id: 'TC-2', status: 'FAILED' }] } }));
+    const t = one([ev('2026-10-05T10:00:00Z', 'accept-risk', 'DEMO-390', { by: 'Kim, Slack' })], tracker({ 'DEMO-390': { status: 'Done', tcs: [{ id: 'TC-2', status: 'FAILED' }] } }));
     expect(t.atRisk).toBe(false);
     expect(t.lane).toBe('Failed');
   });
@@ -205,12 +205,12 @@ describe('inbox', () => {
 
   test('an owner note waits on Claude; a plain Claude reply closes it; a reply to a reply stays in the thread', () => {
     const s = fold({ sprint, now: NOW, events: [
-      msg('2026-10-05T09:00:00Z', 'o1', 'owner', 'check DEMO-1824'),
+      msg('2026-10-05T09:00:00Z', 'o1', 'owner', 'check DEMO-430'),
       msg('2026-10-05T09:10:00Z', 'c1', 'claude', 'Done, it is on staging', { replyTo: 'o1' }),
     ] });
     expect(s.inbox[0].state).toBe('done');
     const s2 = fold({ sprint, now: NOW, events: [
-      msg('2026-10-05T09:00:00Z', 'o1', 'owner', 'check DEMO-1824'),
+      msg('2026-10-05T09:00:00Z', 'o1', 'owner', 'check DEMO-430'),
       msg('2026-10-05T09:10:00Z', 'c1', 'claude', 'Assign it to you?', { replyTo: 'o1', ask: true }),
       msg('2026-10-05T09:20:00Z', 'o2', 'owner', 'yes', { replyTo: 'c1' }),
     ] });
@@ -227,19 +227,19 @@ describe('inbox', () => {
 
 describe('untrackedInTest (sprint rows off the board)', () => {
   test('matches the board case-insensitively', () => {
-    const onBoard = boardTicketIds([ev('2026-10-16T09:00:00Z', 'scope.add', 'demo-1620')], null, ['demo-1844']);
-    const rows = [{ id: 'DEMO-1620', status: 'Ready for QA' }, { id: 'DEMO-1844', status: 'Ready for QA' }, { id: 'DEMO-1900', status: 'Ready for QA' }];
-    expect(untrackedInTest(rows, onBoard).map(r => r.id)).toEqual(['DEMO-1900']);
+    const onBoard = boardTicketIds([ev('2026-10-16T09:00:00Z', 'scope.add', 'demo-360')], null, ['demo-440']);
+    const rows = [{ id: 'DEMO-360', status: 'Ready for QA' }, { id: 'DEMO-440', status: 'Ready for QA' }, { id: 'DEMO-460', status: 'Ready for QA' }];
+    expect(untrackedInTest(rows, onBoard).map(r => r.id)).toEqual(['DEMO-460']);
   });
 
   test('keeps only Ready for QA rows not on the board, in ticket order', () => {
     const rows = [
-      { id: 'DEMO-1844', status: 'Ready for QA', title: 'c' },
-      { id: 'DEMO-1620', status: 'Ready for QA', qa: 'Someone Else', title: 'a' },
-      { id: 'DEMO-1622', status: 'In Progress' },
-      { id: 'DEMO-1798', status: 'Ready for QA' },
+      { id: 'DEMO-440', status: 'Ready for QA', title: 'c' },
+      { id: 'DEMO-360', status: 'Ready for QA', qa: 'Someone Else', title: 'a' },
+      { id: 'DEMO-370', status: 'In Progress' },
+      { id: 'DEMO-400', status: 'Ready for QA' },
     ];
-    expect(untrackedInTest(rows, new Set(['DEMO-1798'])).map(r => `${r.id}:${r.qa ?? 'blank'}`)).toEqual(['DEMO-1620:Someone Else', 'DEMO-1844:blank']);
+    expect(untrackedInTest(rows, new Set(['DEMO-400'])).map(r => `${r.id}:${r.qa ?? 'blank'}`)).toEqual(['DEMO-360:Someone Else', 'DEMO-440:blank']);
   });
 });
 
@@ -297,7 +297,7 @@ describe('arrivals (Ready for QA watch)', () => {
   });
 });
 
-describe('watch liveness (D4)', () => {
+describe('watch liveness', () => {
   // Local time on purpose: working hours are the owner's clock. 2026-10-15 is a Thursday.
   const local = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m);
   const iso = (d: Date) => d.toISOString();
@@ -320,7 +320,7 @@ describe('watch liveness (D4)', () => {
     expect(watchLiveness(lastNight, local(15, 9, 26)).state).toBe('stale');
   });
 
-  test('2026-10-14 shape: no pass 09:04-11:28 turns the board red', () => {
+  test('a morning with no watch pass for hours turns the board red', () => {
     expect(watchLiveness(iso(local(14, 9, 4)), local(14, 11, 28)).state).toBe('stale');
   });
 
@@ -342,11 +342,11 @@ describe('watch liveness (D4)', () => {
 });
 
 describe('listen --since', () => {
-  const owner = (at: string, kind: BoardEvent['kind'], data?: Record<string, unknown>) => ({ ...ev(at, kind, 'DEMO-1821', data), by: 'owner' });
+  const owner = (at: string, kind: BoardEvent['kind'], data?: Record<string, unknown>) => ({ ...ev(at, kind, 'DEMO-420', data), by: 'owner' });
   const board: BoardEvent[] = [
     { ...ev('2026-10-13T19:00:00Z', 'msg', undefined, { id: 'msg-ask1', from: 'claude' }), by: 'claude' },
     owner('2026-10-13T19:10:00Z', 'need.answer', { text: 'option a' }),
-    { ...ev('2026-10-13T19:12:00Z', 'tc', 'DEMO-1821', { tc: 'TC-1', status: 'PASSED' }), by: 'w-1821' },
+    { ...ev('2026-10-13T19:12:00Z', 'tc', 'DEMO-420', { tc: 'TC-1', status: 'PASSED' }), by: 'w-420' },
     owner('2026-10-13T19:15:00Z', 'msg', { id: 'msg-o2', from: 'owner', replyTo: 'msg-ask1' }),
   ];
 
@@ -361,24 +361,24 @@ describe('listen --since', () => {
     expect(sinceCutoff('2026-13-45', [board])).toBeNull();
   });
 
-  test('2026-10-13 shape: the answer given before listen re-armed is replayed; non-owner events are not', () => {
+  test('an answer given before listen re-armed is replayed; non-owner events are not', () => {
     const got = ownerActionsSince(board, sinceCutoff('msg-ask1', [board])!);
     expect(got.map(e => e.kind)).toEqual(['need.answer', 'msg']);
     expect(ownerActionsSince(board, '2026-10-13T19:10:00Z').map(e => e.kind)).toEqual(['msg']);
   });
 
   test('the replay prints the same line shape as the live stream', () => {
-    expect(listenLine('sprint-23', board[3])).toBe('[sprint-23] msg msg-o2 DEMO-1821 reply-to msg-ask1: msg');
+    expect(listenLine('sprint-23', board[3])).toBe('[sprint-23] msg msg-o2 DEMO-420 reply-to msg-ask1: msg');
   });
 });
 
 describe('bug evidence reminder', () => {
-  const base = { ticket: 'DEMO-1607', bug: 'DEMO-1851' };
+  const base = { ticket: 'DEMO-350', bug: 'DEMO-450' };
 
   test('images on disk and no hint of an embed: one line citing the bug report template', () => {
     const r = bugEvidenceReminder({ ...base, images: ['a.png', 'b.png'], embedded: false });
     expect(r).toContain('2 evidence image(s)');
-    expect(r).toContain('DEMO-1851\'s Description');
+    expect(r).toContain('DEMO-450\'s Description');
     expect(r).toContain('reporting-templates.md');
     expect(r).not.toContain('\n');
   });
@@ -389,7 +389,7 @@ describe('bug evidence reminder', () => {
   });
 });
 
-describe('retest attempt liveness (DEMO-1762 retest 2, 2026-10-15)', () => {
+describe('retest attempt liveness', () => {
   const events = [
     ev('2026-10-05T01:00:00Z', 'worker', 'DEMO-1', { state: 'running' }),
     ev('2026-10-05T02:00:00Z', 'verdict', 'DEMO-1', { verdict: 'BLOCKED' }),
@@ -482,15 +482,15 @@ describe('evidence with --tc and --outcome', () => {
 describe('fixtures (test data found)', () => {
   const events = [
     ev('2026-10-05T09:00:00Z', 'meta', 'DEMO-1', { module: 'returns' }),
-    ev('2026-10-05T10:00:00Z', 'fixture', 'DEMO-1', { id: 'fx1', text: 'store 1777 7d has no entry' }),
-    ev('2026-10-05T11:00:00Z', 'fixture', 'DEMO-2', { id: 'fx2', text: 'invoice 4410 has a cap line', module: 'invoices' }),
-    ev('2026-10-05T10:30:00Z', 'fixture', 'DEMO-1', { id: 'fx3', text: 'store 1801 has 90 days', module: 'returns' }),
+    ev('2026-10-05T10:00:00Z', 'fixture', 'DEMO-1', { id: 'fx1', text: 'store 42 has no orders in the last 7 days' }),
+    ev('2026-10-05T11:00:00Z', 'fixture', 'DEMO-2', { id: 'fx2', text: 'order 77 has a gift card line', module: 'payments' }),
+    ev('2026-10-05T10:30:00Z', 'fixture', 'DEMO-1', { id: 'fx3', text: 'store 43 has 90 days of orders', module: 'returns' }),
   ];
   const s = fold({ sprint, events, now: NOW });
 
   test('listed newest first, with ticket, module, text and time', () => {
     expect(s.fixtures.map(f => f.id)).toEqual(['fx2', 'fx3', 'fx1']);
-    expect(s.fixtures[0]).toMatchObject({ ticket: 'DEMO-2', module: 'invoices', text: 'invoice 4410 has a cap line', at: '2026-10-05T11:00:00Z' });
+    expect(s.fixtures[0]).toMatchObject({ ticket: 'DEMO-2', module: 'payments', text: 'order 77 has a gift card line', at: '2026-10-05T11:00:00Z' });
   });
   test('a fixture without --module takes its ticket\'s module, and --module filters', () => {
     expect(s.fixtures.find(f => f.id === 'fx1')?.module).toBe('returns');

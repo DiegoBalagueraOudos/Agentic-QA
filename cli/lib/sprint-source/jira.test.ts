@@ -166,6 +166,15 @@ describe('jira-native source', () => {
     expect(transport.calls).toContain('jira key in (ACME-21, ACME-99) ORDER BY key');
   });
 
+  test('an untracked sprint row in a status the catalog does not know is listed unclassified, not fatal', async () => {
+    const sprint = structuredClone(recorded('jira-search-sprint.json')) as { issues: Array<{ key: string, fields: { status: { name: string } } }> };
+    sprint.issues.find(i => i.key === 'ACME-3')!.fields.status.name = 'Parked';
+    const transport = replay({ [SPRINT_JQL]: sprint });
+    const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW, keys: ['ACME-1', 'ACME-2'], discover: true });
+    expect(snapshot.discover?.untracked).toMatchObject([{ id: 'ACME-3', status: 'Parked', bucket: null }]);
+    expect(snapshot.discover?.untracked[0].unclassified).toContain('Parked');
+  });
+
   test('an empty sprint is all zeros, never an error', async () => {
     const transport = replay({ [SPRINT_JQL]: EMPTY });
     const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW });

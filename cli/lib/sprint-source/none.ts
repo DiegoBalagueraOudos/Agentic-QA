@@ -199,7 +199,13 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
           .map(([id, row]) => {
             const r = row as Mapping;
             const status = text(r.status) ?? '';
-            return { id, title: text(r.title) ?? id, status, statusKey: status, bucket: classifyTicket(config.statusMap, id, status), qaOwner: text(r.qa) };
+            // A row the board does not track never fails the discover read: it is listed unclassified, named.
+            try {
+              return { id, title: text(r.title) ?? id, status, statusKey: status, bucket: classifyTicket(config.statusMap, id, status), qaOwner: text(r.qa) };
+            }
+            catch (err) {
+              return { id, title: text(r.title) ?? id, status, statusKey: status, bucket: null, unclassified: (err as Error).message, qaOwner: text(r.qa) };
+            }
           });
         snapshot.discover = { at: now.toISOString(), sprintRows: Object.keys(ticketRows).length, untracked };
       }

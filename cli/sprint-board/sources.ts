@@ -79,12 +79,12 @@ export function parseLiveProgress(md: string, fileDate: string): LiveLine[] {
     if (!line) { continue; }
     let at: string | undefined;
     const iso = /(\d{4}-\d{2}-\d{2})[ T~]*(\d{2}:\d{2})Z?/.exec(line);
-    // `[HH:MM]` (the source) or a bare `HH:MM ` (`agentic-qa-core/references/session-management.md` §3).
-    const hm = /^\[?(\d{2}):(\d{2})\]?(?=\s)/.exec(line);
+    // `[HH:MM]` anywhere after it (the source's format), or a bare `HH:MM ` (`agentic-qa-core/references/session-management.md` §3).
+    const hm = /^\[(\d{2}):(\d{2})\]/.exec(line) ?? /^(\d{2}):(\d{2})(?=\s)/.exec(line);
     if (iso) { at = `${iso[1]}T${iso[2]}:00Z`; }
     else if (hm) { at = `${fileDate}T${hm[1]}:${hm[2]}:00Z`; }
     const marker = MARKERS.find(k => new RegExp(`\\b${k}\\b`).test(line)) ?? (/\bBLOCKED_[A-Z_]+/.exec(line)?.[0]);
-    const text = line.replace(/^\[?\d{2}:\d{2}\]?\s+/, '').slice(0, 300);
+    const text = line.replace(/^\[\d{2}:\d{2}\]\s*/, '').replace(/^\d{2}:\d{2}\s+/, '').slice(0, 300);
     out.push({ at, marker, text });
   }
   return out.slice(-40);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { liveProgressSection } from './sources.ts';
+import { liveProgressSection, parseLiveProgress } from './sources.ts';
 
 // The pattern liveProgressSection replaced, kept only as the reference it must match.
 // eslint-disable-next-line regexp/no-super-linear-backtracking, regexp/no-contradiction-with-assertion
@@ -20,7 +20,7 @@ const CASES: Record<string, string> = {
 };
 
 describe('liveProgressSection', () => {
-  // Fixed 2026-10-15: the original ended a section at a literal `Z` instead of end of input.
+  // A measured bug: the original ended a section at a literal `Z` instead of end of input.
   it('keeps lines after a UTC timestamp (was cut at the Z)', () => {
     const md = '## Live Progress\n- 2026-10-06 ~14:58Z ALL STAGES DONE\n- later\n';
     expect(lines(liveProgressSection(md))).toEqual(['- 2026-10-06 ~14:58Z ALL STAGES DONE', '- later']);
@@ -37,4 +37,11 @@ describe('liveProgressSection', () => {
       expect(lines(liveProgressSection(md))).toEqual(lines(ORIGINAL.exec(md)?.[1]));
     });
   }
+});
+
+describe('parseLiveProgress times', () => {
+  it('reads [HH:MM] even with no space after it, and a bare HH:MM followed by a space', () => {
+    const lines = parseLiveProgress('## Live Progress\n- [10:05]RUNNING stage 2\n- 14:02 Stage 1 done\n', '2026-01-14');
+    expect(lines.map(l => [l.at, l.text])).toEqual([['2026-01-14T10:05:00Z', 'RUNNING stage 2'], ['2026-01-14T14:02:00Z', 'Stage 1 done']]);
+  });
 });

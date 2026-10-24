@@ -78,7 +78,7 @@ export function makeDemo(now = Date.now()): Demo {
       recommend: 'a',
       decider: 'Lena Park (demo)',
     }),
-    ev(now - 6.5 * H, 'fixture', 'DEMO-9104', 'Test data on DEMO-9104: store 9001 has returning customers in October with the bonus', { id: 'fx-demo1', text: 'store 9001 has 4 returning-customer orders in October 2024 with the bonus on', module: 'returning-customers' }),
+    ev(now - 6.5 * H, 'fixture', 'DEMO-9104', 'Test data on DEMO-9104: store 9001 has members who bought twice in October', { id: 'fx-demo1', text: 'store 9001 has 4 members with two orders each in October 2024, bonus enabled', module: 'loyalty' }),
     ev(now - 30 * H, 'worker', 'DEMO-9105', 'DEMO-9105 worker started', { state: 'running', stage: 'execute' }),
     ev(now - 26 * H, 'tc', 'DEMO-9105', 'TC-9042 DEFERRED', { tc: 'TC-9042', status: 'DEFERRED' }),
     ev(now - 26 * H, 'worker', 'DEMO-9105', 'DEMO-9105 worker done', { state: 'done' }),

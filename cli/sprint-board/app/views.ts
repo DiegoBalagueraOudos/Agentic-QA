@@ -414,11 +414,11 @@ function bugSearchLine(c: Ctx): string {
   return `${tr('Searched', 'Buscado')}: ${linked}; ${sprint}. ${tr('A bug filed into another sprint and never linked here is not found.', 'Un bug cargado en otro sprint y nunca vinculado aquí no aparece.')}${lost}`;
 }
 
-function bugRow(b: SprintBug): string {
+function bugRow(b: SprintBug, c: Ctx): string {
   const blocks = b.blocks.length
     ? b.blocks.map(x => `<a href="#" class="chip blk${x.stillBlocked ? ' still' : ''}" data-open="${esc(x.id)}" title="${esc(`${x.title} · ${x.lane}`)}"><span class="id">${esc(x.id)}</span> ${x.stillBlocked ? tr('still blocked', 'sigue bloqueado') : esc(x.lane)}</a>`).join(' ')
     : `<span class="hint">${tr('not linked', 'sin vincular')}</span>`;
-  const src = b.sources.includes('linked') ? '' : ` <span class="pill source" title="${esc(tr('Found in the sprint\'s tracker rows, not linked on the board', 'Encontrado en las filas del tracker del sprint, no vinculado en el tablero'))}">${tr('tracker', 'tracker')}</span>`;
+  const src = b.sources.includes('linked') ? '' : ` <span class="pill source" title="${esc(tr('Found in the sprint\'s tracker rows, not linked on the board', 'Encontrado en las filas del tracker del sprint, no vinculado en el tablero'))}">${esc(TRK(c))}</span>`;
   return `<tr>
     <td class="id">${b.link ? `<a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.id)}</a>` : esc(b.id)}${src}</td>
     <td class="b-title">${esc(b.title ?? '')}</td>
@@ -445,7 +445,7 @@ export function viewBugs(c: Ctx): string {
     const list = all.filter(b => b.group === g);
     if (!list.length && sel === 'all') { return ''; }
     return `<section class="bug-group g-${g}"><h3>${GROUP_LABEL(g)} <span class="n">${list.length}</span></h3>${list.length
-      ? `<div class="scroll"><table class="grid bugs">${head}${list.map(bugRow).join('')}</table></div>`
+      ? `<div class="scroll"><table class="grid bugs">${head}${list.map(b => bugRow(b, c)).join('')}</table></div>`
       : `<p class="hint">${tr('None.', 'Ninguno.')}</p>`}</section>`;
   }).join('');
   return `<section class="panel bugs-panel" data-tour="bugs">

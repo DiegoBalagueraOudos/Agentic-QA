@@ -158,9 +158,12 @@ async function syncOpen(slug: string, sprint: Sprint, config: BoardConfig, opts:
     }
     // `ids` holds only the --ticket subset in that mode, so the whole board is added back here.
     const onBoard = boardTicketIds(events, prev, ids);
-    const untracked: UntrackedTicket[] = rows.map(r => ({ id: r.id, title: r.title, status: r.status, bucket: r.bucket, qa: r.qaOwner ?? undefined }));
+    const untracked: UntrackedTicket[] = rows.map(r => ({ id: r.id, title: r.title, status: r.status, bucket: r.bucket ?? undefined, qa: r.qaOwner ?? undefined }));
+    // A sprint row in a status board.statuses does not list cannot be in test: named, never counted.
+    const unclassified = rows.filter(r => r.bucket === null && !onBoard.has(r.id.toUpperCase())).map(r => ({ id: r.id, status: r.status }));
+    if (unclassified.length) { console.warn(`discover: ${unclassified.length} untracked sprint row(s) in a status board.statuses does not list: ${unclassified.map(u => `${u.id} (${u.status})`).join(', ')}`); }
     // No source returns the sprint's own bug rows yet, so `bugs` stays absent and the Bugs view says "not checked".
-    discovered = { at: now.toISOString(), sprintRows, untracked: untrackedInTest(untracked, onBoard) };
+    discovered = { at: now.toISOString(), sprintRows, untracked: untrackedInTest(untracked, onBoard), ...(unclassified.length ? { unclassified } : {}) };
   }
 
   if (!ids.size) {
