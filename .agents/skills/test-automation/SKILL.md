@@ -52,7 +52,7 @@ Requires `agentic-qa-core`. Loads on demand:
 
 **Test-automation operational rules:**
 
-- Plan → Code → Review, always in order. Only automate `Candidate` verdicts from `/test-documentation`.
+- Plan → Code → Review, always in order, behind the TC source gate: every TC in scope exists in the TMS with a SIGNED `Candidate` verdict (status `candidate` + the `Verdict signed:` line on its ROI comment, read from the TMS this run); missing or unsigned → STOP and route the scope to `/test-documentation`. This skill never creates a Test, scores ROI or fires a verdict transition. Signed ROI is a hard gate, never collapsed.
 - A TC reaches `automated` (labels `+automated -automation-candidate`) only when its code is on the production branch (`git_strategy.branches.production`); a merge into an integration branch or a suite trunk is not `automated`. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §6.
 - Fixture selection: API-only → `{ api }` (no browser); UI-only → `{ ui }`; hybrid → `{ test }`.
 - ATC = atomic mini-flow; NEVER calls another ATC. Reusable chains → a Steps module.
@@ -164,7 +164,7 @@ Every automation session starts by choosing its planning scope. Pick once, then 
 | **Module-driven** (Macro) | A module name + list of candidate TCs | One module spec + N ATC specs | Batch-automating an entire module (10+ tests). First pass on a new area. |
 | **Ticket-driven** (Medium) | A single ticket/story ID with scenarios | One implementation plan for that ticket | Automating one user story end-to-end. Default for sprint work. |
 | **Bug-driven** (Micro) | One specific TC (often after a bug fix) | One ATC implementation plan | Adding a single regression test after a fix. Smallest unit of work. Legacy name: Regression-driven. |
-| **Discovery-driven** (Macro per module; Medium or Micro per gap) | The Candidate TCs of a coverage Tech Story (no Story behind them) | Same outputs as the matching size above | Covering behaviour already in production that no Story specified. Its TCs passed the oracle rule upstream. |
+| **Discovery-driven** (Macro per module; Medium or Micro per gap) | The signed Candidate TCs of a coverage Tech Story (no Story behind them) | Same outputs as the matching size above | Covering behaviour already in production that no Story specified. Its TCs passed the oracle rule and the ROI upstream; a bare gap is not an input. |
 
 When in doubt, ask the user which scope. Never assume "module" just because multiple TC IDs appear in the briefing.
 
@@ -172,13 +172,28 @@ When in doubt, ask the user which scope. Never assume "module" just because mult
 
 ---
 
+## TC source gate (Phase 0 by TC source, MANDATORY before Plan)
+
+Runs after the scope is picked and before the first planning read. The TCs come from the TMS, never from this skill.
+
+| Scope | TC list read from |
+|---|---|
+| ticket-driven | the Story's Tests (its `ATS:` Test Set membership) |
+| bug-driven | the Test linked to the bug (`tests / is tested by`) |
+| module-driven | the module's Tests at `{{jira.status.test_case.candidate}}` (JQL by component + status) |
+| discovery-driven | the Tests of the coverage Tech Story's `ATS:` Test Set |
+
+A TC passes when it exists, sits at `{{jira.status.test_case.candidate}}` (or `in_automation` / `pull_request` on a resume), and its ROI comment carries `Verdict signed: <who>, <where>, <when>` (`test-documentation/SKILL.md` §"Three outcomes"). Read it this run with `bun run jira:sync-issues get <KEY> --include-comments`; a local file, a plan, a label or a value this session wrote is not evidence (fail-closed, `agentic-qa-core/references/orchestration-doctrine.md`).
+
+Any TC missing, unsigned, `Manual`, `Deferred` or still in design → STOP and route to `/test-documentation` with the scope: the Story key, the coverage Tech Story key, or the gap ids. An unsigned legacy Candidate goes to a sign-only pass there, not a re-score. A partial set is the person's call: route the rest and wait, or narrow the work package to the signed TCs. Signed ROI is a hard gate with no collapse path (`agentic-qa-core/references/stage-gates.md` §Automation).
+
 ## Batch mode (fleet) — optional second executor
 
 A batch (module-driven, or several ticket-driven scopes queued together) runs **sequentially in one session by default**: one Work Package at a time, Plan → Code → Review each. That is this skill's behaviour and it does not change.
 
 A **batch fleet** — several persistent sessions working different Work Packages at once, coordinated by a conductor — is opt-in. Enter it only when the user asks for it, or when the batch holds 3+ Work Packages that touch **disjoint modules**. Everything below is a scoping rule; the launch and lifecycle transport lives in `orca-orchestration/SKILL.md` (`[ORCHESTRATION_TOOL]`), never here.
 
-- **Work Package (WP) = one delivery unit = one `test-specs/<ID>/` spec** (`spec.md` + `automation-plan.md` + `atc/*.md` under the Epic's `test-specs/` tree). Sprint origin: the `Candidate` TCs of one Story. Discovery origin: a Tech Story. A batch is a list of WPs, never a list of files.
+- **Work Package (WP) = one delivery unit = one `test-specs/<ID>/` spec** (`spec.md` + `automation-plan.md` + `atc/*.md` under the Epic's `test-specs/` tree). Sprint origin: the `Candidate` TCs of one Story. Discovery origin: the signed Candidates of a coverage Tech Story. The conductor runs the TC source gate before partitioning. A batch is a list of WPs, never a list of files.
 - **Partition by module, not by ticket.** One worker owns every WP that touches a module's components; WPs sharing a module run **sequentially inside that worker**. NEVER two workers on the same module — same-module WPs share Pages / Apis / fixtures and collide in the files with the least merge tolerance.
 - **One worktree per worker.** This skill writes code, and two sessions in one checkout contend on the git index even when their files are disjoint. Branch + PR per `git_strategy` (`sdet` = one trunk, see `.agents/skills/git-flow-master/references/sdet-integration-trunk.md`).
 - **The conductor regenerates `kata-manifest.json` per integration** (`bun run kata:manifest`). It is generated output — never hand-merged, never resolved as a text conflict.
@@ -466,7 +481,7 @@ export class UiFixture extends TestContext {
 
 ## Anti-patterns — NEVER do these
 
-**T1.** NEVER auto-generate tests for TCs that `/test-documentation` flagged as Deferred or Manual — only `Candidate` (`to_be_automated`) verdicts proceed to automation. Skipping the ROI verdict produces flaky, low-value suites.
+**T1.** NEVER auto-generate tests for TCs that `/test-documentation` flagged as Deferred or Manual — only `Candidate` (`to_be_automated`) verdicts proceed to automation. Skipping the ROI verdict produces flaky, low-value suites. NEVER create a Test in the TMS to fill a gap either: a missing TC goes to `/test-documentation` (§"TC source gate").
 
 **T2.** NEVER skip the Plan phase. Even for a "simple" regression test, write `spec.md` / `automation-plan.md` (or the per-ATC plan under `.context/PBI/epics/EPIC-<KEY>-<slug>/test-specs/<scope>/`) BEFORE writing any test code. Plan → Code → Review is non-negotiable.
 

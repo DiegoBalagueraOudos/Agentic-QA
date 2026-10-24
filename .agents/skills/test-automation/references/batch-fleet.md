@@ -29,11 +29,12 @@ A **Work Package (WP)** is one delivery unit = **one `test-specs/<ID>/` spec**: 
 | WP origin | What `<ID>` is | Where its TC list comes from |
 |---|---|---|
 | **Sprint** | the Story key + slug | the Story's `Candidate` verdicts from `/test-documentation` (Stage 4). `Manual` / `Deferred` never enter a WP |
-| **Discovery** | the Tech Story key + slug, or the module slug | a coverage gap anchored to a coverage Tech Story (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §3), scope `discovery-driven`; the WP's spec is authored in Phase 1 like any other |
+| **Discovery** | the Tech Story key + slug, or the module slug | the signed `Candidate` verdicts of the Tests on a coverage Tech Story (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §3), scope `discovery-driven`, from `/test-documentation`. A bare gap is not a TC list: it goes to `/test-documentation` first |
 
 Rules:
 
 - **A batch is a list of WPs, never a list of files or a list of TCs.** A TC that is not inside a WP is not in the batch.
+- A WP whose TC list fails the TC source gate (`../SKILL.md` §"TC source gate": every TC in the TMS with a signed `Candidate` verdict) is **not ready to dispatch**. The conductor runs the gate before partitioning and routes the failures to `/test-documentation`; a worker never routes, creates or scores a TC.
 - A WP that has no `spec.md` yet is **not ready to dispatch**. Planning is the conductor's or the worker's Phase 1 — but it happens before the WP counts as assignable work, because the partition in §2 is computed from the plan's component list.
 - One WP never spans two modules. If its plan touches two, split it into two WPs before partitioning; a cross-module WP pins two modules to one worker and serializes the rest of the batch behind it.
 
@@ -104,8 +105,9 @@ What a `/test-automation` worker's brief must nail down beyond the generic seven
 3. **Fixture registration is expected to conflict** — register the component normally in `ApiFixture.ts` / `UiFixture.ts`, do not try to avoid the edit, do not reformat the file.
 4. **Git**: branch name, base, whether it pushes and opens its own PR (§7).
 5. **Scope-correction licence**: a plan that turns out wrong during Code is a legitimate finding. Record it in the WP's `spec.md`, report it, and wait — do not re-plan a different scope silently.
-6. **Local gate before reporting**: `bun run test <paths>` → `bun run types:check` → `bun run lint:check`, in that order, green, plus the Phase 3 review checklist. A worker reports a red gate as a failure; it does not report "done, with notes".
-7. **Reporting**: one completion message, an explicit success/failure outcome, the list of files it changed, and the path of its long report. Then stop — it does not close its own session and does not start the next WP unless the brief listed it.
+6. **Rules (component 7) include the TC source gate**: automate only the TCs its WP lists, all of which passed the gate; a TC that turns out missing or unsigned mid-WP → stop and report, never create it in the TMS.
+7. **Local gate before reporting**: `bun run test <paths>` → `bun run types:check` → `bun run lint:check`, in that order, green, plus the Phase 3 review checklist. A worker reports a red gate as a failure; it does not report "done, with notes".
+8. **Reporting**: one completion message, an explicit success/failure outcome, the list of files it changed, and the path of its long report. Then stop — it does not close its own session and does not start the next WP unless the brief listed it.
 
 ---
 

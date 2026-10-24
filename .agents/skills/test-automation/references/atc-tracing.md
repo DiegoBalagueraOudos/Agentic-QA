@@ -242,6 +242,13 @@ The suite workflows under `.github/workflows/` run the second line as a
 step. `syncResults()` itself still honours the `AUTO_SYNC` gate, and in CI it
 exits non-zero when the report file is missing rather than returning silently.
 
+**When you may run `bun run test:sync`.** Only after a run against the environment the Test
+Execution names (its Test Environment). The write-back records `PASSED` / `FAILED`, and a case is
+`PASSED` or `FAILED` only when observed in that environment
+(`../../agentic-qa-core/references/discovery-driven-doctrine.md` §5.2). A Code-phase run, the local
+gate, a local stack or any environment other than the Execution's is evidence about the code,
+never a TMS result: leave `AUTO_SYNC` off for it. This is a usage rule; the sync code does not check the environment.
+
 ### 8.2 Provider routing
 
 ```
@@ -415,7 +422,7 @@ The manifest is a static registry — it says what **exists in code**. `atc_resu
 | Sensitive value visible in step title | Key not in `SENSITIVE_KEYS` | Add the key to `SENSITIVE_KEYS` in `tests/utils/decorators.ts` |
 | Sync reports "No ATC results to sync" | `atc_results.json` empty | Run tests first; check KataReporter ran `generateAtcReport()`; confirm reporter config |
 | Sync fails with 401 | Bad TMS credentials | Verify `XRAY_CLIENT_*` or `ATLASSIAN_API_TOKEN`; check expiry and permissions |
-| Sync fails with "Test key not found" | TMS issue missing or mistyped | Create the issue in the TMS first; check case-sensitive exact match |
+| Sync fails with "Test key not found" | TMS issue missing or mistyped | Check case-sensitive exact match; a missing Test goes to `/test-documentation` (signed ROI first, `../SKILL.md` §"TC source gate"), never created here |
 | Custom-field error (Jira Direct) | Wrong `JIRA_TEST_STATUS_FIELD` ID | `[ISSUE_TRACKER_TOOL] list_fields()` (load `/acli`) and grep for the field; or re-run `bun run jira:sync-fields --force` |
 | Sync is slow | Jira Direct = one request per ATC | Batch via Xray if budget allows; move sync off the local loop — run only in CI on `main` |
 
