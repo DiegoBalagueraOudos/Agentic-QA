@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-24T20:36:20.744Z`
+> Generated: `2026-10-24T20:38:03.185Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -654,7 +654,7 @@ Skills indexed: 28
 
 ## Skill: test-documentation
 
-**Purpose**: Analyze, prioritize, and document test cases in TMS (Jira/Xray), or repair an existing Story-ATS-ATP-ATR-TC cascade through a sealed expl...
+**Purpose**: Analyze, prioritize, and document test cases in TMS (Jira/Xray), repair an existing Story-ATS-ATP-ATR-TC cascade through a sealed explici...
 
 **Compact Rules**:
 - Documenting an AC→TC map is the FLOOR (≥1 TC per AC is a minimum, never a target). Coverage = AC-conformance + risk-beyond-AC; the TC set must include boundary / negative / state / anomaly cases the AC is silent on. (Canon: `agentic-qa-core/references/test-design-doctrine.md`.)
@@ -666,8 +666,11 @@ Skills indexed: 28
 - TC identity = Precondition + Action + verifiable outcome. Naming (TC): `{US_ID}: TC#: should <expected outcome> [<connector> <condition>] [given <precondition>]`; `Validate <feature>` is reserved for the GROUPING layer (Test Set summary / `describe()`). Reject `"Login test"`, `"Login - error"`, `"TC1: Test form"`.
 - ROI formula → one of three verdicts per TC: Candidate (feeds test-automation), Manual, Deferred. Prioritize by risk.
 - No ROI verdict (Candidate or Manual) while a scenario is `oracle: observed`: a characterized behaviour needs a person's answer to "is this intended?" first (decision-protocol kind 1), and waits unscored until then. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §4.
+- A Candidate or Manual verdict is fired only after a person signs it (a batch through the `mkd` deck, one verdict through the question tool), and the TC's ROI comment then carries `Verdict signed: <who>, <where>, <when>`, the line `/test-automation`'s TC source gate reads. Never written by the agent about itself.
+- Discovery intake (`references/discovery-intake.md`): a COVERED candidate is dropped with a line, a WEAK one becomes a strengthen proposal for the existing test (never a new Test), a NEW one runs the full pipeline anchored to its coverage Tech Story; the >50% alarm is computed per chunk.
+- `PASSED` / `FAILED` only from a run observed in the environment the Test Execution names, else `NOT RUN` with its reason (doctrine §5); `automated` (`merged`) only once the spec is on the production branch, through mode `post-promotion` (doctrine §6).
 - Cardinality: US→TC is 1:N; AC→TC is N:1 or N:M. Resolve TMS modality (Xray vs Jira-native) in Phase 0 before documenting.
-- Mode from `$ARGUMENTS`: a first token matching a mode in Mode routing (`repair-traceability`, `document`) IS the mode and the rest is forwarded; otherwise `document` for plain documentation work, ASK when it could be either.
+- Mode from `$ARGUMENTS`: a first token matching a mode in Mode routing (`repair-traceability`, `post-promotion`, `document`) IS the mode and the rest is forwarded; otherwise `document` for plain documentation work, ASK when it could be either.
 - Bug-driven (GOLDEN RULE): not every bug is a regression TC, but a regression-worthy bug MUST end with a Test — REUSE the existing failed Test if it came from one, else CREATE one (both modalities). A non-qualifying bug is treated like a failed test → Deferred, no new Test.
 - ATS is MANDATORY per Story (`ATS: {US_ID}: {story title}`, even with a single TC): a `Test Set` holding ALL the Story's TCs, parented to the QA Test Artifacts epic, `components` INHERITED from the Story (mandatory — the components exemption applies ONLY to the optional feature-level `TS:` grouping sets).
 - Set-first creation order: find-or-create the ATS, ATP and ATR BEFORE the first TC (module-driven pre-creates the containers because parallel TC sharding needs the targets to exist); add each TC to the ATS, THEN derive the ATP's and the Execution's test lists FROM the ATS membership — never three independent id lists.

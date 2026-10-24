@@ -491,6 +491,18 @@ where `N` = number of E2E flows that reuse the TC. A moderate-ROI atomic like `a
 2. **Cap the bonus at `N = 3`** (max multiplier `x1.6`). An estimate you cannot verify must not be able to triple a score.
 3. **Record the estimate in the ROI comment** alongside the five factors, e.g. `Reuse: N~3 (estimated from ATP: login, checkout, profile-edit). Bonus x1.6.` An unrecorded bonus is an unauditable one.
 
+### The ROI comment and its signature
+
+Every Candidate and Manual TC carries one ROI comment, written when its verdict transition fires. The last line is the person's signature, copied from their answer; the agent never writes it on its own behalf.
+
+```
+ROI: F4 x I5 x S4 / (E2 x D2) / 10 = 2.0 (+ prior bug PROJ-7044) -> Candidate
+Reuse: N~2 (estimated from ATP: checkout, refund). Bonus x1.4.
+Verdict signed: <person>, <channel: mkd deck | question tool | Jira comment>, <YYYY-MM-DD>
+```
+
+How the signature is collected follows `AGENTS.md` §2: a batch of verdicts to react to point by point goes in the `mkd` decision deck, a single verdict through the question tool. `/test-automation`'s TC source gate reads this line from Jira; a Candidate without it is unsigned and routes back here for a sign-only pass (the person confirms the recorded verdict, nothing is re-scored).
+
 
 ### Phase 0 filter (applied BEFORE ROI)
 

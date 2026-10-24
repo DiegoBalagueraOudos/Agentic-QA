@@ -344,7 +344,7 @@ This skill stops at a clean local review. It does **not** create branches, push,
   | ticket PR opens into the trunk | `{{jira.transition.test_case.create_pr}}` | `{{jira.status.test_case.pull_request}}` |
   | the code reaches the production branch (`git_strategy.branches.production`; the final suite PR under `sdet`), CI green there | `{{jira.transition.test_case.merged}}` | `{{jira.status.test_case.automated}}` |
 
-  Merging into the trunk is NOT `automated`, and the same holds for any strategy with an integration branch (`main-integration` and the like): `automated` means the code is on the production branch (`agentic-qa-core/references/discovery-driven-doctrine.md` §6). Execute transitions via `/test-documentation` + `[ISSUE_TRACKER_TOOL]`; resolve every slug through `.agents/jira-workflows.json`, and on an unmapped slug run the `artifact-lifecycle.md` §4 fallback instead of skipping.
+  Merging into the trunk is NOT `automated`, and the same holds for any strategy with an integration branch (`main-integration` and the like): `automated` means the code is on the production branch (`agentic-qa-core/references/discovery-driven-doctrine.md` §6). Execute transitions via `/test-documentation` + `[ISSUE_TRACKER_TOOL]` (`merged` through its mode `post-promotion`, once the spec is on the production branch); resolve every slug through `.agents/jira-workflows.json`, and on an unmapped slug run the `artifact-lifecycle.md` §4 fallback instead of skipping.
 
 ---
 
