@@ -26,7 +26,7 @@
     },
     {
       "name": "should-trigger-from-gap-list",
-      "prompt": "The coverage inventory says the billing module has six uncovered behaviours and two weak ones. Go explore those gaps and tell me which ones are real candidates for the regression suite.",
+      "prompt": "The coverage inventory says the subscriptions module has six uncovered behaviours and two weak ones. Go explore those gaps and tell me which ones are real candidates for the regression suite.",
       "expected_behavior": "Activates exploratory-testing in Module-Targeted mode with the gap list as input: the queue is the module's gaps in gap-list order, deduped through tests[].covers. A behaviour whose only covers are weak stays WEAK and is handed off naming the weak test; it is never marked COVERED. Candidates go to test-documentation only after a person confirms each oracle.",
       "category": "positive"
     },
@@ -62,7 +62,7 @@
     },
     {
       "name": "should-not-trigger-single-ticket",
-      "prompt": "Test the user story PROJ-681, it's about the new totals table on the monthly statement.",
+      "prompt": "Test the user story PROJ-123, it's about the new date filter on the orders summary page.",
       "expected_behavior": "Does NOT activate exploratory-testing. Routes to sprint-testing (single-issue mode): a named ticket key means the request is ticket-scoped.",
       "category": "negative"
     },
@@ -80,7 +80,7 @@
     },
     {
       "name": "should-not-trigger-preplanning-refinement",
-      "prompt": "PROJ-712 hasn't been built yet, it's up for refinement in tomorrow's sprint planning. Go through the acceptance criteria and see if anything is ambiguous before dev picks it up.",
+      "prompt": "PROJ-124 hasn't been built yet, it's up for refinement in tomorrow's sprint planning. Go through the acceptance criteria and see if anything is ambiguous before dev picks it up.",
       "expected_behavior": "Does NOT activate exploratory-testing: nothing exists to explore yet. Routes to shift-left-testing, which interrogates ACs before implementation.",
       "category": "negative"
     }

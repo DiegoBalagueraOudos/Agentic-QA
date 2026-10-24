@@ -245,8 +245,9 @@ the stage NEEDS REVISION.
 
 ```
 [ ] Scope mode picked (flow / module / sweep), not a ticket key; charter written and confirmed
-[ ] Coverage view built before Recon (the gap list, or the session's coverage-view.json) and
-    passed to every Recon agent
+[ ] The module context read for every in-scope module
+[ ] Coverage view built before Recon (the gap list, or the session's coverage-view.json, with
+    `TMS not read` stated when the TMS was not read) and passed to every Recon agent
 [ ] Every Recon report in the structured schema, `created_rows` present even when empty;
     a failed or skipped surface recorded as "not covered this round"
 [ ] Every Medium+ anomaly sent to a refute-mandated verifier; every disagreement settled by the
@@ -258,6 +259,9 @@ the stage NEEDS REVISION.
     (`discovery-driven-doctrine.md` §5)
 [ ] Oracle questions, bug filings, Tech Stories and module-context writes asked by weight and
     signed by a person; every approved write read back
+[ ] Module-context harvest asked for every touched module, or recorded as skipped
+[ ] A `DEFERRED (execution)` with no coverable keeps its follow-up on the coverage Tech Story, or
+    as a Handoff item until that Story is approved
 [ ] Every `created_rows` entry re-read gone
 [ ] Artifact statuses match §"Lifecycle expectations per stage"; light stage verifier run
 ```

@@ -15,7 +15,7 @@
 | Risk-Based Testing | Prioritize tests by impact and probability of failure instead of covering everything equally | Early-Game, Mid-Game | Step 4; one ROI verdict per ATP scenario | `agentic-qa-core/references/test-design-doctrine.md` |
 | Continuous Testing | Automated testing integrated into CI/CD pipelines for immediate feedback on every change | Mid-Game | Step 8; the suite green in CI without flakiness | `.agents/skills/test-automation/SKILL.md` |
 | Agile Testing | Short testing cycles inside the sprint, not after it | Mid-Game | Step 5; asynchronous documentation after execute and report | `agentic-qa-core/references/stage-gates.md` §"Documentation" |
-| Exploratory Testing | Human intelligence looking for what no written case anticipated | Mid-Game | Charters: time-boxed missions against a risk area | The Trifuerza in `.agents/skills/sprint-testing/SKILL.md` |
+| Exploratory Testing | Human intelligence looking for what no written case anticipated | Mid-Game | Charters: time-boxed missions against a risk area | The Trifuerza in `.agents/skills/sprint-testing/SKILL.md` (per ticket); the charter and the ticket-free round in `.agents/skills/exploratory-testing/SKILL.md` |
 | BDD | Collaborative specification with Given-When-Then scenarios, written with the team and not for the team | Early-Game | The AC rewritten as Gherkin with real data | `.agents/skills/shift-left-testing/SKILL.md` |
 | AI-Driven Testing | Agents that analyze, generate and maintain the quality work | Early-Game, Mid-Game, Late-Game | The agentic contract per stage; the QA signs the final classification | `agentic-qa-core/references/stage-gates.md` §"The agentic contract per stage" |
 
@@ -75,7 +75,7 @@ Each card carries the web's fuller wording (translated), the phase badges as pri
 | Web wording | Use human intelligence to find unexpected issues that automation does not detect. It is not random clicking: professional exploration is organized in charters, time-boxed missions against a specific risk area. Inside that frame creativity is free; the frame is what turns it into work |
 | Tab badge | MID-GAME, Detección, steps 5-9, QA Automation Engineer |
 | Operational in | The tab names charters, not a step. The exploration itself is step 3 (Early Exploratory Testing): smoke first as Go/No-Go, then the Trifuerza (UI, API, DB) beyond the plan, feeding new partitions back into the set |
-| Repo doctrine | The Trifuerza after the smoke in `.agents/skills/sprint-testing/SKILL.md`; `agentic-qa-core/references/stage-gates.md` §"Execution"; evidence capture rules in `agentic-qa-core/references/evidence-conventions.md`; classify before filing in `agentic-qa-core/references/defect-management-doctrine.md` |
+| Repo doctrine | The Trifuerza after the smoke in `.agents/skills/sprint-testing/SKILL.md`; charters, as a written charter per round of a flow, a module or a sweep with no ticket, in `.agents/skills/exploratory-testing/SKILL.md` (`agentic-qa-core/references/stage-gates.md` §"Execution (exploration without a ticket)"); `agentic-qa-core/references/stage-gates.md` §"Execution"; evidence capture rules in `agentic-qa-core/references/evidence-conventions.md`; classify before filing in `agentic-qa-core/references/defect-management-doctrine.md` |
 
 ### BDD
 
@@ -111,7 +111,7 @@ Listed, not resolved. Each line is a web-internal reading; the repo side is cite
 
 | Approach | The tab says | Elsewhere the web says | Repo side |
 |---|---|---|---|
-| Exploratory Testing | Phase badge Mid-Game (steps 5-9, QA Automation Engineer) | The exploration itself is step 3, inside Execution, phase Early-Game, run by the QA Analyst after the smoke (`#stages` Execution card; `early-game` page step 3) | Execution is owned by `sprint-testing`, in-sprint, L2 (`agentic-qa-core/references/stage-gates.md` §"Execution") |
+| Exploratory Testing | Phase badge Mid-Game (steps 5-9, QA Automation Engineer) | The exploration itself is step 3, inside Execution, phase Early-Game, run by the QA Analyst after the smoke (`#stages` Execution card; `early-game` page step 3) | Execution is owned by `sprint-testing` per ticket, in-sprint, L2 (`agentic-qa-core/references/stage-gates.md` §"Execution"); its ticket-free entry, with charters, by `exploratory-testing` (§"Execution (exploration without a ticket)") |
 | Risk-Based Testing | Phase badges Early-Game and Mid-Game | The operational step (4) is badged Early-Game on its own card, while the stage that hosts it (Documentation) is badged both Early-Game and Mid-Game | Documentation is post-sprint at L3 (`agentic-qa-core/references/stage-gates.md` §"The stages, by name") |
 | Shift-Right Testing | Operational through step 11 | Steps 11-15 are marked "Panorama" on the Late-Game page: taught as an industry overview, not operated against a real production environment | No skill and no DoD for Observation (`agentic-qa-core/references/stage-gates.md` §"Observation") |
 | Agile Testing | Asynchronous documentation is the mechanism "in the default modality" | The modality section (`#modalidades`) says the modality changes the verb, never the ROI verdict, so the after-execution order holds in both | `.agents/skills/test-documentation/SKILL.md`; `agentic-qa-core/references/artifact-lifecycle.md` §1 |

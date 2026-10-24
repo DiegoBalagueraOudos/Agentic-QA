@@ -11,14 +11,14 @@ metadata:
 # compact_rules is consumed VERBATIM by scripts/build-skill-registry.ts (frontmatter-first,
 # no truncation). Keep in sync with the binding doctrine below and in references/.
 compact_rules: |
-  - Ticket-free entry into the Execution stage: the scope is a flow, a module or a sweep, never a ticket key (a named ticket routes to `sprint-testing`). Mode from `$ARGUMENTS` (`flow` | `module` | `sweep`), otherwise ASK; never infer it.
+  - Ticket-free entry into the Execution stage: the scope is a flow, a module or a sweep, never a ticket key (a named ticket routes to `sprint-testing`). Mode from the first `$ARGUMENTS` token (`flow` | `module` | `sweep`), or from a request that clearly names one flow, one module or a sweep (args-as-answers); otherwise ASK.
   - Five steps, always in order: Charter (main thread) -> Recon (Parallel) -> Refute (Parallel) -> Tie-break (main thread) -> Handoff (main thread). Planning and tie-breaks are never delegated. The charter is presented and confirmed before any Recon dispatch, unless the request already named the scope and said go.
-  - Build the coverage view BEFORE Recon: the gap list of `project-context` mode `coverage` when it exists, else `coverage-view.json` from `kata-manifest.json` + the module's TMS Tests. Every candidate is marked NEW / WEAK / COVERED; only a counted `exercises` cover makes COVERED; a `weak`, stale or unverified cover never dedupes a candidate away.
+  - Build the coverage view BEFORE Recon: the gap list of `project-context` mode `coverage` when it exists, else `coverage-view.json` from `kata-manifest.json` + the TMS Tests read by `bun run context:coverage collect` (never by `jira:sync-issues`: Tests are `sync: never`); a TMS not read is stated `TMS not read` and no manual cover counts. Every candidate is marked NEW / WEAK / COVERED; only a counted `exercises` cover makes COVERED; a `weak`, stale or unverified cover never dedupes a candidate away.
   - Compare at least 2-3 rows plus a control group before calling anything anomalous, and state the detection query verbatim.
   - Refute mandate: every Medium+ anomaly gets a Parallel verifier told to REFUTE it (join fan-out, data quirk, intended behaviour, harness artifact); it survives only if it cannot be explained away. Check a row's own invariant, not just that it differs from another row; execute competing hypotheses side by side, never infer them. Canon: `agentic-qa-core/references/adversarial-verification.md`.
   - Verifier disagreement goes to a main-thread tie-break: a decisive query plus a direct read of the live code path. Never a third verifier, never an average, never one agent's verdict alone on a data-integrity, money or security finding.
   - Oracle: behaviour with no AC is `oracle: observed`; "is this intended?" goes to a person (decision-protocol kind 1), a batch through the `mkd` deck, a single question through the question tool. `oracle: confirmed` (who, where, when) makes the observation PASSED; `not intended` makes it FAILED and a proposed defect. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §4.
-  - A candidate is PASSED or FAILED only when observed in the environment its precondition names; a code read, unit test, green CI or another environment leaves it NOT RUN with exactly one reason, BLOCKED or DEFERRED (execution), and it climbs the blocking ladder. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §5.
+  - A candidate is PASSED or FAILED only when observed in the environment its precondition names; a code read, unit test, green CI or another environment leaves it NOT RUN with exactly one reason, BLOCKED or DEFERRED (execution), and it climbs the blocking ladder; with no coverable yet, its follow-up lives on the coverage Tech Story once approved, and until then as an item of the Handoff deck. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §5.
   - Never call anything that sends, notifies or pushes downstream; reads and previews are fine. A project's own list (`## Never-call endpoints` in `agent-project.md`) is carried verbatim in briefing component 7.
   - Mutations only to set up a precondition, within the charter's budget. Every created row goes into `created_rows` the moment it exists; cleanup re-reads each one (a delete's response code is not proof).
   - Person-signed writes: every bug (`sprint-testing/references/reporting-templates.md` §1, gate §1.12, classified per `defect-management-doctrine.md` Part 1), every coverage Tech Story (`discovery-driven-doctrine.md` §3), every module-context write. This skill creates no Test and scores no ROI.
@@ -89,9 +89,9 @@ Requires `agentic-qa-core`. Loads on demand:
 
 **Exploration operational rules (binding):**
 
-- Ticket-free entry into the Execution stage: the scope is a flow, a module or a sweep, never a ticket key (a named ticket routes to `sprint-testing`). Mode from `$ARGUMENTS` (`flow` | `module` | `sweep`), otherwise ASK; never infer it.
+- Ticket-free entry into the Execution stage: the scope is a flow, a module or a sweep, never a ticket key (a named ticket routes to `sprint-testing`). Mode from the first `$ARGUMENTS` token (`flow` | `module` | `sweep`), or from a request that clearly names one flow, one module or a sweep (args-as-answers); otherwise ASK.
 - Five steps, always in order: Charter (main thread) -> Recon (Parallel) -> Refute (Parallel) -> Tie-break (main thread) -> Handoff (main thread). Planning and tie-breaks are never delegated. The charter is presented and confirmed before any Recon dispatch, unless the request already named the scope and said go.
-- Build the coverage view BEFORE Recon: the gap list of `project-context` mode `coverage` when it exists, else `coverage-view.json` from `kata-manifest.json` + the module's TMS Tests. Every candidate is marked NEW / WEAK / COVERED; only a counted `exercises` cover makes COVERED; a `weak`, stale or unverified cover never dedupes a candidate away.
+- Build the coverage view BEFORE Recon: the gap list of `project-context` mode `coverage` when it exists, else `coverage-view.json` from `kata-manifest.json` + the TMS Tests read by `bun run context:coverage collect` (never by `jira:sync-issues`: Tests are `sync: never`); a TMS not read is stated `TMS not read` and no manual cover counts. Every candidate is marked NEW / WEAK / COVERED; only a counted `exercises` cover makes COVERED; a `weak`, stale or unverified cover never dedupes a candidate away.
 - Compare at least 2-3 rows plus a control group before calling anything anomalous, and state the detection query verbatim.
 
 **Verification doctrine (binding — full canon: `agentic-qa-core/references/adversarial-verification.md`):**
@@ -102,7 +102,7 @@ Requires `agentic-qa-core`. Loads on demand:
 **Oracle and outcomes (binding — full canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §4, §5):**
 
 - Oracle: behaviour with no AC is `oracle: observed`; "is this intended?" goes to a person (decision-protocol kind 1), a batch through the `mkd` deck, a single question through the question tool. `oracle: confirmed` (who, where, when) makes the observation PASSED; `not intended` makes it FAILED and a proposed defect.
-- A candidate is PASSED or FAILED only when observed in the environment its precondition names; a code read, unit test, green CI or another environment leaves it NOT RUN with exactly one reason, BLOCKED or DEFERRED (execution), and it climbs the blocking ladder.
+- A candidate is PASSED or FAILED only when observed in the environment its precondition names; a code read, unit test, green CI or another environment leaves it NOT RUN with exactly one reason, BLOCKED or DEFERRED (execution), and it climbs the blocking ladder; with no coverable yet, its follow-up lives on the coverage Tech Story once approved, and until then as an item of the Handoff deck.
 
 **Safety and signatures (binding):**
 
@@ -182,7 +182,7 @@ Recon runs on in-turn subagents by default. A sweep large enough to outgrow one 
 
 0.0 **Resume check** (`agentic-qa-core/references/session-management.md` §4). Compute `<scope>` = `<YYYY-MM-DD>-<scope-slug>`. Check `<<PRIMARY_ROOT>>/.session/exploratory-testing/<scope>/progress.md` (from a worktree, say so in one line and look in the primary). If it exists, read `plan.md`, `charter.md` and the tail of `progress.md`, surface the last completed step and the next one, and offer **resume / restart / abort**. On `restart`, archive the directory to `.session/.archive/<YYYY-MM-DD>-exploratory-testing-<scope>-aborted/` first.
 
-0.1 **Mode**. The first `$ARGUMENTS` token `flow`, `module` or `sweep` IS the mode and the rest is forwarded; a ticket key routes to `sprint-testing`; otherwise ask the mode question (`references/scope-and-recon-planning.md` §1).
+0.1 **Mode**. The first `$ARGUMENTS` token `flow`, `module` or `sweep` IS the mode and the rest is forwarded; a request that clearly names one flow, one module or a whole-product sweep is the answer too (args-as-answers); a ticket key routes to `sprint-testing`; otherwise ask the mode question (`references/scope-and-recon-planning.md` §1).
 
 0.2 **Create the session directory**, write `plan.md` (§6 schema, the `## Inputs` H2 names the coverage view source and the environment) and append `## Phase 0 — Session Init — <ISO-8601 UTC>` with `next: Charter` to `progress.md`.
 
@@ -211,7 +211,7 @@ Every step closes with its checkpoint in `progress.md`. A step that returns a pa
 
 ### Handoff decisions, by weight
 
-The round routinely produces more than a handful of decisions, and each needs a written option set: the oracle answer per candidate, file or discard per finding, the grain and approval of each Tech Story, the module context harvest. That batch goes into one `mkd` decision deck (`agentic-qa-core/references/decision-elicitation-doctrine.md`); a round with a single small item asks it through the question tool. A blocking item (a row that cannot be cleaned up, a credential failure) is asked at once, never held for the deck.
+The instrument follows the weight of the decisions, never their count (`AGENTS.md` §2). A round's Handoff is usually a report the person reacts to point by point, each item with its own option set: the oracle answer per candidate, file or discard per finding, the grain and approval of each Tech Story, the module context harvest. That report goes into one `mkd` decision deck (`agentic-qa-core/references/decision-elicitation-doctrine.md`); a round with a single small item asks it through the question tool. A blocking item (a row that cannot be cleaned up, a credential failure) is asked at once, never held for the deck.
 
 ---
 
@@ -246,7 +246,7 @@ The round routinely produces more than a handful of decisions, and each needs a 
 
 | Before this skill | After this skill |
 |---|---|
-| `project-context` mode `coverage` (optional): the gap list, ordered by MTP risk | `test-documentation`: `candidate-scenarios.md` (NEW and WEAK only; only `oracle: confirmed` is scored, Gate 0), scope `discovery-driven` on a coverage Tech Story, `module-driven` on an existing coverable, `ad-hoc` otherwise |
+| `project-context` mode `coverage` (optional): the gap list, ordered by MTP risk | `test-documentation`: `candidate-scenarios.md` (NEW and WEAK only; only `oracle: confirmed` is scored, Gate 0), scope `discovery-driven` on a coverage Tech Story, `module-driven` on an existing coverable; with no anchor, the coverage Tech Story is proposed first (doctrine §2.1, §3) and intake runs as `discovery-driven` once it exists |
 | (none required: a self-starting entry, on demand or as a scheduled round) | `sprint-testing`: filed bugs re-enter its retest cycle once fixed |
 | | `project-context` modes `e2e` / `api` / `data`: a behaviour the maps lack, proposed as a map section |
 
@@ -281,12 +281,14 @@ This skill produces no ATP, ATR or TC, scores no ROI and writes no test code. A 
 ## Pre-flight checklist
 
 - [ ] Mode picked (Critical-Flow-Targeted / Module-Targeted / Whole-App Sweep), not a ticket key
-- [ ] Coverage view built (gap list `run_id`, or `coverage-view.json`) and passed to every Recon agent
+- [ ] `module-context.md` read for every in-scope module
+- [ ] Coverage view built (gap list `run_id`, or `coverage-view.json`, with `TMS not read` stated when it was not) and passed to every Recon agent
 - [ ] Charter written and confirmed; environment gate and tool probe passed
 - [ ] Recon dispatched Parallel, one agent per surface, every report in the schema (`created_rows` even if empty)
 - [ ] Every Medium+ anomaly refuted or survived; every disagreement settled by the tie-break
 - [ ] One `findings/FNN-*.md` per finding, confirmed and refuted
 - [ ] Every candidate marked NEW / WEAK / COVERED and carrying its outcome and oracle state
 - [ ] The Handoff decisions asked by weight; only approved writes made, each read back
+- [ ] Module-context harvest asked for every touched module, or recorded as skipped ("nothing cleared the bar")
 - [ ] Every `created_rows` entry re-read gone
 - [ ] `session.md` written; session footer printed (execution framing); `Refinements proposed:` line present

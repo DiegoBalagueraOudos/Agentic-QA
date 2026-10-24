@@ -18,8 +18,8 @@ writes it to `recon/<surface>.json` in the session directory and returns the sam
   "surface": "orders (module or flow slice name)",
   "deployed": true,
   "checks_run": [
-    "compared 3 orders with discounted and full-price lines",
-    "verified the per-customer discount on 5 accounts"
+    "compared 4 orders with discounted and full-price lines",
+    "verified the per-customer discount on 6 accounts"
   ],
   "anomalies": [
     {
@@ -150,7 +150,7 @@ every behaviour you observe. Return the schema in recon-fanout.md §1.
 
 **5. Exact instructions**
 1. Read the business rules for the module from `bun run context:map business-data-context --section <id>`.
-2. Read the live schema first, then query 10+ orders with discounted and full-price lines; check each line against its
+2. Read the live schema first, then query a dozen orders with discounted and full-price lines; check each line against its
    own formula, not only against its siblings.
 3. Compare at least 2-3 rows before flagging anything (recon-fanout.md §2).
 4. For every behaviour you observe, fill observed[] with covered_by from the charter's coverage view.

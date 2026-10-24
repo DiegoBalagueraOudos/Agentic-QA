@@ -134,6 +134,11 @@ The vocabulary is `../../agentic-qa-core/references/discovery-driven-doctrine.md
   one reason, `BLOCKED — <reason>` or `DEFERRED (execution) <date> by QA decision: <reason>; follow-up <KEY>`,
   and it climbs the blocking ladder (§5.3 of the doctrine). Never `PASSED` on a code read, a unit test, a
   green CI run or another environment.
+- Where the follow-up of a `DEFERRED (execution)` lives: the ladder puts it on the coverable. A candidate
+  whose anchor is an existing coverable gets it there. A candidate with no anchor yet gets it on its
+  coverage Tech Story once a person approves that Story (§3.4); until then the follow-up is an item of the
+  Handoff deck, created only on approval, and the candidate stays `NOT RUN` with its reason line in
+  `candidate-scenarios.md`. This skill never opens a standalone task for it.
 
 ### 3.3 Template
 
@@ -159,13 +164,18 @@ The vocabulary is `../../agentic-qa-core/references/discovery-driven-doctrine.md
 - **Evidence**: <capture paths, verified on disk; evidence page URL when one exists>
 
 ## Anchor note
-<only when the Anchor line says NONE, per §3.4>
+<only when the Anchor line says NONE: the coverage Tech Story proposed for these scenarios (§3.4) and its
+approval state; documentation does not start on them until it exists>
 ```
 
 ### 3.4 The anchor: where the Tests will hang
 
 `test-documentation` needs a coverable to hang every Test on. Resolve it per scenario, and surface the
-resolution to the person; this skill never creates a Test and never scores ROI:
+resolution to the person; this skill never creates a Test and never scores ROI. A scenario is never handed
+off with no anchor at all: `ad-hoc` notes with no coverable become `discovery-driven`
+(`../../agentic-qa-core/references/discovery-driven-doctrine.md` §2.1), so the NONE case always proposes the
+coverage Tech Story first, and documentation runs once it exists. A Test created with no coverage edge is
+the "orphans by design" failure of doctrine §9.
 
 - **An existing coverable of the module** already describes the behaviour (a Story, Bug or Tech Story in
   scope): name it. Documentation runs that scope as `module-driven` or `ticket-driven`.

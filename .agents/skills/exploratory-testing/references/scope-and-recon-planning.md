@@ -8,8 +8,10 @@ anti-patterns).
 
 ## 1. Pick the scope mode first
 
-Every invocation picks exactly one mode. There is no default: a first `$ARGUMENTS` token `flow`, `module`
-or `sweep` IS the mode; otherwise ask.
+Every invocation picks exactly one mode, and there is no default. A first `$ARGUMENTS` token `flow`, `module`
+or `sweep` IS the mode; so is a request that clearly names one flow, one module or a whole-product sweep
+(args-as-answers, `../../agentic-qa-core/references/preflight-gate.md`). When the request names none of them,
+or could mean more than one, ask.
 
 | Mode | Token | Input | Typical fan-out | Use when |
 |---|---|---|---|---|
@@ -32,7 +34,7 @@ The scope is read, never invented:
 | The business maps | `bun run context:map business-e2e-context`, then `business-api-context` and `business-data-context` per touched level (`--section <id>` for one section) | journeys, endpoints, entities, state machines, rule ids (`BR-NNN`, `FEAT-NNN`) |
 | The Master Test Plan | `.context/PBI/qa-artifacts/master-test-plan.md` | the risk level of each flow, which orders the queue (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §7) |
 | The module's QA knowledge | the synced `module-context.md` of the module's Epic folder under `.context/PBI/epics/` | known fixtures, gotchas, trap instances, prior exploratory rounds |
-| Recent executions | the synced `acceptance-test-results.md` of the module's recent coverables | what changed lately and is worth re-checking |
+| Recent executions | the ATR of the module's recent coverables: the synced `acceptance-test-results.md` under jira-native, the synced `ATR-<KEY>-<slug>.md` under `.context/PBI/test-executions/` under jira-xray | what changed lately and is worth re-checking |
 
 A placeholder map (the `--list` call prints the placeholder notice) is a scope limitation, not a blocker
 for a narrow module run: say so in the charter and narrow the scope to what the code and the live
@@ -99,9 +101,20 @@ holds. Build the view before Recon, from one of two sources.
 
 - `kata-manifest.json` (Critical Rule #12): every ATC whose component or file belongs to the module, with
   its file and method, on `git_strategy.branches.production`.
-- The TMS Tests of the module: `bun run jira:sync-issues jql "project = <KEY> AND issuetype = Test AND
-  component = '<module>'"`, then the synced Test files; their steps and expected results are the manual
-  assertions. Both modalities read the same way.
+- The TMS Tests of the module, read the way the inventory reads them: `bun run context:coverage collect
+  --out-dir <session dir>`. Its `collect.json` `tests[]` holds the TMS test repository (key, title,
+  components, the coverables each Test reaches, status, regression membership) in both modalities, next to
+  the manifest. Keep the Tests whose components or coverables are in scope. The sync script is not a way
+  to list Tests: the `test_case` work type is declared `sync: never`, so a `jql` over Tests writes nothing.
+- Their assertions: under jira-native, the Test's steps and expected results in its synced file under the
+  coverable's `test-cases/` folder (`bun run jira:sync-issues get <COVERABLE-KEY>` materializes them);
+  under jira-xray the manual steps live in Xray, read through `[TMS_TOOL]` (`/xray-cli`, `test get <KEY>`).
+
+**TMS not read (fail-closed).** `collect` reads no TMS when no business map is generated, with `--tms none`,
+without a project key or credentials, or when the instance is unreachable; `collect.json`
+`sources.tms.reason` says which. Then the charter's `## Coverage view` line says `TMS not read: <reason>`,
+and no manual Test can cover anything this round: a candidate claiming one is `NEW` with that reason,
+never `COVERED`. The same holds for any single Test whose assertions could not be read.
 
 Each entry is `{ test, kind, behaviour, verdict, evidence }` with the same scale as the gap list:
 `exercises` when an assertion or expected result fails if the behaviour breaks, `weak` when the test runs
