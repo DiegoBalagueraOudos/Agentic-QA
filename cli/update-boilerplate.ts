@@ -89,11 +89,47 @@ const TEMPLATE_REPO = process.env.UPEX_TEMPLATE_REPO || 'upex-galaxy/agentic-qa-
 // One clone directory per process. A fixed name was shared by every `bun sync`
 // on the machine, and each clone wipes its destination first, so two concurrent
 // runs (two worktrees, two test processes) deleted each other's clone and one
-// died with CLONE_FAILED. The pid is unique among live processes; a dir left by
-// a crashed run is wiped by the clone before reuse. The self-update children
-// never rely on sharing it: the --dry-run preview gets the parent's clone
-// through UPDATER_UPSTREAM_DIR_ENV, the real re-exec clones its own.
+// died with CLONE_FAILED. The pid is unique among live processes. The
+// self-update children never rely on sharing it: the --dry-run preview gets the
+// parent's clone through UPDATER_UPSTREAM_DIR_ENV, the real re-exec clones its
+// own. A pid is practically never reused, so a run that ends without cleaning
+// would leave its clone forever: the entry point removes TEMP_DIR on every
+// process exit, and sweeps the dirs of dead runs at start (SIGKILL included).
 export const TEMP_DIR = path.join(os.tmpdir(), `kata-boilerplate-update-${process.pid}`);
+
+/** True while the process exists (EPERM: it exists and belongs to someone else). */
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  }
+  catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/**
+ * Remove the clone dirs (`kata-boilerplate-update-<pid>`) whose run is gone:
+ * what a killed or crashed `bun sync` leaves, since no exit handler survives a
+ * SIGKILL. A live run's dir, this run's own and any other name are kept.
+ * Never throws; returns the names removed.
+ */
+export function sweepStaleCloneDirs(tmp: string = os.tmpdir()): string[] {
+  let names: string[];
+  try { names = fs.readdirSync(tmp); }
+  catch { return []; }
+  const removed: string[] = [];
+  for (const name of names) {
+    const pid = Number(/^kata-boilerplate-update-(\d+)$/.exec(name)?.[1]);
+    if (!pid || pid === process.pid || pidAlive(pid)) { continue; }
+    try {
+      fs.rmSync(path.join(tmp, name), { recursive: true, force: true });
+      removed.push(name);
+    }
+    catch { /* another sweep got there first, or no permission: leave it */ }
+  }
+  return removed;
+}
 // Where the upstream clone sits while the afterApply hooks read it: our own
 // temp dir, or the clone a parent process handed down for the --dry-run
 // preview of a pending self-update (see UPDATER_UPSTREAM_DIR_ENV).
@@ -2372,6 +2408,16 @@ function printPreflight(pre: PreflightResult): void {
 // Guarded so tests can import COMPONENTS and the pure helpers above
 // (extractIndentedYamlBlock, insertBlockAtEndOfSection) without kicking off a sync.
 if (import.meta.main) {
+  sweepStaleCloneDirs();
+  // Every process.exit passes here (Ctrl-C at a prompt, UpdaterAbort, a throw,
+  // a terminal cancel, an empty selection), so none of them leaves the clone.
+  // rmSync is synchronous, which an exit listener requires. SIGINT / SIGTERM
+  // would kill the process without an exit event: turn them into one, with the
+  // shell's exit codes. A SIGKILL is the startup sweep's job.
+  process.on('exit', () => cleanupTempDir(TEMP_DIR));
+  for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]] as const) {
+    process.once(signal, () => process.exit(code));
+  }
   main().catch(async (err: unknown) => {
     if (err instanceof Error && err.name === 'ExitPromptError') {
       tui.cancel('Aborted by user.');
