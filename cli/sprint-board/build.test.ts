@@ -1,0 +1,52 @@
+/**
+ * The page bundle and its brand slot. `model.ts`, `merge.ts` and `app/` run in the browser, so they
+ * may import only pure modules: a `node:` import (from `hosts.ts`, `config.ts`, ...) breaks the page.
+ */
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, test } from 'bun:test';
+import { BRAND_SLOT, brandHtml, brandMarkup } from './brand.ts';
+import { buildApp } from './build.ts';
+
+describe('page bundle', () => {
+  test('builds for the browser with no node: import', async () => {
+    const { js, css } = await buildApp();
+    expect(js.length).toBeGreaterThan(1000);
+    expect(js).not.toMatch(/["']node:/);
+    expect(css).toContain('.brand-logo');
+  });
+});
+
+describe('brand slot', () => {
+  test('index.html carries the slot and the label placeholder', () => {
+    const html = readFileSync(join(import.meta.dir, 'app', 'index.html'), 'utf8');
+    expect(html).toContain(BRAND_SLOT);
+    expect(html).toContain('aria-label="__BRAND_NAME__"');
+  });
+
+  test('no logo: the name as text, the first letter for the rail, escaped', () => {
+    const out = brandHtml(`<span aria-label="__BRAND_NAME__">${BRAND_SLOT}</span>`, { name: 'Shop <b>', logo: null });
+    expect(out).toBe('<span aria-label="Shop &lt;b&gt;"><span class="logo-full logo-text">Shop &lt;b&gt;</span><span class="logo-mark logo-text">S</span></span>');
+  });
+
+  test('an SVG logo is inlined twice (full and mark) with scripts and handlers removed', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sprint-board-brand-'));
+    try {
+      writeFileSync(join(dir, 'logo.svg'), '<?xml version="1.0"?><!-- c --><svg viewBox="0 0 10 10" onload="x()"><script>alert(1)</script><path d="M0 0h10"/></svg>');
+      const out = brandMarkup({ name: 'Shop', logo: 'logo.svg' }, dir);
+      expect(out.match(/<svg /g)).toHaveLength(2);
+      expect(out).toContain('<svg class="logo-full" focusable="false" viewBox');
+      expect(out).toContain('<svg class="logo-mark" focusable="false" viewBox');
+      expect(out).not.toContain('script');
+      expect(out).not.toContain('onload');
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('a logo path that does not exist falls back to the text brand', () => {
+    expect(brandMarkup({ name: 'Shop', logo: 'missing/logo.svg' })).toContain('logo-text');
+  });
+});

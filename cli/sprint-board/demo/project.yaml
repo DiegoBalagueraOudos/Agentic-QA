@@ -1,0 +1,50 @@
+# Demo project for the Sprint Board: an invented shop on the `none` source, no tracker.
+# Read through SPRINT_BOARD_PROJECT_YAML (README "Try it with the demo sprint") instead of
+# .agents/project.yaml. Every name and key here is made up.
+project:
+  project_name: Demo Shop
+  project_key: DEMO
+
+testing:
+  default_env: staging
+  tms_cli: null
+
+git_strategy:
+  branches:
+    production: main
+  policy:
+    require_pr_reviews: 1
+
+board:
+  source: none
+  tickets_file: cli/sprint-board/demo/tickets.yaml
+  jql: null
+  ticket_key_pattern: null
+  timezone: UTC
+  statuses:
+    tickets:
+      not_ready: [To Do, In Progress]
+      in_test: [Ready for QA, In Test]
+      tested: [QA Approved, Released]
+      blocked: [Blocked]
+      dropped: [Cancelled]
+    bugs:
+      open: [Open, In Progress]
+      fixed: [Ready for Retest]
+      resolved: [Closed]
+      discarded: [Rejected, Duplicate]
+    tests:
+      PASSED: [PASSED]
+      FAILED: [FAILED]
+      NOT RUN: [NOT RUN]
+      BLOCKED: [BLOCKED]
+      DEFERRED: [DEFERRED]
+  people:
+    - { name: Rowan QA, role: qa, language: en }
+    - { name: Avery Dev, role: dev, language: en }
+    - { name: Morgan Owner, role: owner, language: es }
+  evidence:
+    allowed_hosts: [claude.ai]
+  brand:
+    name: null
+    logo: null
