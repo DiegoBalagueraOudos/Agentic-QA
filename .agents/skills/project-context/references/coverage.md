@@ -19,7 +19,7 @@ The behaviour -> test join is not deterministic (a map row and a Test share no k
 
 | Step | Who | Does | Writes |
 |---|---|---|---|
-| `bun run context:coverage collect` | script | reads the maps' sections and their `BR-NNN` / `FEAT-NNN` rows (the seed), the KATA manifest at the production branch, every TMS Test with its cascade coverables and regression membership, and the existing coverage Tech Stories | `collect.json` |
+| `bun run context:coverage collect` | script | reads the maps' sections and their `BR-NNN` / `FEAT-NNN` rows (the seed), the KATA manifest at the production branch, every TMS Test with its cascade coverables (direct link, ATS, and under jira-xray the Test Plans it belongs to) and regression membership, and the existing coverage Tech Stories. With no generated map it reads no TMS at all | `collect.json` |
 | judge | agent | decides which behaviours count, which test covers each one, whether its assertions exercise it, and its MTP risk | `judgments.json` |
 | `bun run context:coverage classify` | script | validates the judgments against `collect.json`, buckets, orders, flags stale judgments, diffs against the previous run | `gap-list.json`, `gap-list.md`, `runs/<run-id>.json` |
 
@@ -81,11 +81,17 @@ Assertions come from the existing readers, never a new one: the breakdown of `/t
 and expected results. The verdict is an agent judgment: `classify` marks every row `judged_by: agent`.
 
 **Risk.** `{ level, flow }`: the MTP's own level (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`) and the name of the
-MTP flow it was read from. `classify` drops a level whose flow the cache does not name to `unranked`.
-Risk orders; ROI still decides per Test later in `test-documentation` (doctrine §7).
+MTP flow it was read from, spelled as the MTP spells it. `classify` looks the flow up as a whole cell of a
+table row (and then uses that row's level when it disagrees with yours, with a warning) or inside a heading;
+a flow named only in prose is not ranked, so it drops to `unranked`. Risk orders; ROI still decides per Test
+later in `test-documentation` (doctrine §7).
 
-**Copy the fingerprints.** Set `seed_hash` from `seed[].hash` and each row's `test_fingerprint` from
-`tests[].fingerprint`; that is how the next run knows the judgment went stale.
+**Copy the fingerprints.** Set `seed_hash` from `seed[].hash` (for a free kebab local id, which has no seed
+row of its own, the hash of its section's row: its map text is the section's) and each row's
+`test_fingerprint` from `tests[].fingerprint`. That is how the next run knows the judgment went stale; a
+judgment without them gets a warning saying stale detection is off for it. An ATC's fingerprint is its file,
+line and method; a manual Test's is the TMS `updated` stamp, which also moves on a comment or a new link, so
+expect some stale noise there, never a wrong bucket.
 
 ```json
 { "schema_version": 1, "behaviours": [
@@ -104,20 +110,25 @@ Risk orders; ROI still decides per Test later in `test-documentation` (doctrine 
 | at least one `exercises` row on an ATC in the production manifest | `automated` |
 | at least one `exercises` row, all manual TMS Tests | `manual-only` |
 
-Fail-closed: a row with no evidence, or on a Test in the `deprecated` slug, does not count (it stays in the
-report with the reason). A key the inventory does not hold, a section the map does not have, a rule id the
-seed does not hold or a bad level fails `classify` with every error listed. `automated` means the ATC is in
+Fail-closed: a row does not count (it stays in the report with the reason) when it has no evidence, when its
+Test is `deprecated`, when its Test is still in design (the statuses the `create` and `start_design`
+transitions of `test_case` lead to in `.agents/jira-workflows.json`: not an approved Test yet), or when its key
+cannot be verified because the TMS was not read (`not verified: TMS not read`). When the TMS WAS read, a key
+the inventory does not hold is an error instead; so are a section the map does not have, a rule id the seed
+does not hold and a bad level: `classify` fails with every error listed. `automated` means the ATC is in
 `kata-manifest.json` on `git_strategy.branches.production` (doctrine §6); a TMS status `automated` with no
 such ATC is a warning and counts as manual. A manual Test outside the regression repository (not in an `RTP:`
 Test Plan under jira-xray, no `regression` / `regression-candidate` label) still counts and is flagged
-`outside_regression`. Without the TMS, rows on keys outside the manifest stay `verified: false`.
+`outside_regression`. Without the TMS only ATCs in the manifest can count, so the gap total is an upper bound
+(`denominators.gaps_upper_bound`), and `gap-list.md` and `propose` say so.
 
 Gaps are ordered: risk (CRITICAL first, `unranked` last), then `uncovered` before `weak`, then module, then id.
 
 ## Step 4: report and approval
 
 Show `gap-list.md` (sources, totals with their denominators, gaps by risk, stale judgments, the run-over-run
-diff, `## Discovery Gaps`). A bucket the run could not measure prints `unknown`, never 0.
+diff, `## Discovery Gaps`). A bucket the run could not measure prints `unknown`, never 0. While seed rows are
+not judged, the Gaps section opens with how many: an empty or partial judgment never reads as "no gaps".
 
 Creating Tech Stories is an outward write a person signs (`../../agentic-qa-core/references/decision-protocol.md`).
 The channel is picked by the weight of the decision, never by the count (`AGENTS.md` §2): a batch with real
@@ -131,7 +142,8 @@ yes/no on one proposal goes through the question tool.
    with its key. A null parent means `qa.qa_epics.test_repository_epic.key` is unset: resolve the QA Test
    Repository epic by name (find-or-create, asking first) before creating anything.
 2. Each proposal follows doctrine §3: work type `tech_story`, parent QA Test Repository, label
-   `coverage-gap`, title `Coverage: {module}: {gap}`, components = the module. Its description carries the
+   `coverage-gap`, title `Coverage: {module}: {gap}` (at grain `module` the `{gap}` part reads "behaviours
+   without regression coverage", and the description lists each gap), components = the module. Its description carries the
    gap ids (one `coverage-gap-id:` line each, the dedupe key), source, bucket, risk, the weak rows with
    their evidence, and the `oracle: observed` line (doctrine §4).
 3. On approval: load `/acli` before any `[ISSUE_TRACKER_TOOL]` call. Convert the description with
@@ -147,8 +159,10 @@ yes/no on one proposal goes through the question tool.
 |---|---|
 | every map a placeholder or missing | `collect` and `classify` exit 2 with the note naming `project-context e2e`; no gap list |
 | some maps missing | proceeds; each missing map is a Discovery Gap |
-| no TMS (`--tms none`, no project key, credentials, host, or an unreachable instance) | manifest only; `TMS not read: <reason>`; `manual-only` is `unknown`; Step 0.2 decides whether to go on |
-| Jira read, Xray not (jira-xray) | the inventory is kept; RTP membership is unknown, so no Test without a regression label is flagged `outside_regression`; warning names the Xray error |
+| no TMS (`--tms none`, no project key, credentials, host, or an unreachable instance) | manifest only; `TMS not read: <reason>`; `manual-only` is `unknown`; manual claims do not count, so gaps are an upper bound; Step 0.2 decides whether to go on |
+| Jira read, Xray not (jira-xray) | the inventory is kept; Test Plan membership is unknown, so no Test without a regression label is flagged `outside_regression`, and the Test Plan leg of the cascade is skipped; warning names the Xray error |
+| judgments empty or partial | the Gaps section opens with the number of behaviours not judged yet |
+| a judgment without `seed_hash` / `test_fingerprint` | warning: stale detection is off for it |
 | no manifest | `automated` is `unknown` |
 | no MTP cache | every gap `unranked`, stated |
 | manifest not on the production branch | read from the working tree, with a warning naming the branch |
@@ -158,12 +172,14 @@ yes/no on one proposal goes through the question tool.
 
 `schema_version`, `run_id`, `generated_at`, `sources` (each map's state, TMS modality + state + reason,
 manifest state + ref, MTP cache), `denominators` (behaviours, seed, unjudged, tests by kind, every bucket
-including zeros, gaps), `behaviours[]` sorted by id (`id`, `title`, `module`, `source`, `risk`, `bucket`,
+including zeros, gaps, `gaps_upper_bound`), `behaviours[]` sorted by id (`id`, `title`, `module`, `source`, `risk`, `bucket`,
 `covered_by[]` with `test`, `kind`, `verdict`, `evidence`, `judged_by`, `counted`, `reason`,
 `outside_regression`, `stale`, `verified`; `stale`, `tech_story`), `gaps` (ids in priority order), `tests[]`
-(`key`, `kind`, `covers`: the inverse view, counted rows only, for deduping new scenarios against existing
-tests), `unjudged_seed`, `warnings`, `diff` (`previous_run`, `closed`, `regressed`, `changed`, `added`,
-`removed`). The types are in `cli/lib/behaviour-coverage/types.ts`; renaming a key is a schema version bump.
+(`key`, `kind`, `covers[]` of `{ id, verdict }`: the inverse view, counted rows only, for deduping new
+scenarios against existing tests; a `weak` cover is NOT coverage and must never dedupe a scenario away),
+`unjudged_seed`, `warnings`, `diff` (`previous_run`, `closed`, `regressed`, `changed`, `added`,
+`removed`). Every list is sorted by UTF-16 code units, so it reads the same on every machine. The types are
+in `cli/lib/behaviour-coverage/types.ts`; renaming a key is a schema version bump.
 
 ## Report (chat)
 
