@@ -71,38 +71,38 @@ afterAll(() => {
 
 suite('sync through the none source (the demo tickets.yaml)', () => {
   test('--discover adds the QA owner\'s rows, stores buckets and lists untracked rows in test', async () => {
-    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-101', text: 'added' });
+    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-7101', text: 'added' });
     await quiet(async () => syncFromSource(slug, { discover: true, now: NOW }));
     const t = readTracker(slug)!;
     expect(t.source).toBe('none');
-    expect(Object.keys(t.tickets).sort()).toEqual(['DEMO-101', 'DEMO-102', 'DEMO-103', 'DEMO-104', 'DEMO-105', 'DEMO-106']);
-    expect(t.tickets['DEMO-101']).toMatchObject({ status: 'In Test', statusKey: 'In Test', bucket: 'in_test', dev: 'Avery Dev', qa: 'Rowan QA', module: 'Checkout', bugs: ['DEMO-201'] });
-    expect(t.tickets['DEMO-101'].tcs.map(x => `${x.id}:${x.status}`)).toEqual(['DEMO-101-T1:PASSED', 'DEMO-101-T2:FAILED', 'DEMO-101-T3:NOT RUN']);
-    expect(t.bugs['DEMO-201']).toMatchObject({ status: 'Open', bucket: 'open', createdAt: '2026-01-14T14:45:00Z' });
-    // DEMO-107 has no QA owner: it stays off the board and is listed as untracked in test.
-    expect(t.discover?.untracked).toEqual([{ id: 'DEMO-107', title: 'Saved addresses can be edited', status: 'Ready for QA', bucket: 'in_test', qa: undefined }]);
+    expect(Object.keys(t.tickets).sort()).toEqual(['DEMO-7101', 'DEMO-7102', 'DEMO-7103', 'DEMO-7104', 'DEMO-7105', 'DEMO-7106']);
+    expect(t.tickets['DEMO-7101']).toMatchObject({ status: 'In Test', statusKey: 'In Test', bucket: 'in_test', dev: 'Avery Dev', qa: 'Rowan QA', module: 'Checkout', bugs: ['DEMO-7201'] });
+    expect(t.tickets['DEMO-7101'].tcs.map(x => `${x.id}:${x.status}`)).toEqual(['DEMO-7101-T1:PASSED', 'DEMO-7101-T2:FAILED', 'DEMO-7101-T3:NOT RUN']);
+    expect(t.bugs['DEMO-7201']).toMatchObject({ status: 'Open', bucket: 'open', createdAt: '2026-01-14T14:45:00Z' });
+    // DEMO-7107 has no QA owner: it stays off the board and is listed as untracked in test.
+    expect(t.discover?.untracked).toEqual([{ id: 'DEMO-7107', title: 'Saved addresses can be edited', status: 'Ready for QA', bucket: 'in_test', qa: undefined }]);
     expect(t.discover?.sprintRows).toBe(7);
     expect(t.discover?.bugs).toBeUndefined();
     expect(t.searched).toEqual({ tickets: 6, tcs: 12, bugs: 1 });
-    expect(events().filter(e => e.kind === 'scope.add').map(e => e.ticket).sort()).toEqual(['DEMO-101', 'DEMO-102', 'DEMO-103', 'DEMO-104', 'DEMO-105', 'DEMO-106']);
+    expect(events().filter(e => e.kind === 'scope.add').map(e => e.ticket).sort()).toEqual(['DEMO-7101', 'DEMO-7102', 'DEMO-7103', 'DEMO-7104', 'DEMO-7105', 'DEMO-7106']);
   });
 
   test('a status that moved since the last sync is a tracker event carrying the bucket it moved into', async () => {
-    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-103', text: 'added' });
+    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-7103', text: 'added' });
     await quiet(async () => syncFromSource(slug, { now: NOW }));
     // Pretend the previous read saw it still in progress.
     const { writeTracker } = await import('./store.ts');
     const prev = readTracker(slug)!;
-    writeTracker(slug, { ...prev, tickets: { ...prev.tickets, 'DEMO-103': { ...prev.tickets['DEMO-103'], status: 'In Progress', bucket: 'not_ready' } } });
+    writeTracker(slug, { ...prev, tickets: { ...prev.tickets, 'DEMO-7103': { ...prev.tickets['DEMO-7103'], status: 'In Progress', bucket: 'not_ready' } } });
     await quiet(async () => syncFromSource(slug, { now: NOW }));
     const moved = events().filter(e => e.kind === 'tracker');
     expect(moved).toHaveLength(1);
-    expect(moved[0]).toMatchObject({ ticket: 'DEMO-103', text: 'tickets.yaml status In Progress -> Ready for QA', data: { from: 'In Progress', to: 'Ready for QA', fromBucket: 'not_ready', bucket: 'in_test' } });
+    expect(moved[0]).toMatchObject({ ticket: 'DEMO-7103', text: 'tickets.yaml status In Progress -> Ready for QA', data: { from: 'In Progress', to: 'Ready for QA', fromBucket: 'not_ready', bucket: 'in_test' } });
   });
 
   test('bugs linked on the board are read whatever the tracker links; one it cannot find is named and counted', async () => {
-    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-101', text: 'added' });
-    appendEvent(slug, { kind: 'bug.link', ticket: 'DEMO-101', text: 'linked', data: { bug: 'DEMO-777', title: 'Not in the file' } });
+    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-7101', text: 'added' });
+    appendEvent(slug, { kind: 'bug.link', ticket: 'DEMO-7101', text: 'linked', data: { bug: 'DEMO-7777', title: 'Not in the file' } });
     const warned: string[] = [];
     const warn = console.warn;
     const log = console.log;
@@ -111,13 +111,13 @@ suite('sync through the none source (the demo tickets.yaml)', () => {
     try { await syncFromSource(slug, { now: NOW }); }
     finally { console.warn = warn; console.log = log; }
     const t = readTracker(slug)!;
-    expect(t.missing).toEqual({ bugs: ['DEMO-777'] });
-    // DEMO-201 through DEMO-101's own link, plus the board's DEMO-777
+    expect(t.missing).toEqual({ bugs: ['DEMO-7777'] });
+    // DEMO-7201 through DEMO-7101's own link, plus the board's DEMO-7777
     expect(t.searched.bugs).toBe(2);
-    expect(warned).toContain('sync: 1 board-linked bug(s) not found in tickets.yaml: DEMO-777');
+    expect(warned).toContain('sync: 1 board-linked bug(s) not found in tickets.yaml: DEMO-7777');
     const state = fold({ sprint: readSprint(slug), events: events(), tracker: t, now: NOW.toISOString() });
-    expect(state.bugSearch?.missing).toEqual(['DEMO-777']);
-    expect(state.bugs?.find(b => b.id === 'DEMO-777')?.status).toBe('not found in tickets.yaml');
+    expect(state.bugSearch?.missing).toEqual(['DEMO-7777']);
+    expect(state.bugs?.find(b => b.id === 'DEMO-7777')?.status).toBe('not found in tickets.yaml');
   });
 
   test('the sprint keeps a copy of board.evidence.allowed_hosts for the pure fold', async () => {
@@ -131,10 +131,10 @@ suite('sync failures keep the last good source.json', () => {
   const failing = (err: Error): ((c: BoardConfig) => Source) => () => ({ kind: 'none', snapshot: async () => { throw err; } });
 
   test('an unknown status fails the read and writes nothing', async () => {
-    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-101', text: 'added' });
+    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-7101', text: 'added' });
     await quiet(async () => syncFromSource(slug, { now: NOW }));
     const before = JSON.stringify(readTracker(slug));
-    const err = new UnknownStatusError('tickets', 'DEMO-101', 'Wontfix', '.agents/project.yaml');
+    const err = new UnknownStatusError('tickets', 'DEMO-7101', 'Wontfix', '.agents/project.yaml');
     expect(await rejection(syncFromSource(slug, { now: NOW, createSource: failing(err) }))).toThrow(UnknownStatusError);
     expect(JSON.stringify(readTracker(slug))).toBe(before);
   });
@@ -145,8 +145,8 @@ suite('sync failures keep the last good source.json', () => {
   });
 
   test('a ticket the source does not return keeps its previous row and is counted missing', async () => {
-    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-101', text: 'added' });
-    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-999', text: 'added' });
+    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-7101', text: 'added' });
+    appendEvent(slug, { kind: 'scope.add', ticket: 'DEMO-7999', text: 'added' });
     const empty = (): Source => ({ kind: 'none', snapshot: async (): Promise<SourceSnapshot> => ({ source: 'none', syncedAt: NOW.toISOString(), searched: { tickets: 0, tests: 0, bugs: 0 }, tickets: {}, bugs: {} }) });
     const lines: string[] = [];
     const warn = console.warn;
@@ -155,7 +155,7 @@ suite('sync failures keep the last good source.json', () => {
     console.log = (m: string) => lines.push(m);
     try { await syncFromSource(slug, { now: NOW, createSource: empty }); }
     finally { console.warn = warn; console.log = log; }
-    expect(lines).toContain('sync: DEMO-999 not found in tickets.yaml');
+    expect(lines).toContain('sync: DEMO-7999 not found in tickets.yaml');
     expect(lines.at(-1)).toContain('(2 missing)');
     // the denominator counts the tickets searched, found or not
     expect(readTracker(slug)!.searched.tickets).toBe(2);
@@ -197,6 +197,9 @@ function jiraConfig(): BoardConfig {
 }
 
 /** The recorded Jira reads; any other request fails the test. */
+/** The recorded Test issues ACME-1 reaches (the adapter's own fixture, read rather than retyped). */
+const RECORDED_TESTS = recorded('jira-search-tests.json').issues.map(i => i.key).slice(0, 2);
+
 function replay(): Transport {
   const tickets = recorded('jira-search-tickets.json');
   const sprint = recorded('jira-search-sprint.json');
@@ -209,7 +212,7 @@ function replay(): Transport {
       if (jql.startsWith('key in (ACME-1, ACME-2, ACME-3)')) { return withAcme3 as T; }
       if (jql.startsWith('key in (ACME-1, ACME-2)')) { return tickets as T; }
       if (jql.startsWith('key in (ACME-31)')) { return recorded('jira-search-sets.json'); }
-      if (jql.startsWith('key in (ACME-11, ACME-12')) { return recorded('jira-search-tests.json'); }
+      if (jql.startsWith(`key in (${RECORDED_TESTS.join(', ')}`)) { return recorded('jira-search-tests.json'); }
       if (jql.startsWith('key in (ACME-41, ACME-42, ACME-43)')) { return recorded('jira-search-executions.json'); }
       if (jql.startsWith('key in (ACME-21)')) { return recorded('jira-search-bugs.json'); }
       throw new Error(`unexpected jql ${jql}`);
@@ -227,7 +230,7 @@ suite('sync through jira-native (recorded responses)', () => {
     const t = readTracker(slug)!;
     expect(t.source).toBe('jira-native');
     expect(t.tickets['ACME-1']).toMatchObject({ status: 'In Test', statusKey: 'in_test', bucket: 'in_test', priority: 'High', module: 'Search', dev: 'Avery Dev', qa: 'Rowan QA', link: 'https://company.atlassian.net/browse/ACME-1', bugs: ['ACME-21'] });
-    expect(t.tickets['ACME-1'].tcs.map(x => x.id)).toEqual(['ACME-11', 'ACME-12']);
+    expect(t.tickets['ACME-1'].tcs.map(x => x.id)).toEqual(RECORDED_TESTS);
     expect(t.tickets['ACME-2']).toMatchObject({ status: 'QA Approved', bucket: 'tested' });
     // ACME-3 sat untracked with QA owner Rowan QA, the board's QA: it joins the board.
     expect(t.tickets['ACME-3']).toMatchObject({ status: 'To Do', bucket: 'not_ready' });

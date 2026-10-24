@@ -103,7 +103,7 @@ function config(): BoardConfig | null {
 }
 /** `board.ticket_key_pattern` (derived `^<project_key>-\d+$`), case-insensitive like the client's TK check. */
 const TK = { test: (id: string): boolean => new RegExp((config()?.ticketKeyPattern ?? /^[A-Z][A-Z0-9]+-\d+$/).source, 'i').test(id) };
-const keyExample = () => `${config()?.projectKey ?? 'PROJ'}-123`;
+const keyExample = () => `${config()?.projectKey ?? 'PROJ'}-7123`;
 /** Where `--stp-url` may point: the tracker's host (`issue_tracker.atlassian_url`) or an evidence host (a published plan page). */
 function stpHosts(): string[] {
   const c = config();
@@ -112,7 +112,7 @@ function stpHosts(): string[] {
   catch { /* a malformed host is board:check's to report */ }
   return [...new Set([...jira, ...(c?.evidenceHosts ?? [])])];
 }
-/** A test case id: a tracker key (`PROJ-45`) or a file's own id (`DEMO-101-T1`, `TC-12`). */
+/** A test case id: a tracker key (`PROJ-7045`) or a file's own id (`DEMO-7101-T1`, `TC-7012`). */
 const TC_ID = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/i;
 const slugOf = (a: Args) => flag(a, 'sprint-slug') ?? currentSlug();
 const by = (a: Args) => flag(a, 'by');
@@ -264,7 +264,7 @@ const commands: Record<string, (a: Args) => void | Promise<void>> = {
     const slug = slugOf(a);
     const id = knownTicket(slug, a._[0]);
     const tc = need(a._[1], 'TC id').toUpperCase();
-    if (!TC_ID.test(tc)) { throw new Error(`"${a._[1]}" is not a TC id like ${keyExample()} or TC-12`); }
+    if (!TC_ID.test(tc)) { throw new Error(`"${a._[1]}" is not a TC id like ${keyExample()} or TC-7012`); }
     const status = oneOf(TC_STATUSES, need(rest(a, 2) || undefined, 'TC status'), 'TC status');
     const approval = flag(a, 'approval');
     const reason = flag(a, 'reason');
@@ -419,7 +419,7 @@ const commands: Record<string, (a: Args) => void | Promise<void>> = {
     const id = knownTicket(slug, a._[0]);
     const path = repoPath(need(a._[1], 'image path'));
     const tc = flag(a, 'tc')?.toUpperCase();
-    if (tc && !TC_ID.test(tc)) { throw new Error(`--tc "${flag(a, 'tc')}" is not a TC id like ${keyExample()} or TC-12`); }
+    if (tc && !TC_ID.test(tc)) { throw new Error(`--tc "${flag(a, 'tc')}" is not a TC id like ${keyExample()} or TC-7012`); }
     const outcome = flag(a, 'outcome') ? oneOf(EVIDENCE_OUTCOMES, flag(a, 'outcome')!, '--outcome') : undefined;
     appendEvent(slug, { kind: 'evidence', ticket: id, text: `Evidence on ${id}${tc ? ` ${tc}` : ''}: ${flag(a, 'caption') ?? path}`, by: by(a), at: flag(a, 'at'), data: { path, caption: flag(a, 'caption'), tc, outcome } });
     console.log(`${id} evidence ${path}${tc ? ` (${tc}${outcome ? `, ${outcome}` : ''})` : outcome ? ` (${outcome})` : ''}`);

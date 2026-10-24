@@ -217,26 +217,26 @@ describe('arrivals: sprint tickets in test off the board', () => {
 
   test('prints one UNTRACKED line per row with its QA, and the denominator searched', () => {
     trackerJson({ discover: { at: '2026-10-16T09:00:00Z', sprintRows: 41, untracked: [
-      { id: 'DEMO-360', status: 'Ready for QA', bucket: 'in_test', title: 'Blank QA ticket' },
-      { id: 'DEMO-440', status: 'Ready for QA', bucket: 'in_test', qa: 'Other QA', title: 'Someone else' },
+      { id: 'DEMO-7360', status: 'Ready for QA', bucket: 'in_test', title: 'Blank QA ticket' },
+      { id: 'DEMO-7440', status: 'Ready for QA', bucket: 'in_test', qa: 'Other QA', title: 'Someone else' },
     ] } });
     const out = ok('arrivals');
     expect(out).toContain('untracked: 2 of 41 sprint rows in staging but not on the board');
-    expect(out).toContain('UNTRACKED DEMO-360  Ready for QA  QA:blank  Blank QA ticket');
-    expect(out).toContain('UNTRACKED DEMO-440  Ready for QA  QA:Other QA  Someone else');
+    expect(out).toContain('UNTRACKED DEMO-7360  Ready for QA  QA:blank  Blank QA ticket');
+    expect(out).toContain('UNTRACKED DEMO-7440  Ready for QA  QA:Other QA  Someone else');
   });
 
   test('a ticket added since the discover is no longer listed, and the count says so', () => {
     trackerJson({ discover: { at: '2026-10-16T09:00:00Z', sprintRows: 41, untracked: [
-      { id: 'DEMO-360', status: 'Ready for QA', bucket: 'in_test', title: 'Blank QA ticket' },
-      { id: 'DEMO-440', status: 'Ready for QA', bucket: 'in_test', qa: 'Other QA', title: 'Someone else' },
+      { id: 'DEMO-7360', status: 'Ready for QA', bucket: 'in_test', title: 'Blank QA ticket' },
+      { id: 'DEMO-7440', status: 'Ready for QA', bucket: 'in_test', qa: 'Other QA', title: 'Someone else' },
     ] } });
-    ok('add', 'demo-360');
+    ok('add', 'demo-7360');
     const out = ok('arrivals');
     expect(out).toContain('untracked: 1 of 41 sprint rows in staging but not on the board');
     expect(out).toContain('1 more listed then are on the board now');
-    expect(out).not.toContain('UNTRACKED DEMO-360');
-    expect(out).toContain('UNTRACKED DEMO-440');
+    expect(out).not.toContain('UNTRACKED DEMO-7360');
+    expect(out).toContain('UNTRACKED DEMO-7440');
   });
 
   test('says it did not check when no discover ever ran', () => {

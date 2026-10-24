@@ -51,7 +51,7 @@ The page's Tour button runs a scripted demo sprint in the browser with no data a
 
 Shortcuts in `package.json`: `bun run board:up` (serve, open the browser, `sync --discover` every 10 min)
 and `bun run board <command>` for everything below. Ticket ids follow `board.ticket_key_pattern`
-(`PROJ-123` below).
+(`PROJ-7123` below).
 
 ```
 B() { bun cli/sprint-board/index.ts "$@"; }   # a function, not B="...": zsh does not word-split $B
@@ -80,31 +80,31 @@ $B add PROJ-1,PROJ-2 [--out-of-scope]       $B remove PROJ-1 <why>
 $B sprint --person "Dana Dev=Product,en,Dana;D. Dev"   name=role,lang,aliases
 
 # what a worker (or the conductor for it) reports
-$B start PROJ-340 [--worker w-340]        running; a second start after a verdict opens attempt n+1
-$B worker PROJ-340 --stage execute         plan | execute | report | close
-$B tc PROJ-340 PROJ-320 PASSED            DEFERRED needs --reason "QA decision <date>: <why>" (or --approval "<who>, <where>")
-$B bug PROJ-340 PROJ-410 --title "..." --severity Medium [--evidence-embedded]   reminds you to embed a screenshot
-$B evidence PROJ-340 <image> --caption "..." [--tc PROJ-320] [--outcome passed|failed|blocked]
-$B evidence-artifact PROJ-340 https://claude.ai/artifact/<id> --by worker|conductor|owner [--bug PROJ-410] [--title "..."]
+$B start PROJ-7340 [--worker w-340]        running; a second start after a verdict opens attempt n+1
+$B worker PROJ-7340 --stage execute         plan | execute | report | close
+$B tc PROJ-7340 PROJ-7320 PASSED            DEFERRED needs --reason "QA decision <date>: <why>" (or --approval "<who>, <where>")
+$B bug PROJ-7340 PROJ-7410 --title "..." --severity Medium [--evidence-embedded]   reminds you to embed a screenshot
+$B evidence PROJ-7340 <image> --caption "..." [--tc PROJ-7320] [--outcome passed|failed|blocked]
+$B evidence-artifact PROJ-7340 https://claude.ai/artifact/<id> --by worker|conductor|owner [--bug PROJ-7410] [--title "..."]
                                             the published evidence page of the ticket (a claude.ai artifact by
                                             default, `bun run evidence`), or with --bug of one bug; the newest per
                                             ticket or bug wins, history kept
-$B fixture PROJ-340 "store 42 has no orders in 7 days" [--module checkout]   reusable test data found
-$B verdict PROJ-340 FAILED --note "5/7, bug PROJ-410"
-$B hold PROJ-330 --reason deploy "sync worker not on staging" [--on Tom]   / unhold
-$B needs-you PROJ-340 "Defer case b or fix AC5?" --option "a: ..." --option "b: ..."
-$B needs-you PROJ-340 "Defer TC-3?" --blocked "TC-3 cannot run" --why "the worker is not on staging"
+$B fixture PROJ-7340 "store 42 has no orders in 7 days" [--module checkout]   reusable test data found
+$B verdict PROJ-7340 FAILED --note "5/7, bug PROJ-7410"
+$B hold PROJ-7330 --reason deploy "sync worker not on staging" [--on Tom]   / unhold
+$B needs-you PROJ-7340 "Defer case b or fix AC5?" --option "a: ..." --option "b: ..."
+$B needs-you PROJ-7340 "Defer TC-3?" --blocked "TC-3 cannot run" --why "the worker is not on staging"
     --option "a: wait for the deploy | cost: 1 day, Tom redeploys" --option "b: recreate on staging | cost: 20 min, one DB write restored after"
     --recommend a --decider Dana            the structured decision card (every new flag optional)
 
 # owner side
-$B answer PROJ-340 "b, Dana approved" [--id need-x]   owner, or the conductor for them (or from the page);
+$B answer PROJ-7340 "b, Dana approved" [--id need-x]   owner, or the conductor for them (or from the page);
                                             --id must be an unanswered question on that ticket
-$B resolve PROJ-340 [--id need-x]          close a question; --id is required when the ticket has more than one
-$B wait PROJ-390 --on Lee --what "..."     / unwait
-$B ask --to Dana --ticket PROJ-340 --kind decision --file draft.txt [--attach img]   a Slack draft for you to send
+$B resolve PROJ-7340 [--id need-x]          close a question; --id is required when the ticket has more than one
+$B wait PROJ-7390 --on Lee --what "..."     / unwait
+$B ask --to Dana --ticket PROJ-7340 --kind decision --file draft.txt [--attach img]   a Slack draft for you to send
 $B ask-state <ask-id> sent|answered|dropped (or from the page; dropped = no longer needed, kept on record)
-$B accept-risk PROJ-390 --by "Dana, Slack 10-08"   clears "shipped at risk"
+$B accept-risk PROJ-7390 --by "Dana, Slack 10-08"   clears "shipped at risk"
 $B log [PROJ-1] "text" | release "label" --at <iso> --ref <sha>
 $B fixtures [--module checkout] [--json]    recorded test data, newest first, for the next seeds
 
@@ -134,7 +134,7 @@ ticket must already be on the board, and a person (`--to`, `--on`, `--decider`)
 must resolve to exactly one name, or the command stops and says why. A time (`--at`, `--started`,
 `--closed`) is stored as ISO and an unparseable one is refused. Boolean flags (`--ask`, `--all`,
 `--json`, `--sync`, `--reuse`, ...) never take the next word, so `say --ask "text"` keeps its text.
-A test case id is a tracker key (`PROJ-320`) or a file's own id (`DEMO-101-T1`, `TC-12`).
+A test case id is a tracker key (`PROJ-7320`) or a file's own id (`DEMO-7101-T1`, `TC-7012`).
 
 ## Worker protocol
 

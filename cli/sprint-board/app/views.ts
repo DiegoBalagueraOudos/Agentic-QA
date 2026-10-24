@@ -225,7 +225,7 @@ export function inboxPanel(c: Ctx): string {
     ${c.canWrite
       ? `<div class="compose">
       ${target ? `<div class="replying">${tr('Replying to', 'Respondiendo a')}: <i>${esc((target.replies.at(-1) ?? target).text.slice(0, 70))}</i> <button class="btn ghost" type="button" data-reply-cancel>✕</button></div>` : ''}
-      <textarea id="inbox-text" data-keep placeholder="${esc(tr('Write to Claude: "check PROJ-24", "I already wrote to Dana"...', 'Escríbele a Claude: "revisa PROJ-24", "ya le escribí a Dana"...'))}"></textarea>
+      <textarea id="inbox-text" data-keep placeholder="${esc(tr('Write to Claude: "check PROJ-7024", "I already wrote to Dana"...', 'Escríbele a Claude: "revisa PROJ-7024", "ya le escribí a Dana"...'))}"></textarea>
       <div class="compose-foot"><span class="hint">${tr('Cmd+Enter sends', 'Cmd+Enter envía')}</span><button class="btn primary" type="button" data-msg-send>${tr('Send to Claude', 'Enviar a Claude')}</button></div>
     </div>`
       : ''}

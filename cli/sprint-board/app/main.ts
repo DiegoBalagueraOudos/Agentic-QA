@@ -363,7 +363,7 @@ const tourHost = {
     demo.moves[name]();
     demoState = demo.state();
     render();
-    const t = { fail: 'DEMO-9103 → Failed', answer: 'DEMO-9104 → Passed', start: 'DEMO-9107 → Running' }[name];
+    const t = { fail: 'DEMO-7903 → Failed', answer: 'DEMO-7904 → Passed', start: 'DEMO-7907 → Running' }[name];
     toast(`${tr('Live update', 'Actualización en vivo')}: ${t}`);
   },
   openTicket,

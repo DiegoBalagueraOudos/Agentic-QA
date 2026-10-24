@@ -26,7 +26,7 @@
       "base": "main",
       "headSha": "0909",
       "tickets": [
-        { "tk": "DEMO-100", "status": "In Test", "expected": "in review or in test", "ok": true }
+        { "tk": "DEMO-7100", "status": "In Test", "expected": "in review or in test", "ok": true }
       ],
       "owner": {
         "basis": "none",
@@ -44,7 +44,7 @@
         "review": { "code": "open", "open": 1 },
         "approval": { "code": "requested", "requested": [{ "login": "rowan-qa" }] }
       },
-      "tickets": [{ "tk": "DEMO-102", "status": "In Test" }],
+      "tickets": [{ "tk": "DEMO-7102", "status": "In Test" }],
       "owner": {
         "basis": "title",
         "worktree": { "path": "/work/shop", "name": "shop" },

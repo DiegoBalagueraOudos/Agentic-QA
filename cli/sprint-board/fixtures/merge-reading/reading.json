@@ -1,17 +1,17 @@
 {
   "pulls": [
-    { "number": 11, "head": { "ref": "feat/DEMO-101-discount-code" }, "base": { "ref": "main" } },
-    { "number": 12, "head": { "ref": "fix/DEMO-102-cart-merge" }, "base": { "ref": "main" } },
+    { "number": 11, "head": { "ref": "feat/DEMO-7101-discount-code" }, "base": { "ref": "main" } },
+    { "number": 12, "head": { "ref": "fix/DEMO-7102-cart-merge" }, "base": { "ref": "main" } },
     {
       "number": 13,
-      "head": { "ref": "feat/DEMO-104-price-filter" },
+      "head": { "ref": "feat/DEMO-7104-price-filter" },
       "base": { "ref": "integration/catalog" }
     }
   ],
   "closed": [
     {
       "number": 9,
-      "title": "DEMO-100 Checkout shows tax",
+      "title": "DEMO-7100 Checkout shows tax",
       "base": { "ref": "main" },
       "merged_at": "2026-01-14T10:00:00Z",
       "closed_at": "2026-01-14T10:00:00Z",
@@ -38,11 +38,11 @@
     "11": {
       "pr": {
         "number": 11,
-        "title": "DEMO-101 Checkout applies a discount code",
+        "title": "DEMO-7101 Checkout applies a discount code",
         "html_url": "https://github.com/acme/shop/pull/11",
         "user": { "login": "avery-dev" },
         "base": { "ref": "main" },
-        "head": { "ref": "feat/DEMO-101-discount-code", "sha": "1010101010" },
+        "head": { "ref": "feat/DEMO-7101-discount-code", "sha": "1010101010" },
         "draft": false,
         "created_at": "2026-01-12T09:00:00Z",
         "updated_at": "2026-01-14T12:00:00Z",
@@ -52,7 +52,7 @@
         "labels": [{ "name": "checkout" }],
         "assignees": [{ "login": "avery-dev" }],
         "requested_reviewers": [],
-        "body": "Also touches DEMO-105."
+        "body": "Also touches DEMO-7105."
       },
       "reviews": [
         {
@@ -105,7 +105,7 @@
         "html_url": "https://github.com/acme/shop/pull/12",
         "user": { "login": "lee-dev" },
         "base": { "ref": "main" },
-        "head": { "ref": "fix/DEMO-102-cart-merge", "sha": "1212121212" },
+        "head": { "ref": "fix/DEMO-7102-cart-merge", "sha": "1212121212" },
         "draft": false,
         "created_at": "2026-01-08T09:00:00Z",
         "updated_at": "2026-01-14T08:00:00Z",
@@ -168,7 +168,7 @@
         "html_url": "https://github.com/acme/shop/pull/13",
         "user": { "login": "avery-dev" },
         "base": { "ref": "integration/catalog" },
-        "head": { "ref": "feat/DEMO-104-price-filter", "sha": "1313131313" },
+        "head": { "ref": "feat/DEMO-7104-price-filter", "sha": "1313131313" },
         "draft": true,
         "created_at": "2026-01-14T07:00:00Z",
         "updated_at": "2026-01-14T07:30:00Z",
@@ -205,8 +205,8 @@
   "refs": [
     ["main", "origin/main", "", "2026-01-14T10:00:00+00:00"],
     [
-      "feat/DEMO-101-discount-code",
-      "origin/feat/DEMO-101-discount-code",
+      "feat/DEMO-7101-discount-code",
+      "origin/feat/DEMO-7101-discount-code",
       "",
       "2026-01-14T11:00:00+00:00"
     ],
@@ -215,13 +215,13 @@
   ],
   "refCounts": [
     ["main", "0", "0"],
-    ["feat/DEMO-101-discount-code", "0", "3"],
+    ["feat/DEMO-7101-discount-code", "0", "3"],
     ["old/spike", "12", "0"],
     ["chore/stale", "5", "0"]
   ],
   "worktrees": [
     ["/work/shop", "main"],
-    ["/work/shop-discount", "feat/DEMO-101-discount-code"],
+    ["/work/shop-discount", "feat/DEMO-7101-discount-code"],
     ["/work/shop-stale", "chore/stale"]
   ],
   "orcaWorktrees": {
@@ -241,15 +241,15 @@
   },
   "lsRemote": [
     ["aaa", "refs/heads/main"],
-    ["bbb", "refs/heads/feat/DEMO-101-discount-code"],
-    ["ccc", "refs/heads/fix/DEMO-102-cart-merge"],
-    ["ddd", "refs/heads/feat/DEMO-104-price-filter"],
+    ["bbb", "refs/heads/feat/DEMO-7101-discount-code"],
+    ["ccc", "refs/heads/fix/DEMO-7102-cart-merge"],
+    ["ddd", "refs/heads/feat/DEMO-7104-price-filter"],
     ["eee", "refs/heads/release/old"]
   ],
   "viewer": "rowan-qa",
   "tracker": {
-    "DEMO-101": { "status": "In Test", "bucket": "in_test" },
-    "DEMO-102": { "status": "QA Approved", "bucket": "tested" },
-    "DEMO-105": { "status": "QA Approved", "bucket": "tested" }
+    "DEMO-7101": { "status": "In Test", "bucket": "in_test" },
+    "DEMO-7102": { "status": "QA Approved", "bucket": "tested" },
+    "DEMO-7105": { "status": "QA Approved", "bucket": "tested" }
   }
 }

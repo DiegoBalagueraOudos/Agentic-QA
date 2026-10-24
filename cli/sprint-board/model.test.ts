@@ -50,7 +50,7 @@ const one = (events: BoardEvent[], c?: TrackerSnapshot) => fold({ sprint, events
 
 describe('laneOf through fold', () => {
   test('tracker past the gate with FAILED cases is Failed and shipped at risk', () => {
-    const t = one([], tracker({ 'DEMO-390': { status: 'QA Approved', tcs: [
+    const t = one([], tracker({ 'DEMO-7390': { status: 'QA Approved', tcs: [
       { id: 'TC-1', status: 'PASSED' },
       { id: 'TC-2', status: 'FAILED' },
       { id: 'TC-3', status: 'FAILED' },
@@ -62,7 +62,7 @@ describe('laneOf through fold', () => {
   });
 
   test('a PASSED verdict with a case still NOT RUN or BLOCKED is Held, not Passed', () => {
-    const t = one([ev('2026-10-05T10:00:00Z', 'verdict', 'DEMO-310', { verdict: 'PASSED' })], tracker({ 'DEMO-310': { status: 'Ready for QA', tcs: [
+    const t = one([ev('2026-10-05T10:00:00Z', 'verdict', 'DEMO-7310', { verdict: 'PASSED' })], tracker({ 'DEMO-7310': { status: 'Ready for QA', tcs: [
       { id: 'TC-1', status: 'PASSED' },
       { id: 'TC-2', status: 'BLOCKED' },
     ] } }));
@@ -78,7 +78,7 @@ describe('laneOf through fold', () => {
   });
 
   test('accept-risk clears the at-risk flag but not the lane', () => {
-    const t = one([ev('2026-10-05T10:00:00Z', 'accept-risk', 'DEMO-390', { by: 'Kim, Slack' })], tracker({ 'DEMO-390': { status: 'Done', tcs: [{ id: 'TC-2', status: 'FAILED' }] } }));
+    const t = one([ev('2026-10-05T10:00:00Z', 'accept-risk', 'DEMO-7390', { by: 'Kim, Slack' })], tracker({ 'DEMO-7390': { status: 'Done', tcs: [{ id: 'TC-2', status: 'FAILED' }] } }));
     expect(t.atRisk).toBe(false);
     expect(t.lane).toBe('Failed');
   });
@@ -126,19 +126,19 @@ describe('laneOf through fold', () => {
 
   test('an answered question releases Needs you', () => {
     const t = one([
-      ev('2026-10-02T00:00:00Z', 'need.open', 'DEMO-10', { id: 'q1', question: 'a or b?' }),
-      ev('2026-10-02T02:00:00Z', 'need.answer', 'DEMO-10', { id: 'q1', text: 'a' }),
+      ev('2026-10-02T00:00:00Z', 'need.open', 'DEMO-7010', { id: 'q1', question: 'a or b?' }),
+      ev('2026-10-02T02:00:00Z', 'need.answer', 'DEMO-7010', { id: 'q1', text: 'a' }),
     ]);
     expect(t.lane).not.toBe('Needs you');
   });
 
   test('newest wins: a board FAILED is not overwritten by an older tracker NOT RUN', () => {
-    const t = one([ev('2026-10-04T00:00:00Z', 'tc', 'DEMO-11', { tc: 'TC-1', status: 'FAILED' })], tracker({ 'DEMO-11': { status: 'Ready for QA', tcs: [{ id: 'TC-1', status: 'NOT RUN', updatedAt: '2026-10-03T00:00:00Z' }] } }));
+    const t = one([ev('2026-10-04T00:00:00Z', 'tc', 'DEMO-7011', { tc: 'TC-1', status: 'FAILED' })], tracker({ 'DEMO-7011': { status: 'Ready for QA', tcs: [{ id: 'TC-1', status: 'NOT RUN', updatedAt: '2026-10-03T00:00:00Z' }] } }));
     expect(t.tcs[0].status).toBe('FAILED');
   });
 
   test('closed sprint imported from tracker only: all PASSED/DEFERRED at QA Approved is Passed', () => {
-    const t = one([], tracker({ 'DEMO-12': { status: 'Done', tcs: [{ id: 'TC-1', status: 'PASSED' }, { id: 'TC-2', status: 'DEFERRED' }] } }));
+    const t = one([], tracker({ 'DEMO-7012': { status: 'Done', tcs: [{ id: 'TC-1', status: 'PASSED' }, { id: 'TC-2', status: 'DEFERRED' }] } }));
     expect(t.lane).toBe('Passed');
   });
 });
@@ -146,8 +146,8 @@ describe('laneOf through fold', () => {
 describe('metrics', () => {
   test('pass rate uses executed cases and keeps NOT RUN visible; a shared bug counts once', () => {
     const s = fold({ sprint, now: NOW, events: [
-      ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-99', severity: 'High' }),
-      ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-2', { bug: 'DEMO-99', severity: 'High' }),
+      ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-7099', severity: 'High' }),
+      ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-2', { bug: 'DEMO-7099', severity: 'High' }),
     ], tracker: tracker({
       'DEMO-1': { status: 'Ready for QA', tcs: [{ id: 'TC-1', status: 'PASSED' }, { id: 'TC-2', status: 'FAILED' }] },
       'DEMO-2': { status: 'Ready for QA', tcs: [{ id: 'TC-3', status: 'NOT RUN' }, { id: 'TC-4', status: 'PASSED' }] },
@@ -205,12 +205,12 @@ describe('inbox', () => {
 
   test('an owner note waits on Claude; a plain Claude reply closes it; a reply to a reply stays in the thread', () => {
     const s = fold({ sprint, now: NOW, events: [
-      msg('2026-10-05T09:00:00Z', 'o1', 'owner', 'check DEMO-430'),
+      msg('2026-10-05T09:00:00Z', 'o1', 'owner', 'check DEMO-7430'),
       msg('2026-10-05T09:10:00Z', 'c1', 'claude', 'Done, it is on staging', { replyTo: 'o1' }),
     ] });
     expect(s.inbox[0].state).toBe('done');
     const s2 = fold({ sprint, now: NOW, events: [
-      msg('2026-10-05T09:00:00Z', 'o1', 'owner', 'check DEMO-430'),
+      msg('2026-10-05T09:00:00Z', 'o1', 'owner', 'check DEMO-7430'),
       msg('2026-10-05T09:10:00Z', 'c1', 'claude', 'Assign it to you?', { replyTo: 'o1', ask: true }),
       msg('2026-10-05T09:20:00Z', 'o2', 'owner', 'yes', { replyTo: 'c1' }),
     ] });
@@ -227,19 +227,19 @@ describe('inbox', () => {
 
 describe('untrackedInTest (sprint rows off the board)', () => {
   test('matches the board case-insensitively', () => {
-    const onBoard = boardTicketIds([ev('2026-10-16T09:00:00Z', 'scope.add', 'demo-360')], null, ['demo-440']);
-    const rows = [{ id: 'DEMO-360', status: 'Ready for QA' }, { id: 'DEMO-440', status: 'Ready for QA' }, { id: 'DEMO-460', status: 'Ready for QA' }];
-    expect(untrackedInTest(rows, onBoard).map(r => r.id)).toEqual(['DEMO-460']);
+    const onBoard = boardTicketIds([ev('2026-10-16T09:00:00Z', 'scope.add', 'demo-7360')], null, ['demo-7440']);
+    const rows = [{ id: 'DEMO-7360', status: 'Ready for QA' }, { id: 'DEMO-7440', status: 'Ready for QA' }, { id: 'DEMO-7460', status: 'Ready for QA' }];
+    expect(untrackedInTest(rows, onBoard).map(r => r.id)).toEqual(['DEMO-7460']);
   });
 
   test('keeps only Ready for QA rows not on the board, in ticket order', () => {
     const rows = [
-      { id: 'DEMO-440', status: 'Ready for QA', title: 'c' },
-      { id: 'DEMO-360', status: 'Ready for QA', qa: 'Someone Else', title: 'a' },
-      { id: 'DEMO-370', status: 'In Progress' },
-      { id: 'DEMO-400', status: 'Ready for QA' },
+      { id: 'DEMO-7440', status: 'Ready for QA', title: 'c' },
+      { id: 'DEMO-7360', status: 'Ready for QA', qa: 'Someone Else', title: 'a' },
+      { id: 'DEMO-7370', status: 'In Progress' },
+      { id: 'DEMO-7400', status: 'Ready for QA' },
     ];
-    expect(untrackedInTest(rows, new Set(['DEMO-400'])).map(r => `${r.id}:${r.qa ?? 'blank'}`)).toEqual(['DEMO-360:Someone Else', 'DEMO-440:blank']);
+    expect(untrackedInTest(rows, new Set(['DEMO-7400'])).map(r => `${r.id}:${r.qa ?? 'blank'}`)).toEqual(['DEMO-7360:Someone Else', 'DEMO-7440:blank']);
   });
 });
 
@@ -342,11 +342,11 @@ describe('watch liveness', () => {
 });
 
 describe('listen --since', () => {
-  const owner = (at: string, kind: BoardEvent['kind'], data?: Record<string, unknown>) => ({ ...ev(at, kind, 'DEMO-420', data), by: 'owner' });
+  const owner = (at: string, kind: BoardEvent['kind'], data?: Record<string, unknown>) => ({ ...ev(at, kind, 'DEMO-7420', data), by: 'owner' });
   const board: BoardEvent[] = [
     { ...ev('2026-10-13T19:00:00Z', 'msg', undefined, { id: 'msg-ask1', from: 'claude' }), by: 'claude' },
     owner('2026-10-13T19:10:00Z', 'need.answer', { text: 'option a' }),
-    { ...ev('2026-10-13T19:12:00Z', 'tc', 'DEMO-420', { tc: 'TC-1', status: 'PASSED' }), by: 'w-420' },
+    { ...ev('2026-10-13T19:12:00Z', 'tc', 'DEMO-7420', { tc: 'TC-1', status: 'PASSED' }), by: 'w-420' },
     owner('2026-10-13T19:15:00Z', 'msg', { id: 'msg-o2', from: 'owner', replyTo: 'msg-ask1' }),
   ];
 
@@ -368,17 +368,17 @@ describe('listen --since', () => {
   });
 
   test('the replay prints the same line shape as the live stream', () => {
-    expect(listenLine('sprint-23', board[3])).toBe('[sprint-23] msg msg-o2 DEMO-420 reply-to msg-ask1: msg');
+    expect(listenLine('sprint-23', board[3])).toBe('[sprint-23] msg msg-o2 DEMO-7420 reply-to msg-ask1: msg');
   });
 });
 
 describe('bug evidence reminder', () => {
-  const base = { ticket: 'DEMO-350', bug: 'DEMO-450' };
+  const base = { ticket: 'DEMO-7350', bug: 'DEMO-7450' };
 
   test('images on disk and no hint of an embed: one line citing the bug report template', () => {
     const r = bugEvidenceReminder({ ...base, images: ['a.png', 'b.png'], embedded: false });
     expect(r).toContain('2 evidence image(s)');
-    expect(r).toContain('DEMO-450\'s Description');
+    expect(r).toContain('DEMO-7450\'s Description');
     expect(r).toContain('reporting-templates.md');
     expect(r).not.toContain('\n');
   });
@@ -533,8 +533,8 @@ describe('needTarget (answer / resolve --id)', () => {
 
   test('fold: an answer with an unknown id answers nothing', () => {
     const t = one([
-      ev('2026-10-02T00:00:00Z', 'need.open', 'DEMO-20', { id: 'q1', question: 'a or b?' }),
-      ev('2026-10-02T02:00:00Z', 'need.answer', 'DEMO-20', { id: 'q-typo', text: 'a' }),
+      ev('2026-10-02T00:00:00Z', 'need.open', 'DEMO-7020', { id: 'q1', question: 'a or b?' }),
+      ev('2026-10-02T02:00:00Z', 'need.answer', 'DEMO-7020', { id: 'q-typo', text: 'a' }),
     ]);
     expect(t.needs.find(n => n.id === 'q1')?.answer).toBeUndefined();
     expect(t.lane).toBe('Needs you');
@@ -563,10 +563,10 @@ describe('evidence artifacts (evidence-artifact DEMO-n <url> [--bug DEMO-m])', (
 
   test('the newest page per ticket and per bug wins; older ones stay in history; old evidence.page events still count; a bad URL in the log is ignored', () => {
     const s = fold({ sprint, now: NOW, events: [
-      ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-90', severity: 'High' }),
+      ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-7090', severity: 'High' }),
       ev('2026-10-03T00:00:00Z', 'evidence.page', 'DEMO-1', { url: 'https://claude.ai/artifact/first' }),
       ev('2026-10-04T00:00:00Z', 'evidence.artifact', 'DEMO-1', { url: 'https://claude.ai/artifact/second', title: 'DEMO-1 evidence v2' }),
-      ev('2026-10-04T01:00:00Z', 'evidence.page', 'DEMO-1', { url: 'https://claude.ai/artifact/bugpage', bug: 'DEMO-90' }),
+      ev('2026-10-04T01:00:00Z', 'evidence.page', 'DEMO-1', { url: 'https://claude.ai/artifact/bugpage', bug: 'DEMO-7090' }),
       ev('2026-10-04T02:00:00Z', 'evidence.page', 'DEMO-1', { url: 'https://example.com/x' }),
     ] });
     const t = s.tickets[0];
@@ -574,7 +574,7 @@ describe('evidence artifacts (evidence-artifact DEMO-n <url> [--bug DEMO-m])', (
     expect(t.evidenceArtifact?.title).toBe('DEMO-1 evidence v2');
     expect(t.evidenceArtifact?.history.map(h => h.url)).toEqual(['https://claude.ai/artifact/first']);
     expect(t.bugs[0].page?.url).toBe('https://claude.ai/artifact/bugpage');
-    expect(s.bugs?.find(b => b.id === 'DEMO-90')?.page?.url).toBe('https://claude.ai/artifact/bugpage');
+    expect(s.bugs?.find(b => b.id === 'DEMO-7090')?.page?.url).toBe('https://claude.ai/artifact/bugpage');
   });
 
   test('a page does not move the ticket\'s lane clock and never reaches the share copy', () => {
@@ -607,69 +607,69 @@ describe('sprint bugs (the Bugs view rule)', () => {
       'DEMO-2': { title: 'Feature two', status: 'QA Approved', module: 'returns', tcs: [{ id: 'TC-2', status: 'PASSED' }] },
     },
     bugs: {
-      'DEMO-90': { title: '[Bug] Open and blocking', status: 'Prioritized', priority: 'High', dev: 'Dana Dev', module: 'files', createdAt: '2026-10-02T00:00:00Z', link: 'https://example.atlassian.net/browse/DEMO-90' },
-      'DEMO-91': { title: 'Linked to a passed ticket', status: 'Backlog', priority: 'Low', dev: 'Tom Ops', createdAt: '2026-10-03T00:00:00Z' },
-      'DEMO-92': { title: 'Fixed and verified', status: 'QA Approved', priority: 'Medium', createdAt: '2026-10-02T00:00:00Z', updatedAt: '2026-10-04T00:00:00Z' },
+      'DEMO-7090': { title: '[Bug] Open and blocking', status: 'Prioritized', priority: 'High', dev: 'Dana Dev', module: 'files', createdAt: '2026-10-02T00:00:00Z', link: 'https://example.atlassian.net/browse/DEMO-7090' },
+      'DEMO-7091': { title: 'Linked to a passed ticket', status: 'Backlog', priority: 'Low', dev: 'Tom Ops', createdAt: '2026-10-03T00:00:00Z' },
+      'DEMO-7092': { title: 'Fixed and verified', status: 'QA Approved', priority: 'Medium', createdAt: '2026-10-02T00:00:00Z', updatedAt: '2026-10-04T00:00:00Z' },
     },
     discover: {
       at: '2026-10-05T00:00:00Z',
       sprintRows: 40,
       untracked: [],
       bugs: [
-        { id: 'DEMO-92', title: 'Fixed and verified', status: 'QA Approved', createdAt: '2026-10-02T00:00:00Z' },
-        { id: 'DEMO-93', title: 'Filed in the sprint, never linked', status: 'In Progress', priority: 'Critical', dev: 'Lee Dev', module: 'billing', platform: 'web', createdAt: '2026-10-03T12:00:00Z' },
-        { id: 'DEMO-94', title: 'Older bug carried into the sprint', status: 'Ready for QA', createdAt: '2026-09-20T00:00:00Z' },
-        { id: 'DEMO-95', title: 'Closed this sprint', status: 'Cancelled', createdAt: '2026-10-02T00:00:00Z', updatedAt: '2026-10-04T00:00:00Z' },
+        { id: 'DEMO-7092', title: 'Fixed and verified', status: 'QA Approved', createdAt: '2026-10-02T00:00:00Z' },
+        { id: 'DEMO-7093', title: 'Filed in the sprint, never linked', status: 'In Progress', priority: 'Critical', dev: 'Lee Dev', module: 'billing', platform: 'web', createdAt: '2026-10-03T12:00:00Z' },
+        { id: 'DEMO-7094', title: 'Older bug carried into the sprint', status: 'Ready for QA', createdAt: '2026-09-20T00:00:00Z' },
+        { id: 'DEMO-7095', title: 'Closed this sprint', status: 'Cancelled', createdAt: '2026-10-02T00:00:00Z', updatedAt: '2026-10-04T00:00:00Z' },
       ],
     },
   });
   const events = () => [
-    ev('2026-10-02T01:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-90', severity: 'Critical' }),
-    ev('2026-10-03T01:00:00Z', 'bug.link', 'DEMO-2', { bug: 'DEMO-91' }),
-    ev('2026-10-03T02:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-92' }),
+    ev('2026-10-02T01:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-7090', severity: 'Critical' }),
+    ev('2026-10-03T01:00:00Z', 'bug.link', 'DEMO-2', { bug: 'DEMO-7091' }),
+    ev('2026-10-03T02:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-7092' }),
     ev('2026-10-03T03:00:00Z', 'verdict', 'DEMO-2', { verdict: 'PASSED' }),
   ];
   const state = () => fold({ sprint: { ...sprint, startedAt: start }, events: events(), tracker: bugTracker(), now: NOW });
 
   test('linked bugs plus Bug rows created inside the sprint; an older unlinked row stays out', () => {
     const s = state();
-    expect(s.bugs?.map(b => b.id).sort()).toEqual(['DEMO-90', 'DEMO-91', 'DEMO-92', 'DEMO-93', 'DEMO-95']);
+    expect(s.bugs?.map(b => b.id).sort()).toEqual(['DEMO-7090', 'DEMO-7091', 'DEMO-7092', 'DEMO-7093', 'DEMO-7095']);
     expect(s.bugSearch).toEqual({ linked: 3, sprintRows: 40, bugRows: 4, createdInSprint: 3, discoveredAt: '2026-10-05T00:00:00Z' });
-    expect(s.bugs?.find(b => b.id === 'DEMO-92')?.sources).toEqual(['linked', 'sprint']);
-    expect(s.bugs?.find(b => b.id === 'DEMO-93')?.sources).toEqual(['sprint']);
+    expect(s.bugs?.find(b => b.id === 'DEMO-7092')?.sources).toEqual(['linked', 'sprint']);
+    expect(s.bugs?.find(b => b.id === 'DEMO-7093')?.sources).toEqual(['sprint']);
   });
 
   test('blocking = open and filed against a ticket still not Passed; resolved and closed group together', () => {
     const by = Object.fromEntries((state().bugs ?? []).map(b => [b.id, b]));
-    expect(by['DEMO-90'].group).toBe('blocking');
-    expect(by['DEMO-90'].blocks).toEqual([{ id: 'DEMO-1', title: 'Feature one', lane: 'Failed', stillBlocked: true }]);
-    expect(by['DEMO-91'].group).toBe('not-blocking');
-    expect(by['DEMO-91'].blocks[0].stillBlocked).toBe(false);
-    expect(by['DEMO-93'].group).toBe('not-blocking');
-    expect(by['DEMO-92'].statusClass).toBe('resolved');
-    expect(by['DEMO-92'].group).toBe('resolved');
-    expect(by['DEMO-95'].statusClass).toBe('closed');
-    expect(by['DEMO-95'].group).toBe('resolved');
+    expect(by['DEMO-7090'].group).toBe('blocking');
+    expect(by['DEMO-7090'].blocks).toEqual([{ id: 'DEMO-1', title: 'Feature one', lane: 'Failed', stillBlocked: true }]);
+    expect(by['DEMO-7091'].group).toBe('not-blocking');
+    expect(by['DEMO-7091'].blocks[0].stillBlocked).toBe(false);
+    expect(by['DEMO-7093'].group).toBe('not-blocking');
+    expect(by['DEMO-7092'].statusClass).toBe('resolved');
+    expect(by['DEMO-7092'].group).toBe('resolved');
+    expect(by['DEMO-7095'].statusClass).toBe('closed');
+    expect(by['DEMO-7095'].group).toBe('resolved');
   });
 
   test('severity: the worker\'s --severity wins over tracker Priority; fields come from tracker; sorted blocking first', () => {
     const s = state();
-    const b90 = s.bugs!.find(b => b.id === 'DEMO-90')!;
+    const b90 = s.bugs!.find(b => b.id === 'DEMO-7090')!;
     expect(b90.severity).toBe('Critical');
     expect(b90.priority).toBe('High');
     expect(b90.dev).toBe('Dana Dev');
-    expect(b90.link).toBe('https://example.atlassian.net/browse/DEMO-90');
-    expect(s.bugs?.find(b => b.id === 'DEMO-93')?.platform).toBe('web');
+    expect(b90.link).toBe('https://example.atlassian.net/browse/DEMO-7090');
+    expect(s.bugs?.find(b => b.id === 'DEMO-7093')?.platform).toBe('web');
     // a linked bug with no module in tracker takes its ticket's module
-    expect(s.bugs?.find(b => b.id === 'DEMO-91')?.module).toBe('returns');
+    expect(s.bugs?.find(b => b.id === 'DEMO-7091')?.module).toBe('returns');
     expect(s.bugs?.map(b => b.group)).toEqual(['blocking', 'not-blocking', 'not-blocking', 'resolved', 'resolved']);
   });
 
   test('age counts days open from tracker created time; a resolved bug stops at its last update', () => {
     const by = Object.fromEntries((state().bugs ?? []).map(b => [b.id, b]));
-    expect(by['DEMO-90'].ageDays).toBe(3);
-    expect(by['DEMO-92'].ageDays).toBe(2);
-    expect(by['DEMO-92'].resolvedInSprint).toBe(true);
+    expect(by['DEMO-7090'].ageDays).toBe(3);
+    expect(by['DEMO-7092'].ageDays).toBe(2);
+    expect(by['DEMO-7092'].resolvedInSprint).toBe(true);
   });
 
   test('no discover with bug rows: the sprint part is "not checked", never zero', () => {
@@ -678,7 +678,7 @@ describe('sprint bugs (the Bugs view rule)', () => {
     const s = fold({ sprint: { ...sprint, startedAt: start }, events: events(), tracker: c, now: NOW });
     expect(s.bugSearch?.bugRows).toBeNull();
     expect(s.bugSearch?.createdInSprint).toBeNull();
-    expect(s.bugs?.map(b => b.id).sort()).toEqual(['DEMO-90', 'DEMO-91', 'DEMO-92']);
+    expect(s.bugs?.map(b => b.id).sort()).toEqual(['DEMO-7090', 'DEMO-7091', 'DEMO-7092']);
   });
 
   test('counts by severity, module, status, group, opened and resolved', () => {
@@ -703,7 +703,7 @@ describe('sprint bugs (the Bugs view rule)', () => {
     const m = metrics(state());
     expect(m.bugs.total).toBe(3);
     expect(m.bugs.byStatus).toEqual({ open: 2, resolved: 1, closed: 0 });
-    // DEMO-92 has no module in tracker, so it takes the module of DEMO-1, the ticket it was filed against
+    // DEMO-7092 has no module in tracker, so it takes the module of DEMO-1, the ticket it was filed against
     expect(m.bugs.byModule).toEqual({ files: 2, returns: 1 });
   });
 
@@ -714,8 +714,8 @@ describe('sprint bugs (the Bugs view rule)', () => {
     expect(lines[0]).toBe('Sprint 1 bugs: 5 found, 1 still blocking a ticket, 2 open not blocking, 2 resolved');
     expect(lines.indexOf('Resolved (2)')).toBeLessThan(lines.indexOf('Still blocking (1)'));
     expect(lines.indexOf('Still blocking (1)')).toBeLessThan(lines.indexOf('Open, not blocking (2)'));
-    expect(plain).toContain('• DEMO-90 Open and blocking, Critical, Dana Dev, files, blocks DEMO-1 https://example.atlassian.net/browse/DEMO-90');
-    expect(html).toContain('<li><a href="https://example.atlassian.net/browse/DEMO-90">DEMO-90</a> Open and blocking, Critical, Dana Dev, files, blocks DEMO-1</li>');
+    expect(plain).toContain('• DEMO-7090 Open and blocking, Critical, Dana Dev, files, blocks DEMO-1 https://example.atlassian.net/browse/DEMO-7090');
+    expect(html).toContain('<li><a href="https://example.atlassian.net/browse/DEMO-7090">DEMO-7090</a> Open and blocking, Critical, Dana Dev, files, blocks DEMO-1</li>');
     expect(plain).not.toMatch(/[“”"—–]/);
   });
 
@@ -735,8 +735,8 @@ describe('sprint bugs (the Bugs view rule)', () => {
 describe('groupEvidence (Evidence view accordions)', () => {
   const s = () => fold({ sprint, now: NOW, events: [
     ev('2026-10-02T00:00:00Z', 'tc', 'DEMO-1', { tc: 'TC-2', status: 'PASSED', name: 'Case two' }),
-    ev('2026-10-02T00:00:00Z', 'tc', 'DEMO-1', { tc: 'TC-10', status: 'FAILED' }),
-    ev('2026-10-02T01:00:00Z', 'evidence', 'DEMO-1', { path: 'a.png', tc: 'TC-10' }),
+    ev('2026-10-02T00:00:00Z', 'tc', 'DEMO-1', { tc: 'TC-7010', status: 'FAILED' }),
+    ev('2026-10-02T01:00:00Z', 'evidence', 'DEMO-1', { path: 'a.png', tc: 'TC-7010' }),
     ev('2026-10-02T01:00:00Z', 'evidence', 'DEMO-1', { path: 'b.png', tc: 'TC-2' }),
     ev('2026-10-02T01:00:00Z', 'evidence', 'DEMO-1', { path: 'c.png' }),
     ev('2026-10-02T01:00:00Z', 'evidence', 'DEMO-2', { path: 'd.png', tc: 'TC-5', outcome: 'passed' }),
@@ -747,7 +747,7 @@ describe('groupEvidence (Evidence view accordions)', () => {
   test('one group per ticket, TCs in numeric order, untied images last, counts by outcome', () => {
     const g = groupEvidence(s());
     expect(g.map(x => x.id)).toEqual(['DEMO-1', 'DEMO-2']);
-    expect(g[0].tcs.map(t => t.tc)).toEqual(['TC-2', 'TC-10']);
+    expect(g[0].tcs.map(t => t.tc)).toEqual(['TC-2', 'TC-7010']);
     expect(g[0].tcs[0].name).toBe('Case two');
     expect(g[0].tcs[1].status).toBe('FAILED');
     expect(g[0].untied.map(e => e.path)).toEqual(['c.png']);
@@ -782,14 +782,14 @@ describe('report snapshot', () => {
       'DEMO-6': { sprint: S, status: 'QA Approved', type: 'Bug', priority: 'High', tcs: tcs('PASSED') },
     },
     bugs: {
-      'DEMO-90': { title: 'tracker says Medium', priority: 'Medium', status: 'Backlog', sprint: 'Sprint 2', link: 'https://example.atlassian.net/browse/DEMO-90' },
-      'DEMO-91': { title: 'No tracker priority', status: 'QA Approved', sprint: S },
+      'DEMO-7090': { title: 'tracker says Medium', priority: 'Medium', status: 'Backlog', sprint: 'Sprint 2', link: 'https://example.atlassian.net/browse/DEMO-7090' },
+      'DEMO-7091': { title: 'No tracker priority', status: 'QA Approved', sprint: S },
     },
     discover: { at: '2026-10-05T00:00:00Z', sprintRows: 6, untracked: [], bugs: [{ id: 'DEMO-6', status: 'QA Approved', priority: 'High', createdAt: '2026-10-02T00:00:00Z' }] },
   };
   const full = fold({ sprint: { ...sprint, closedAt: '2026-10-05T00:00:00Z' }, tracker: c, now: NOW, events: [
-    ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-90', severity: 'Low' }),
-    ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-2', { bug: 'DEMO-91', severity: 'Critical' }),
+    ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-7090', severity: 'Low' }),
+    ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-2', { bug: 'DEMO-7091', severity: 'Critical' }),
     ev('2026-10-02T00:00:00Z', 'worker', 'DEMO-1', { state: 'running', name: 'w-secret-handle' }),
     ev('2026-10-02T00:00:00Z', 'ask.create', 'DEMO-1', { id: 'ask-x', to: 'Kim', text: 'private words for Kim only', tickets: ['DEMO-1'] }),
     ev('2026-10-02T00:00:00Z', 'wait.open', 'DEMO-1', { person: 'Kim', what: 'secret wait' }),
@@ -831,12 +831,12 @@ describe('report snapshot', () => {
   });
 
   test('bugs: tracker priority first, --severity only when tracker has none; a sprint Bug row under test is not a found bug', () => {
-    expect(rs.bugs!.map(b => [b.id, b.severity])).toEqual([['DEMO-91', 'Critical'], ['DEMO-90', 'Medium']]);
-    expect(r.bugs.fixedIds).toEqual(['DEMO-91']);
-    expect(r.bugs.openIds).toEqual(['DEMO-90']);
+    expect(rs.bugs!.map(b => [b.id, b.severity])).toEqual([['DEMO-7091', 'Critical'], ['DEMO-7090', 'Medium']]);
+    expect(r.bugs.fixedIds).toEqual(['DEMO-7091']);
+    expect(r.bugs.openIds).toEqual(['DEMO-7090']);
     expect(r.bugs.notFound).toEqual(['DEMO-6']);
     expect(r.bugs.byPriority).toEqual({ Critical: { fixed: 1, open: 0 }, Medium: { fixed: 0, open: 1 } });
-    expect(rs.bugs!.find(b => b.id === 'DEMO-90')?.sprint).toBe('Sprint 2');
+    expect(rs.bugs!.find(b => b.id === 'DEMO-7090')?.sprint).toBe('Sprint 2');
     expect(rs.tickets.find(t => t.id === 'DEMO-1')?.bugs[0].severity).toBe('Medium');
   });
 

@@ -158,12 +158,12 @@ describe('jira-native source', () => {
   });
 
   test('bug ids the board links are read with the linked ones; one Jira does not return is named and counted', async () => {
-    const transport = replay({ 'key in (ACME-21, ACME-99) ORDER BY key': recorded('jira-search-bugs.json') });
-    const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW, keys: ['ACME-1', 'ACME-2'], bugKeys: ['acme-99', 'ACME-21'] });
+    const transport = replay({ 'key in (ACME-21, ACME-7099) ORDER BY key': recorded('jira-search-bugs.json') });
+    const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW, keys: ['ACME-1', 'ACME-2'], bugKeys: ['acme-7099', 'ACME-21'] });
     expect(snapshot.bugs['ACME-21']).toMatchObject({ bucket: 'open' });
-    expect(snapshot.missing).toEqual({ bugs: ['ACME-99'] });
+    expect(snapshot.missing).toEqual({ bugs: ['ACME-7099'] });
     expect(snapshot.searched.bugs).toBe(2);
-    expect(transport.calls).toContain('jira key in (ACME-21, ACME-99) ORDER BY key');
+    expect(transport.calls).toContain('jira key in (ACME-21, ACME-7099) ORDER BY key');
   });
 
   test('an untracked sprint row in a status the catalog does not know is listed unclassified, not fatal', async () => {
@@ -237,10 +237,10 @@ describe('jira-xray source', () => {
   });
 
   test('board-linked bug ids go through the same read (missing ones named, counted)', async () => {
-    const transport = replay({ 'key in (ACME-21, ACME-98) ORDER BY key': recorded('jira-search-bugs.json') });
-    const snapshot = await createJiraXraySource(config('bun xray'), transport).snapshot({ now: NOW, bugKeys: ['ACME-98'] });
+    const transport = replay({ 'key in (ACME-21, ACME-7098) ORDER BY key': recorded('jira-search-bugs.json') });
+    const snapshot = await createJiraXraySource(config('bun xray'), transport).snapshot({ now: NOW, bugKeys: ['ACME-7098'] });
     expect(Object.keys(snapshot.bugs)).toEqual(['ACME-21']);
-    expect(snapshot.missing).toEqual({ bugs: ['ACME-98'] });
+    expect(snapshot.missing).toEqual({ bugs: ['ACME-7098'] });
     expect(snapshot.searched.bugs).toBe(2);
   });
 

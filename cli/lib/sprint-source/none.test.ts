@@ -88,11 +88,13 @@ describe('none source', () => {
   });
 
   test('bug ids the board links are read too; one the file does not hold is named and counted', async () => {
-    const snapshot = await createNoneSource(demoConfig(), { repoRoot: REPO_ROOT }).snapshot({ now: DEMO_NOW, keys: ['DEMO-101'], bugKeys: ['DEMO-202', 'DEMO-777'] });
-    // DEMO-201 comes through DEMO-101's own link; DEMO-202 only because the board linked it.
-    expect(Object.keys(snapshot.bugs).sort()).toEqual(['DEMO-201', 'DEMO-202']);
+    const snapshot = await createNoneSource(demoConfig(), { repoRoot: REPO_ROOT }).snapshot({ now: DEMO_NOW, keys: ['DEMO-101'], bugKeys: ['DEMO-202', 'DEMO-7777'] });
+    // The bug DEMO-101 itself links comes through that link; DEMO-202 only because the board linked it.
+    const linked = snapshot.tickets['DEMO-101'].bugs;
+    expect(linked).toHaveLength(1);
+    expect(Object.keys(snapshot.bugs).sort()).toEqual([...linked, 'DEMO-202'].sort());
     expect(snapshot.bugs['DEMO-202']).toMatchObject({ status: 'Closed', bucket: 'resolved', tickets: [] });
-    expect(snapshot.missing).toEqual({ bugs: ['DEMO-777'] });
+    expect(snapshot.missing).toEqual({ bugs: ['DEMO-7777'] });
     expect(snapshot.searched.bugs).toBe(3);
   });
 

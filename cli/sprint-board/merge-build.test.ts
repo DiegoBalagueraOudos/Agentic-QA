@@ -69,13 +69,13 @@ describe('buildDocuments (the jq port)', () => {
   test('tracker parity: an open PR into the mainline on a ticket QA already closed is out of step', () => {
     const out = buildDocuments(reading(), PARAMS, prev());
     expect(out.docs['prs/11'].tickets).toEqual([
-      { tk: 'DEMO-101', status: 'In Test', expected: 'in review or in test', ok: true },
-      { tk: 'DEMO-105', status: 'QA Approved', expected: null, ok: null, mentioned: true },
+      { tk: 'DEMO-7101', status: 'In Test', expected: 'in review or in test', ok: true },
+      { tk: 'DEMO-7105', status: 'QA Approved', expected: null, ok: null, mentioned: true },
     ]);
-    expect(out.docs['prs/12'].tickets[0]).toMatchObject({ tk: 'DEMO-102', ok: false });
+    expect(out.docs['prs/12'].tickets[0]).toMatchObject({ tk: 'DEMO-7102', ok: false });
     // a feeder (into a trunk) carries no expectation; a ticket the board never read is unknown, not wrong
-    expect(out.docs['prs/13'].tickets).toEqual([{ tk: 'DEMO-104', status: null, expected: null, ok: null }]);
-    expect(out.docs['meta/alerts'].items.filter((a: { code: string }) => a.code === 'tracker_mismatch').map((a: { params: { tk: string } }) => a.params.tk)).toEqual(['DEMO-102']);
+    expect(out.docs['prs/13'].tickets).toEqual([{ tk: 'DEMO-7104', status: null, expected: null, ok: null }]);
+    expect(out.docs['meta/alerts'].items.filter((a: { code: string }) => a.code === 'tracker_mismatch').map((a: { params: { tk: string } }) => a.params.tk)).toEqual(['DEMO-7102']);
   });
 
   test('a degraded run emits only meta/state, with the source and when it started', () => {
