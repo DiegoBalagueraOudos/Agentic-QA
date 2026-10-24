@@ -682,7 +682,7 @@ function route(first) {
   if (hit) { if (hit.pack !== P) renderBoard(hit.pack); openViewer(hit.index, 0); return; }
   if (!P) { let start = PACKS[0]; try { const sv = localStorage.getItem("evidence.pack"); start = PACKS.find(p => p.ticket.id === sv) || start; } catch (e) {} renderBoard(start); }
 }
-/* D13 (2026-10-19): a bug page opens on its board like a story page; only a #TK-n.CASE deep link opens the viewer */
+/* D13 (2026-10-19): a bug page opens on its board like a story page; only a #KEY-n.CASE deep link opens the viewer */
 if (PACKS.length > 1) {
   const bar = $("packbar"); bar.hidden = false;
   bar.appendChild(el("span", { class: "label" }, "Evidence packs"));

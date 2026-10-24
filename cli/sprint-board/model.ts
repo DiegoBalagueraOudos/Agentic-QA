@@ -260,11 +260,11 @@ export interface Hold { reason: HoldReason, note: string, on?: string, since: st
 /** A claude.ai artifact a worker (or the conductor) published as a ticket's or a bug's evidence page (`evidence-artifact` skill). */
 export interface EvidenceArtifact { url: string, title?: string, at: string, by?: string, /** Older pages for the same ticket or bug, newest first. */ history: { url: string, title?: string, at: string, by?: string }[] }
 export interface BugView { id: string, title?: string, severity?: string, status?: string, bucket?: BugBucket, sprint?: string, module?: string, dev?: string, link?: string, linkedAt?: string, page?: EvidenceArtifact }
-/** A ticket a bug was filed against (`bug TK-n TK-bug`). Still blocked = in QA scope and not Passed. */
+/** A ticket a bug was filed against (`bug KEY-n KEY-bug`). Still blocked = in QA scope and not Passed. */
 export interface BugBlock { id: string, title: string, lane: Lane, stillBlocked: boolean }
 /**
  * One bug of the sprint, for the Bugs view. Two sources (the rule lives in `sprintBugs`):
- *   linked  recorded on this board with `bug TK-n TK-bug`, whatever its tracker sprint
+ *   linked  recorded on this board with `bug KEY-n KEY-bug`, whatever its tracker sprint
  *   sprint  a Work Type = Bug row of the sprint's own Backlog rows, created inside the sprint
  */
 export interface SprintBug {
@@ -323,7 +323,7 @@ export interface TicketView {
   hold: Hold | null
   waits: Wait[]
   evidence: EvidenceView[]
-  /** The newest evidence artifact recorded for this ticket (`evidence-artifact TK-n <url>`). */
+  /** The newest evidence artifact recorded for this ticket (`evidence-artifact KEY-n <url>`). */
   evidenceArtifact?: EvidenceArtifact
   acceptedRisk?: { by: string, note?: string, at: string }
   next?: string
