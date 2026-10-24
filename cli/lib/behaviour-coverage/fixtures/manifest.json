@@ -1,0 +1,14 @@
+{
+  "components": {
+    "api": [
+      {
+        "name": "OrdersApi",
+        "relativePath": "tests/components/api/OrdersApi.ts",
+        "atcs": [
+          { "id": "DEMO-11", "method": "totalSubtractsDiscount", "line": 20 },
+          { "id": "DEMO-15", "method": "refundRestoresStock", "line": 48 }
+        ]
+      }
+    ]
+  }
+}

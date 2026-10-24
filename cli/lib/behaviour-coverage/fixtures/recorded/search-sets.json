@@ -1,0 +1,21 @@
+{
+  "isLast": true,
+  "issues": [
+    {
+      "id": "2031",
+      "key": "DEMO-31",
+      "fields": {
+        "issuelinks": [
+          {
+            "type": { "name": "Test" },
+            "inwardIssue": { "key": "DEMO-2", "fields": { "issuetype": { "name": "Story" } } }
+          },
+          {
+            "type": { "name": "Relates" },
+            "outwardIssue": { "key": "DEMO-3", "fields": { "issuetype": { "name": "Story" } } }
+          }
+        ]
+      }
+    }
+  ]
+}
