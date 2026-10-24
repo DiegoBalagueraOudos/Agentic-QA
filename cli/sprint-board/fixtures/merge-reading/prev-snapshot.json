@@ -1,0 +1,56 @@
+{
+  "docs": {
+    "meta/state": {
+      "collectedAt": "2026-01-14T11:58:30Z",
+      "openedAt": "2026-01-14T08:00:00Z",
+      "mainSha": "0ldma1n",
+      "mainMovedAt": "2026-01-13T18:00:00Z",
+      "wakes": { "poll": 40 },
+      "health": { "code": "ok", "source": null, "since": null }
+    },
+    "meta/day": { "date": "2026-01-14", "since": "2026-01-14T00:00:00Z" },
+    "meta/alerts": {
+      "items": [
+        {
+          "code": "conflict",
+          "subject": "#12",
+          "severity": "stop",
+          "params": { "against": "main" },
+          "since": "2026-01-13T09:00:00Z"
+        }
+      ]
+    },
+    "prs/9": {
+      "n": 9,
+      "state": "open",
+      "base": "main",
+      "headSha": "0909",
+      "tickets": [
+        { "tk": "DEMO-7100", "status": "In Test", "expected": "in review or in test", "ok": true }
+      ],
+      "owner": {
+        "basis": "none",
+        "worktree": null,
+        "terminals": [],
+        "since": "2026-01-13T00:00:00Z"
+      }
+    },
+    "prs/12": {
+      "n": 12,
+      "state": "open",
+      "headSha": "1212000000",
+      "gates": {
+        "checks": { "code": "failing" },
+        "review": { "code": "open", "open": 1 },
+        "approval": { "code": "requested", "requested": [{ "login": "rowan-qa" }] }
+      },
+      "tickets": [{ "tk": "DEMO-7102", "status": "In Test" }],
+      "owner": {
+        "basis": "title",
+        "worktree": { "path": "/work/shop", "name": "shop" },
+        "terminals": [],
+        "since": "2026-01-13T09:00:00Z"
+      }
+    }
+  }
+}

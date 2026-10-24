@@ -154,7 +154,25 @@ describe('jira-native source', () => {
   test('keys narrow the query and discover lists sprint rows the board does not track', async () => {
     const transport = replay({ [SPRINT_JQL]: recorded('jira-search-sprint.json') });
     const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW, keys: ['ACME-1', 'ACME-2'], discover: true });
-    expect(snapshot.discover).toEqual({ at: NOW.toISOString(), sprintRows: 3, untracked: [{ id: 'ACME-3', title: 'Search suggests spelling fixes', status: 'To Do', qaOwner: 'Rowan QA' }] });
+    expect(snapshot.discover).toEqual({ at: NOW.toISOString(), sprintRows: 3, untracked: [{ id: 'ACME-3', title: 'Search suggests spelling fixes', status: 'To Do', statusKey: 'to_do', bucket: 'not_ready', qaOwner: 'Rowan QA' }] });
+  });
+
+  test('bug ids the board links are read with the linked ones; one Jira does not return is named and counted', async () => {
+    const transport = replay({ 'key in (ACME-21, ACME-7099) ORDER BY key': recorded('jira-search-bugs.json') });
+    const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW, keys: ['ACME-1', 'ACME-2'], bugKeys: ['acme-7099', 'ACME-21'] });
+    expect(snapshot.bugs['ACME-21']).toMatchObject({ bucket: 'open' });
+    expect(snapshot.missing).toEqual({ bugs: ['ACME-7099'] });
+    expect(snapshot.searched.bugs).toBe(2);
+    expect(transport.calls).toContain('jira key in (ACME-21, ACME-7099) ORDER BY key');
+  });
+
+  test('an untracked sprint row in a status the catalog does not know is listed unclassified, not fatal', async () => {
+    const sprint = structuredClone(recorded('jira-search-sprint.json')) as { issues: Array<{ key: string, fields: { status: { name: string } } }> };
+    sprint.issues.find(i => i.key === 'ACME-3')!.fields.status.name = 'Parked';
+    const transport = replay({ [SPRINT_JQL]: sprint });
+    const snapshot = await createJiraNativeSource(config('acli'), transport).snapshot({ now: NOW, keys: ['ACME-1', 'ACME-2'], discover: true });
+    expect(snapshot.discover?.untracked).toMatchObject([{ id: 'ACME-3', status: 'Parked', bucket: null }]);
+    expect(snapshot.discover?.untracked[0].unclassified).toContain('Parked');
   });
 
   test('an empty sprint is all zeros, never an error', async () => {
@@ -216,6 +234,14 @@ describe('jira-xray source', () => {
     expect(outcomes(snapshot.tickets['ACME-2'].tests)).toEqual([['ACME-14', 'FAILED', 'FAILED'], ['ACME-13', 'NOT RUN', 'TODO']]);
     expect(transport.calls).toContain('xray plan {"issueId":"1051","limit":100,"start":0}');
     expect(transport.calls).toContain('xray runs {"testIssueIds":["1011","1012","1014","1013"],"testExecIssueIds":["1041","1042","1043"],"limit":100,"start":0}');
+  });
+
+  test('board-linked bug ids go through the same read (missing ones named, counted)', async () => {
+    const transport = replay({ 'key in (ACME-21, ACME-7098) ORDER BY key': recorded('jira-search-bugs.json') });
+    const snapshot = await createJiraXraySource(config('bun xray'), transport).snapshot({ now: NOW, bugKeys: ['ACME-7098'] });
+    expect(Object.keys(snapshot.bugs)).toEqual(['ACME-21']);
+    expect(snapshot.missing).toEqual({ bugs: ['ACME-7098'] });
+    expect(snapshot.searched.bugs).toBe(2);
   });
 
   test('a ticket with no linked execution reads every test as NOT RUN with no raw status', async () => {

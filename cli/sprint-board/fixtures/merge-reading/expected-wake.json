@@ -1,0 +1,587 @@
+{
+  "snapshotId": "S1",
+  "collectedAt": "2026-01-14T12:00:00Z",
+  "reason": "poll",
+  "docs": {
+    "meta/config": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "repo": "acme/shop",
+      "mainBranch": "main",
+      "timezone": "UTC",
+      "window": {
+        "days": [1, 2, 3, 4, 5],
+        "open": "09:00",
+        "close": "21:00"
+      },
+      "heartbeatSec": 3000,
+      "freshness": {
+        "lateSec": 3600,
+        "staleSec": 4500
+      },
+      "requiredApprovals": 1,
+      "keeper": "Git Flow Master"
+    },
+    "meta/state": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "checkedAt": "2026-01-14T12:00:00Z",
+      "lastAttemptAt": "2026-01-14T12:00:00Z",
+      "health": {
+        "code": "ok",
+        "source": null,
+        "since": null
+      },
+      "window": "open",
+      "openedAt": "2026-01-14T08:00:00Z",
+      "closedAt": null,
+      "nextOpen": "2026-01-15T09:00:00Z",
+      "mainSha": "feedbee",
+      "mainMovedAt": "2026-01-14T12:00:00Z",
+      "lastWake": {
+        "reason": "poll",
+        "at": "2026-01-14T12:00:00Z",
+        "detail": null
+      },
+      "viewer": "rowan-qa",
+      "repo": "acme/shop",
+      "mailbox": "off",
+      "session": {
+        "handle": null
+      },
+      "wakes": {
+        "poll": 41
+      },
+      "counts": {
+        "open": 3,
+        "toMain": 2,
+        "feeders": 1,
+        "cleared": 1
+      },
+      "denominators": {
+        "prs": 3,
+        "branches": 4,
+        "worktrees": 3,
+        "terminals": 2,
+        "tickets": 3
+      }
+    },
+    "meta/day": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "date": "2026-01-14",
+      "since": "2026-01-14T00:00:00Z",
+      "merged": [
+        {
+          "n": 9,
+          "title": "DEMO-7100 Checkout shows tax",
+          "base": "main",
+          "mergedAt": "2026-01-14T10:00:00Z",
+          "mergedBy": "avery-dev",
+          "mergeSha": "abcdef1",
+          "overnight": false
+        }
+      ],
+      "closed": [
+        {
+          "n": 8,
+          "title": "Spike on search",
+          "closedAt": "2026-01-14T09:30:00Z",
+          "overnight": false
+        }
+      ],
+      "usage": null,
+      "previous": null
+    },
+    "meta/alerts": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "items": [
+        {
+          "code": "checks_failing",
+          "subject": "#12",
+          "severity": "stop",
+          "params": {
+            "failing": ["test"]
+          },
+          "since": "2026-01-14T12:00:00Z"
+        },
+        {
+          "code": "review_open",
+          "subject": "#12",
+          "severity": "caution",
+          "params": {
+            "open": 2
+          },
+          "since": "2026-01-14T12:00:00Z"
+        },
+        {
+          "code": "reviewer_wait",
+          "subject": "#12",
+          "severity": "caution",
+          "params": {
+            "login": "rowan-qa",
+            "since": "2026-01-08T10:00:00Z"
+          },
+          "since": "2026-01-14T12:00:00Z"
+        },
+        {
+          "code": "behind_main",
+          "subject": "#12",
+          "severity": "caution",
+          "params": {
+            "behind": 4
+          },
+          "since": "2026-01-14T12:00:00Z"
+        },
+        {
+          "code": "conflict",
+          "subject": "#12",
+          "severity": "stop",
+          "params": {
+            "against": "main"
+          },
+          "since": "2026-01-13T09:00:00Z"
+        },
+        {
+          "code": "tracker_mismatch",
+          "subject": "#12",
+          "severity": "caution",
+          "params": {
+            "tk": "DEMO-7102",
+            "status": "QA Approved",
+            "expected": "in review or in test"
+          },
+          "since": "2026-01-14T12:00:00Z"
+        },
+        {
+          "code": "no_owner",
+          "subject": "#13",
+          "severity": "caution",
+          "params": {},
+          "since": "2026-01-14T12:00:00Z"
+        },
+        {
+          "code": "conflict",
+          "subject": "#11",
+          "severity": "stop",
+          "params": {
+            "against": 12
+          },
+          "since": "2026-01-14T12:00:00Z"
+        },
+        {
+          "code": "shared_files",
+          "subject": "#11",
+          "severity": "caution",
+          "params": {
+            "with": "main",
+            "count": 1
+          },
+          "since": "2026-01-14T12:00:00Z"
+        },
+        {
+          "code": "orphan_branch",
+          "subject": "branches",
+          "severity": "caution",
+          "params": {
+            "count": 2,
+            "branches": ["chore/stale", "old/spike"],
+            "worktrees": ["shop-stale"]
+          },
+          "since": "2026-01-14T12:00:00Z"
+        }
+      ]
+    },
+    "meta/chords": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "pairs": [
+        {
+          "a": 11,
+          "b": 12,
+          "count": 1,
+          "files": ["cli/cart.ts"],
+          "conflict": true
+        },
+        {
+          "a": 11,
+          "b": "main",
+          "count": 1,
+          "files": ["README.md"],
+          "conflict": false
+        }
+      ]
+    },
+    "meta/branches": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "items": [
+        {
+          "name": "chore/stale",
+          "local": true,
+          "remote": false,
+          "upstreamGone": false,
+          "behindMain": 5,
+          "aheadMain": 0,
+          "worktree": {
+            "path": "/work/shop-stale",
+            "name": "shop-stale"
+          },
+          "lastCommitAt": "2026-01-02T10:00:00+00:00",
+          "pr": null
+        },
+        {
+          "name": "feat/DEMO-7101-discount-code",
+          "local": true,
+          "remote": true,
+          "upstreamGone": false,
+          "behindMain": 0,
+          "aheadMain": 3,
+          "worktree": {
+            "path": "/work/shop-discount",
+            "name": "discount"
+          },
+          "lastCommitAt": "2026-01-14T11:00:00+00:00",
+          "pr": 11
+        },
+        {
+          "name": "main",
+          "local": true,
+          "remote": true,
+          "upstreamGone": false,
+          "behindMain": 0,
+          "aheadMain": 0,
+          "worktree": {
+            "path": "/work/shop",
+            "name": "shop"
+          },
+          "lastCommitAt": "2026-01-14T10:00:00+00:00",
+          "pr": null
+        },
+        {
+          "name": "old/spike",
+          "local": true,
+          "remote": false,
+          "upstreamGone": true,
+          "behindMain": 12,
+          "aheadMain": 0,
+          "worktree": null,
+          "lastCommitAt": "2025-12-01T10:00:00+00:00",
+          "pr": null
+        }
+      ],
+      "remoteOnly": 1
+    },
+    "prs/11": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "n": 11,
+      "state": "open",
+      "draft": false,
+      "title": "DEMO-7101 Checkout applies a discount code",
+      "url": "https://github.com/acme/shop/pull/11",
+      "author": "avery-dev",
+      "authorIsBot": false,
+      "base": "main",
+      "head": "feat/DEMO-7101-discount-code",
+      "headSha": "1010101010",
+      "feeder": false,
+      "trunkPr": null,
+      "openedAt": "2026-01-12T09:00:00Z",
+      "updatedAt": "2026-01-14T12:00:00Z",
+      "mergedAt": null,
+      "mergedBy": null,
+      "closedAt": null,
+      "size": {
+        "files": 4,
+        "add": 120,
+        "del": 8
+      },
+      "labels": ["checkout"],
+      "assignees": ["avery-dev"],
+      "behindMain": 0,
+      "aheadMain": 3,
+      "mergePrediction": "clean",
+      "gates": {
+        "checks": {
+          "lamp": "go",
+          "code": "green",
+          "total": 1,
+          "failing": [],
+          "pending": 0,
+          "at": "2026-01-14T11:10:00Z"
+        },
+        "review": {
+          "lamp": "go",
+          "code": "clean",
+          "open": 0,
+          "runSha": "1010101010",
+          "lastRunAt": "2026-01-14T11:31:00Z"
+        },
+        "approval": {
+          "lamp": "go",
+          "code": "approved",
+          "requested": [],
+          "approvedBy": ["morgan-owner"],
+          "changesBy": [],
+          "required": 1
+        }
+      },
+      "cleared": 3,
+      "lamp": "go",
+      "tickets": [
+        {
+          "tk": "DEMO-7101",
+          "status": "In Test",
+          "expected": "in review or in test",
+          "ok": true
+        },
+        {
+          "tk": "DEMO-7105",
+          "status": "QA Approved",
+          "expected": null,
+          "ok": null,
+          "mentioned": true
+        }
+      ],
+      "owner": {
+        "basis": "checkout",
+        "worktree": {
+          "path": "/work/shop-discount",
+          "name": "discount"
+        },
+        "terminals": [
+          {
+            "title": "discount-101 worker",
+            "handle": "term_aaaa1111"
+          }
+        ],
+        "since": "2026-01-14T12:00:00Z"
+      }
+    },
+    "prs/12": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "n": 12,
+      "state": "open",
+      "draft": false,
+      "title": "Cart keeps items after sign-in",
+      "url": "https://github.com/acme/shop/pull/12",
+      "author": "lee-dev",
+      "authorIsBot": false,
+      "base": "main",
+      "head": "fix/DEMO-7102-cart-merge",
+      "headSha": "1212121212",
+      "feeder": false,
+      "trunkPr": null,
+      "openedAt": "2026-01-08T09:00:00Z",
+      "updatedAt": "2026-01-14T08:00:00Z",
+      "mergedAt": null,
+      "mergedBy": null,
+      "closedAt": null,
+      "size": {
+        "files": 2,
+        "add": 30,
+        "del": 4
+      },
+      "labels": [],
+      "assignees": [],
+      "behindMain": 4,
+      "aheadMain": 1,
+      "mergePrediction": "conflict",
+      "gates": {
+        "checks": {
+          "lamp": "st",
+          "code": "failing",
+          "total": 3,
+          "failing": ["test"],
+          "pending": 2,
+          "at": "2026-01-13T09:00:00Z"
+        },
+        "review": {
+          "lamp": "ca",
+          "code": "open",
+          "open": 2,
+          "runSha": "1212121212",
+          "lastRunAt": "2026-01-13T09:12:00Z"
+        },
+        "approval": {
+          "lamp": "ca",
+          "code": "requested",
+          "requested": [
+            {
+              "login": "rowan-qa",
+              "since": "2026-01-08T10:00:00Z"
+            }
+          ],
+          "approvedBy": [],
+          "changesBy": [],
+          "required": 1
+        }
+      },
+      "cleared": 0,
+      "lamp": "st",
+      "tickets": [
+        {
+          "tk": "DEMO-7102",
+          "status": "QA Approved",
+          "expected": "in review or in test",
+          "ok": false
+        }
+      ],
+      "owner": {
+        "basis": "title",
+        "worktree": {
+          "path": "/work/shop",
+          "name": "shop"
+        },
+        "terminals": [
+          {
+            "title": "review #12 fix",
+            "handle": "term_bbbb2222"
+          }
+        ],
+        "since": "2026-01-13T09:00:00Z"
+      }
+    },
+    "prs/13": {
+      "schema": 1,
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "n": 13,
+      "state": "open",
+      "draft": true,
+      "title": "Catalog filters by price range",
+      "url": "https://github.com/acme/shop/pull/13",
+      "author": "avery-dev",
+      "authorIsBot": false,
+      "base": "integration/catalog",
+      "head": "feat/DEMO-7104-price-filter",
+      "headSha": "1313131313",
+      "feeder": true,
+      "trunkPr": null,
+      "openedAt": "2026-01-14T07:00:00Z",
+      "updatedAt": "2026-01-14T07:30:00Z",
+      "mergedAt": null,
+      "mergedBy": null,
+      "closedAt": null,
+      "size": {
+        "files": 1,
+        "add": 10,
+        "del": 0
+      },
+      "labels": [],
+      "assignees": [],
+      "behindMain": null,
+      "aheadMain": null,
+      "mergePrediction": "clean",
+      "gates": {
+        "checks": {
+          "lamp": "off",
+          "code": "none",
+          "total": 0,
+          "failing": [],
+          "pending": 0,
+          "at": null
+        },
+        "review": {
+          "lamp": "off",
+          "code": "none",
+          "open": 0,
+          "runSha": null,
+          "lastRunAt": null
+        },
+        "approval": {
+          "lamp": "ca",
+          "code": "self_merge",
+          "requested": [],
+          "approvedBy": [],
+          "changesBy": [],
+          "required": 1
+        }
+      },
+      "cleared": 0,
+      "lamp": "ca",
+      "tickets": [
+        {
+          "tk": "DEMO-7104",
+          "status": null,
+          "expected": null,
+          "ok": null
+        }
+      ],
+      "owner": {
+        "basis": "none",
+        "worktree": null,
+        "terminals": [],
+        "since": "2026-01-14T12:00:00Z"
+      }
+    },
+    "prs/9": {
+      "n": 9,
+      "state": "merged",
+      "base": "main",
+      "headSha": "0909",
+      "tickets": [
+        {
+          "tk": "DEMO-7100",
+          "status": "In Test",
+          "expected": null,
+          "ok": null
+        }
+      ],
+      "owner": {
+        "basis": "none",
+        "worktree": null,
+        "terminals": [],
+        "since": "2026-01-13T00:00:00Z"
+      },
+      "snapshotId": "S1",
+      "collectedAt": "2026-01-14T12:00:00Z",
+      "mergedAt": "2026-01-14T10:00:00Z",
+      "closedAt": "2026-01-14T10:00:00Z",
+      "mergeSha": "abcdef1"
+    }
+  },
+  "openPrs": ["11", "12", "13"],
+  "closedPrs": ["9"],
+  "denominators": {
+    "prs": 3,
+    "branches": 4,
+    "worktrees": 3,
+    "terminals": 2,
+    "tickets": 3
+  },
+  "summary": {
+    "hard": [
+      "push:main",
+      "pr:#11:opened",
+      "push:#12",
+      "review:#12",
+      "pr:#13:opened",
+      "pr:#9:merged"
+    ],
+    "soft": ["tracker:#12"],
+    "alerts": [
+      "+checks_failing:#12:",
+      "+review_open:#12:",
+      "+reviewer_wait:#12:rowan-qa",
+      "+behind_main:#12:",
+      "+tracker_mismatch:#12:DEMO-7102",
+      "+no_owner:#13:",
+      "+conflict:#11:12",
+      "+shared_files:#11:main",
+      "+orphan_branch:branches:"
+    ],
+    "comments": []
+  }
+}

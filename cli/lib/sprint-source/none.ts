@@ -150,6 +150,8 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
         };
       }
 
+      // The board's own bug links (`bugKeys`) are read even when no tracked ticket lists them.
+      const asked = new Set(snapshotOptions.bugKeys ?? []);
       const bugs: Record<string, Bug> = {};
       for (const [id, row] of Object.entries(bugRows)) {
         if (!isMapping(row)) { throw new TicketsFileError(file, `bugs.${id}: expected a mapping`); }
@@ -158,7 +160,7 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
         const status = text(row.status);
         if (title === null || status === null) { throw new TicketsFileError(file, `bugs.${id}: title and status are required`); }
         const owners = Object.values(tickets).filter(t => t.bugs.includes(id)).map(t => t.id);
-        if (wanted && owners.length === 0) { continue; }
+        if (wanted && owners.length === 0 && !asked.has(id)) { continue; }
         bugs[id] = {
           id,
           title,
@@ -186,16 +188,24 @@ export function createNoneSource(config: BoardConfig, options: NoneSourceOptions
       const snapshot: SourceSnapshot = {
         source: 'none',
         syncedAt: now.toISOString(),
-        searched: { tickets: Object.keys(tickets).length, tests: testIds.size, bugs: Object.keys(bugs).length },
+        searched: { tickets: Object.keys(tickets).length, tests: testIds.size, bugs: new Set([...Object.keys(bugs), ...asked]).size },
         tickets,
         bugs,
       };
+      if (snapshotOptions.bugKeys) { snapshot.missing = { bugs: [...asked].filter(id => !(id in bugs)) }; }
       if (snapshotOptions.discover) {
         const untracked = Object.entries(ticketRows)
           .filter(([id]) => wanted !== null && !wanted.has(id))
           .map(([id, row]) => {
             const r = row as Mapping;
-            return { id, title: text(r.title) ?? id, status: text(r.status) ?? '', qaOwner: text(r.qa) };
+            const status = text(r.status) ?? '';
+            // A row the board does not track never fails the discover read: it is listed unclassified, named.
+            try {
+              return { id, title: text(r.title) ?? id, status, statusKey: status, bucket: classifyTicket(config.statusMap, id, status), qaOwner: text(r.qa) };
+            }
+            catch (err) {
+              return { id, title: text(r.title) ?? id, status, statusKey: status, bucket: null, unclassified: (err as Error).message, qaOwner: text(r.qa) };
+            }
           });
         snapshot.discover = { at: now.toISOString(), sprintRows: Object.keys(ticketRows).length, untracked };
       }

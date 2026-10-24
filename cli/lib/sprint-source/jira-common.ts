@@ -283,8 +283,11 @@ export function createJiraSource(parts: JiraSourceParts): Source {
         };
       }
 
+      // The bugs the tracker links to these tickets, plus the ones the board links (`bugKeys`).
+      const askedBugs = [...new Set((options.bugKeys ?? []).map(k => k.toUpperCase()))];
+      const bugKeys = [...new Set([...linkedBugs.keys(), ...askedBugs])];
       const bugs: Record<string, Bug> = {};
-      for (const issue of await issuesByKey(transport, [...linkedBugs.keys()], fields)) {
+      for (const issue of await issuesByKey(transport, bugKeys, fields)) {
         const row = common(issue);
         bugs[issue.key] = {
           ...row,
@@ -298,16 +301,29 @@ export function createJiraSource(parts: JiraSourceParts): Source {
       const snapshot: SourceSnapshot = {
         source: kind,
         syncedAt: now.toISOString(),
-        searched: { tickets: issues.length, tests: distinctTests.size, bugs: Object.keys(bugs).length },
+        searched: { tickets: issues.length, tests: distinctTests.size, bugs: bugKeys.length },
         tickets,
         bugs,
       };
+      const missingBugs = bugKeys.filter(k => !(k in bugs));
+      if (options.bugKeys) { snapshot.missing = { bugs: missingBugs }; }
       if (options.discover) {
         const rows = keys ? await searchAll(transport, config.jql as string, fields) : issues;
         const tracked = new Set(issues.map(i => i.key));
         const untracked: UntrackedRow[] = rows
           .filter(r => !tracked.has(r.key))
-          .map(r => ({ id: r.key, title: r.fields.summary ?? r.key, status: r.fields.status?.name ?? '', qaOwner: qaField ? userName(r.fields[qaField]) : null }));
+          .map((r) => {
+            const status = r.fields.status?.name ?? '';
+            const qaOwner = qaField ? userName(r.fields[qaField]) : null;
+            // A row the board does not track never fails the discover read: it is listed unclassified, named.
+            try {
+              const row = common(r);
+              return { id: r.key, title: row.title, status: row.status, statusKey: row.statusKey, bucket: classifyTicket(config.statusMap, r.key, row.statusKey), qaOwner };
+            }
+            catch (err) {
+              return { id: r.key, title: r.fields.summary ?? r.key, status, statusKey: '', bucket: null, unclassified: (err as Error).message, qaOwner };
+            }
+          });
         snapshot.discover = { at: now.toISOString(), sprintRows: rows.length, untracked };
       }
       return snapshot;

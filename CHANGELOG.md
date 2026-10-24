@@ -41,6 +41,26 @@ below names which one it applies to:
   a disk. Both now remove their temp root in `afterAll`, which also fires when a test fails, and a
   test declared after each block asserts the root is gone.
 
+### Added (Sprint Board, Merge Line and the sentinel)
+- **`cli/sprint-board/`**: the Sprint Board, a live local page for a sprint-testing run with a
+  conductor and several workers (`bun run board:up`, `bun run board <command>`). Lanes computed from
+  the tracker's status buckets and the workers' own files, Needs-you decision cards, the owner <->
+  Claude inbox, Slack drafts the owner sends, metrics, the Evidence and Bugs views, share and
+  sprint QA report snapshots built by allowlist, and the `sentinel` that wakes the conductor only
+  when something changed. It reads the tracker through `cli/lib/sprint-source/` and the `board:`
+  block; `cli/sprint-board/demo/` renders an invented sprint with no tracker. ADR-0023.
+- **Merge Line** (`#merge` on the board): every open PR into the mainline or a trunk, its signals,
+  owner, interference and merge order, refreshed every 90 s by a TypeScript collector
+  (`cli/sprint-board/merge-collect.ts`) that reads GitHub, git and the orchestrator and never acts
+  on them. Doctrine: `git-flow-master/references/observer.md`.
+- **`sprint-testing/references/sprint-board.md`**: the conductor's side of the board (the board at
+  every stage, the block a worker's brief carries, the channels, decision cards, the sentinel).
+- `cli/lib/sprint-source/`: untracked sprint rows now carry their `statusKey` and `bucket`; a row in
+  a status `board.statuses` does not list comes back with `bucket: null` and the reason instead of
+  failing `--discover` (a tracked ticket in such a status still fails). `SnapshotOptions.bugKeys`
+  reads extra bug ids (the board's own links): they count in `searched.bugs`, and one the tracker
+  cannot find is returned in `missing.bugs`.
+
 ### Added (coverage inventory)
 - **`project-context` mode `coverage`**: crosses the behaviours in the business maps with the
   tests (the KATA manifest at the production branch, the TMS test repository, the regression

@@ -1,0 +1,156 @@
+/**
+ * Smoke tests for the page views: render to a string, check what the owner must see.
+ * The views are pure (state in, HTML out), so no browser is needed.
+ */
+import type { BoardEvent, Sprint, TrackerSnapshot } from './model.ts';
+import { describe, expect, test } from 'bun:test';
+import { ctxOf, drawer, routeView, viewBugs, viewEvidence, viewMetrics, viewReport, viewTickets, viewTimeline } from './app/views.ts';
+import { fold as foldRaw, SCHEMA, toReportState } from './model.ts';
+import { bucketed } from './test-fixtures.ts';
+
+const fold = (i: Parameters<typeof foldRaw>[0]) => foldRaw({ ...i, tracker: bucketed(i.tracker) });
+
+const sprint: Sprint = { v: SCHEMA, slug: 'sprint-1', number: 1, name: 'Sprint 1', startedAt: '2026-10-01T00:00:00Z' };
+let n = 0;
+const ev = (at: string, kind: BoardEvent['kind'], ticket: string, data?: Record<string, unknown>): BoardEvent => ({ v: SCHEMA, id: `v${++n}`, at, kind, ticket, text: kind, data });
+const tracker: TrackerSnapshot = {
+  v: SCHEMA,
+  syncedAt: '2026-10-05T00:00:00Z',
+  searched: { tickets: 1, tcs: 2, bugs: 1 },
+  tickets: { 'DEMO-1': { title: 'Upload lock', status: 'Ready for QA', module: 'files', tcs: [{ id: 'TC-1', status: 'FAILED', name: 'Lock holds' }, { id: 'TC-2', status: 'PASSED' }] } },
+  bugs: { 'DEMO-7090': { title: '[Bug] Reset undoes the lock', status: 'Prioritized', dev: 'Dana Dev', link: 'https://example.atlassian.net/browse/DEMO-7090' } },
+  discover: { at: '2026-10-05T00:00:00Z', sprintRows: 12, untracked: [], bugs: [] },
+};
+const state = fold({ sprint, tracker, now: '2026-10-05T12:00:00Z', events: [
+  ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-7090', severity: 'Critical' }),
+  ev('2026-10-02T01:00:00Z', 'evidence', 'DEMO-1', { path: 'e/fail.png', tc: 'TC-1', caption: 'lock gone' }),
+  ev('2026-10-02T01:00:00Z', 'evidence', 'DEMO-1', { path: 'e/pass.png', tc: 'TC-2' }),
+  ev('2026-10-02T02:00:00Z', 'verdict', 'DEMO-1', { verdict: 'FAILED', note: '1 of 2, bug DEMO-7090' }),
+  ev('2026-10-02T03:00:00Z', 'evidence.page', 'DEMO-1', { url: 'https://claude.ai/artifact/tk1' }),
+  ev('2026-10-02T04:00:00Z', 'evidence.page', 'DEMO-1', { url: 'https://claude.ai/artifact/bug90', bug: 'DEMO-7090' }),
+] });
+const ctx = (extra: Partial<Parameters<typeof ctxOf>[1]> = {}) => ctxOf(state, { filter: '', canWrite: true, img: p => `/files/${p}`, sprints: [], archives: [], ...extra });
+
+describe('views render', () => {
+  test('Bugs view: tiles, the bug row with tracker link, blocked ticket, evidence link and the denominator', () => {
+    const html = viewBugs(ctx());
+    expect(html).toContain('data-copy-bugs');
+    expect(html).toContain('href="https://example.atlassian.net/browse/DEMO-7090"');
+    expect(html).toContain('still blocked');
+    expect(html).toContain('href="https://claude.ai/artifact/bug90"');
+    expect(html).toContain('1 linked on this board');
+    expect(html).toContain('0 created this sprint, of 0 Bug rows among the 12 sprint rows');
+    expect(viewBugs(ctx({ bugGroup: 'resolved' }))).toContain('None.');
+  });
+
+  test('Evidence view: closed accordions render no thumbnails; an open case renders its images', () => {
+    const closed = viewEvidence(ctx());
+    expect(closed).toContain('data-acc="DEMO-1"');
+    expect(closed).toContain('href="https://claude.ai/artifact/tk1"');
+    expect(closed).not.toContain('<img');
+    const open = viewEvidence(ctx({ evidenceOpen: new Set(['DEMO-1', 'DEMO-1/TC-1']) }));
+    expect(open).toContain('src="/files/e/fail.png"');
+    expect(open).not.toContain('src="/files/e/pass.png"');
+    expect(viewEvidence(ctx({ evidenceFilter: { outcome: 'blocked' } }))).toContain('Nothing matches this filter.');
+  });
+
+  test('drawer: the evidence page link sits in the verdict row; the bug row links its own page', () => {
+    const html = drawer(state.tickets[0], ctx());
+    expect(html).toMatch(/class="verdict-row"[\s\S]*href="https:\/\/claude\.ai\/artifact\/tk1"/);
+    expect(html).toContain('href="https://claude.ai/artifact/bug90"');
+    expect(html).not.toContain('No evidence page');
+  });
+
+  test('drawer: a tested ticket with no evidence page says so instead of showing nothing', () => {
+    const noPage = fold({ sprint, tracker, now: '2026-10-05T12:00:00Z', events: [
+      ev('2026-10-02T01:00:00Z', 'evidence', 'DEMO-1', { path: 'e/fail.png', tc: 'TC-1' }),
+    ] });
+    const html = drawer(noPage.tickets[0], ctxOf(noPage, { filter: '', canWrite: true, img: p => `/files/${p}`, sprints: [], archives: [] }));
+    expect(html).toMatch(/class="verdict-row"[\s\S]*class="ev-none"[^>]*>No evidence page</);
+  });
+
+  test('Metrics: bug 4 shows the status buckets and the modules', () => {
+    const html = viewMetrics(ctx());
+    expect(html).toContain('By status');
+    expect(html).toContain('files <b>1</b>');
+  });
+});
+
+describe('the Bugs view never lets tracker text into markup', () => {
+  test('a Priority that is not a known severity renders as unrated, escaped', () => {
+    const payload = 'x"><img src=x onerror=alert(1)>';
+    const hostile = fold({
+      sprint,
+      tracker: { ...tracker, bugs: { 'DEMO-7091': { title: 'Hostile', status: 'Prioritized', priority: payload } } },
+      now: '2026-10-05T12:00:00Z',
+      events: [ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-7091' })],
+    });
+    const html = viewBugs(ctxOf(hostile, { filter: '', canWrite: true, img: p => `/files/${p}`, sprints: [], archives: [] }));
+    expect(html).toContain('sev sev-unrated');
+    expect(html).not.toContain('<img src=x');
+  });
+});
+
+describe('the sprint report', () => {
+  const S = 'Sprint 1';
+  const hostile = 'x"><img src=x onerror=alert(1)>';
+  const rc: TrackerSnapshot = {
+    ...tracker,
+    tickets: {
+      'DEMO-1': { title: 'Upload lock', sprint: S, status: 'QA Approved', priority: 'Critical', link: 'https://example.atlassian.net/browse/DEMO-1', tcs: [{ id: 'TC-1', status: 'PASSED', name: 'Lock holds' }, { id: 'TC-2', status: 'DEFERRED' }] },
+      'DEMO-2': { title: hostile, sprint: S, status: 'In Progress', priority: hostile, link: 'javascript:alert(1)', tcs: [] },
+    },
+    bugs: { 'DEMO-7090': { title: '[Bug] Reset undoes the lock', status: 'QA Approved', priority: 'Medium', sprint: S, dev: 'Dana Dev', link: 'https://example.atlassian.net/browse/DEMO-7090' } },
+  };
+  const full = fold({ sprint: { ...sprint, closedAt: '2026-10-05T00:00:00Z' }, tracker: rc, now: '2026-10-05T12:00:00Z', events: [
+    ev('2026-10-02T00:00:00Z', 'bug.link', 'DEMO-1', { bug: 'DEMO-7090', severity: 'Low' }),
+    ev('2026-10-02T03:00:00Z', 'evidence.artifact', 'DEMO-1', { url: 'https://claude.ai/artifact/tk1' }),
+  ] });
+  const rs = toReportState(full, { stpUrl: 'https://example.atlassian.net/d/_dX#stp', stpHosts: ['example.atlassian.net'] });
+  const rctx = ctxOf(rs, { filter: '', canWrite: false, img: () => null, sprints: [], archives: [] });
+
+  test('Report view: header verdict, four KPI tiles, panels, tables and the STP footer link', () => {
+    const html = viewReport(rctx);
+    expect(html).toContain('Sprint 1 QA report');
+    // The board's start is when QA tracking began, not the tracker sprint start, so a closed report shows only the close date.
+    expect(html).toContain('Closed Oct 5, 2026');
+    expect(html).not.toContain('Oct 1 to');
+    expect(html).toContain('1 of 1 tested tickets signed off · 1 of 2 test cases passed · 0 failed');
+    expect(html.match(/class="rkpi s-/g)).toHaveLength(4);
+    expect(html).toContain('Bugs by priority');
+    expect(html).toContain('Coverage by priority');
+    expect(html).toContain('Fixed and retested in the sprint');
+    expect(html).toContain('Deferred cases');
+    expect(html).toContain('Never reached the test environment');
+    expect(html).toContain('href="https://claude.ai/artifact/tk1"');
+    expect(html).toContain('href="https://example.atlassian.net/browse/DEMO-1"');
+    expect(html).toContain('href="https://example.atlassian.net/d/_dX#stp"');
+  });
+
+  test('tracker text never becomes markup: titles escaped, priority class clamped, a non-https link is no anchor', () => {
+    const html = viewReport(rctx);
+    expect(html).not.toContain('<img src=x');
+    expect(html).not.toContain('javascript:');
+    expect(html).not.toMatch(/class="sev sev-x/);
+  });
+
+  test('report mode reaches only Report, Tickets, Bugs, Timeline; the board never reaches Report', () => {
+    for (const h of ['', 'now', 'metrics', 'people', 'evidence', 'history', 'nope']) { expect(routeView(h, 'report')).toBe('report'); }
+    for (const h of ['tickets', 'bugs', 'timeline'] as const) { expect(routeView(h, 'report')).toBe(h); }
+    expect(routeView('report', 'live')).toBe('now');
+    expect(routeView('report', 'share')).toBe('now');
+    expect(routeView('bugs', 'share')).toBe('now');
+    expect(routeView('metrics', 'live')).toBe('metrics');
+  });
+
+  test('Tickets, Bugs and Timeline render from report state, without the Copy for Slack buttons', () => {
+    const t = viewTickets(rctx);
+    expect(t).toContain('DEMO-1');
+    expect(t).not.toContain('data-copy-slack');
+    const b = viewBugs(rctx);
+    expect(b).toContain('DEMO-7090');
+    expect(b).not.toContain('data-copy-bugs');
+    expect(() => viewTimeline(rctx)).not.toThrow();
+    expect(viewReport({ ...rctx, state: { ...rs, report: undefined } })).toContain('snapshot --mode report');
+  });
+});

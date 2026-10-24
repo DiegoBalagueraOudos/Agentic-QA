@@ -87,11 +87,36 @@ describe('none source', () => {
     expect((await shared.snapshot()).searched).toEqual({ tickets: 2, tests: 1, bugs: 0 });
   });
 
+  test('bug ids the board links are read too; one the file does not hold is named and counted', async () => {
+    const snapshot = await createNoneSource(demoConfig(), { repoRoot: REPO_ROOT }).snapshot({ now: DEMO_NOW, keys: ['DEMO-101'], bugKeys: ['DEMO-202', 'DEMO-7777'] });
+    // The bug DEMO-101 itself links comes through that link; DEMO-202 only because the board linked it.
+    const linked = snapshot.tickets['DEMO-101'].bugs;
+    expect(linked).toHaveLength(1);
+    expect(Object.keys(snapshot.bugs).sort()).toEqual([...linked, 'DEMO-202'].sort());
+    expect(snapshot.bugs['DEMO-202']).toMatchObject({ status: 'Closed', bucket: 'resolved', tickets: [] });
+    expect(snapshot.missing).toEqual({ bugs: ['DEMO-7777'] });
+    expect(snapshot.searched.bugs).toBe(3);
+  });
+
+  test('an untracked row in a status no bucket lists is named as unclassified; the discover read does not fail', async () => {
+    const parked = demoTickets.replace(/(DEMO-103:\n\s+title: [^\n]+\n\s+status: )Ready for QA/, '$1Parked');
+    expect(parked).not.toBe(demoTickets);
+    const source = createNoneSource(demoConfig(), { repoRoot: REPO_ROOT, readFile: () => parked });
+    const snapshot = await source.snapshot({ now: DEMO_NOW, keys: ['DEMO-101', 'DEMO-102'], discover: true });
+    const row = snapshot.discover?.untracked.find(r => r.id === 'DEMO-103');
+    expect(row).toMatchObject({ status: 'Parked', bucket: null });
+    expect(row?.unclassified).toContain('Parked');
+    // Tracking that ticket still fails loudly.
+    expect(await rejection(source.snapshot({ now: DEMO_NOW, keys: ['DEMO-103'] }))).toThrow(UnknownStatusError);
+  });
+
   test('keys narrow the board, discover lists the rest of the sprint', async () => {
     const snapshot = await createNoneSource(demoConfig(), { repoRoot: REPO_ROOT }).snapshot({ now: DEMO_NOW, keys: ['DEMO-101', 'DEMO-102'], discover: true });
     expect(Object.keys(snapshot.tickets)).toEqual(['DEMO-101', 'DEMO-102']);
     expect(Object.keys(snapshot.bugs)).toEqual(['DEMO-201']);
     expect(snapshot.discover?.sprintRows).toBe(5);
     expect(snapshot.discover?.untracked.map(r => r.id)).toEqual(['DEMO-103', 'DEMO-104', 'DEMO-105']);
+    // An untracked row is classified exactly like a tracked ticket.
+    for (const row of snapshot.discover?.untracked ?? []) { expect(row.statusKey).toBe(row.status); expect(row.bucket).toBeTruthy(); }
   });
 });

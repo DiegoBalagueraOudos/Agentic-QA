@@ -1,0 +1,255 @@
+{
+  "pulls": [
+    { "number": 11, "head": { "ref": "feat/DEMO-7101-discount-code" }, "base": { "ref": "main" } },
+    { "number": 12, "head": { "ref": "fix/DEMO-7102-cart-merge" }, "base": { "ref": "main" } },
+    {
+      "number": 13,
+      "head": { "ref": "feat/DEMO-7104-price-filter" },
+      "base": { "ref": "integration/catalog" }
+    }
+  ],
+  "closed": [
+    {
+      "number": 9,
+      "title": "DEMO-7100 Checkout shows tax",
+      "base": { "ref": "main" },
+      "merged_at": "2026-01-14T10:00:00Z",
+      "closed_at": "2026-01-14T10:00:00Z",
+      "merged_by": { "login": "avery-dev" },
+      "merge_commit_sha": "abcdef1234567"
+    },
+    {
+      "number": 8,
+      "title": "Spike on search",
+      "base": { "ref": "main" },
+      "merged_at": null,
+      "closed_at": "2026-01-14T09:30:00Z"
+    },
+    {
+      "number": 7,
+      "title": "Old merge",
+      "base": { "ref": "main" },
+      "merged_at": "2026-01-10T10:00:00Z",
+      "closed_at": "2026-01-10T10:00:00Z",
+      "merge_commit_sha": "1111111aaaa"
+    }
+  ],
+  "prs": {
+    "11": {
+      "pr": {
+        "number": 11,
+        "title": "DEMO-7101 Checkout applies a discount code",
+        "html_url": "https://github.com/acme/shop/pull/11",
+        "user": { "login": "avery-dev" },
+        "base": { "ref": "main" },
+        "head": { "ref": "feat/DEMO-7101-discount-code", "sha": "1010101010" },
+        "draft": false,
+        "created_at": "2026-01-12T09:00:00Z",
+        "updated_at": "2026-01-14T12:00:00Z",
+        "changed_files": 4,
+        "additions": 120,
+        "deletions": 8,
+        "labels": [{ "name": "checkout" }],
+        "assignees": [{ "login": "avery-dev" }],
+        "requested_reviewers": [],
+        "body": "Also touches DEMO-7105."
+      },
+      "reviews": [
+        {
+          "user": { "login": "rowan-qa" },
+          "state": "COMMENTED",
+          "submitted_at": "2026-01-13T10:00:00Z",
+          "body": ""
+        },
+        {
+          "user": { "login": "morgan-owner" },
+          "state": "APPROVED",
+          "submitted_at": "2026-01-14T11:00:00Z",
+          "body": "Ship it"
+        }
+      ],
+      "rcomments": [],
+      "icomments": [
+        {
+          "user": { "login": "claude[bot]" },
+          "created_at": "2026-01-14T11:30:00Z",
+          "body": "No issues found."
+        }
+      ],
+      "events": [],
+      "checks": {
+        "check_runs": [
+          {
+            "name": "test",
+            "status": "completed",
+            "conclusion": "success",
+            "completed_at": "2026-01-14T11:10:00Z"
+          },
+          {
+            "name": "claude-review",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-01-14T11:20:00Z",
+            "completed_at": "2026-01-14T11:31:00Z"
+          }
+        ]
+      },
+      "status": { "statuses": [] },
+      "threads": [],
+      "files": ["cli/checkout.ts", "cli/cart.ts", "README.md", "tests/checkout.test.ts"]
+    },
+    "12": {
+      "pr": {
+        "number": 12,
+        "title": "Cart keeps items after sign-in",
+        "html_url": "https://github.com/acme/shop/pull/12",
+        "user": { "login": "lee-dev" },
+        "base": { "ref": "main" },
+        "head": { "ref": "fix/DEMO-7102-cart-merge", "sha": "1212121212" },
+        "draft": false,
+        "created_at": "2026-01-08T09:00:00Z",
+        "updated_at": "2026-01-14T08:00:00Z",
+        "changed_files": 2,
+        "additions": 30,
+        "deletions": 4,
+        "labels": [],
+        "assignees": [],
+        "requested_reviewers": [{ "login": "rowan-qa" }],
+        "body": ""
+      },
+      "reviews": [
+        {
+          "user": { "login": "claude[bot]" },
+          "state": "COMMENTED",
+          "submitted_at": "2026-01-13T09:10:00Z",
+          "body": "One finding: the merge drops quantities."
+        }
+      ],
+      "rcomments": [
+        { "user": { "login": "claude[bot]" }, "created_at": "2026-01-13T09:11:00Z", "body": "here" }
+      ],
+      "icomments": [],
+      "events": [
+        {
+          "event": "review_requested",
+          "requested_reviewer": { "login": "rowan-qa" },
+          "created_at": "2026-01-08T10:00:00Z"
+        }
+      ],
+      "checks": {
+        "check_runs": [
+          {
+            "name": "test",
+            "status": "completed",
+            "conclusion": "failure",
+            "completed_at": "2026-01-13T09:00:00Z"
+          },
+          { "name": "lint", "status": "in_progress", "conclusion": null, "completed_at": null },
+          {
+            "name": "claude-review",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-01-13T09:00:00Z",
+            "completed_at": "2026-01-13T09:12:00Z"
+          }
+        ]
+      },
+      "status": { "statuses": [{ "context": "deploy/preview", "state": "pending" }] },
+      "threads": [
+        { "resolved": false, "author": "claude[bot]" },
+        { "resolved": true, "author": "claude[bot]" }
+      ],
+      "files": ["cli/cart.ts", "cli/session.ts"]
+    },
+    "13": {
+      "pr": {
+        "number": 13,
+        "title": "Catalog filters by price range",
+        "html_url": "https://github.com/acme/shop/pull/13",
+        "user": { "login": "avery-dev" },
+        "base": { "ref": "integration/catalog" },
+        "head": { "ref": "feat/DEMO-7104-price-filter", "sha": "1313131313" },
+        "draft": true,
+        "created_at": "2026-01-14T07:00:00Z",
+        "updated_at": "2026-01-14T07:30:00Z",
+        "additions": 10,
+        "deletions": 0,
+        "labels": [],
+        "assignees": [],
+        "requested_reviewers": [],
+        "body": ""
+      },
+      "reviews": [],
+      "rcomments": [],
+      "icomments": [],
+      "events": [],
+      "checks": { "check_runs": [] },
+      "status": { "statuses": [] },
+      "threads": [],
+      "files": ["cli/catalog.ts"]
+    }
+  },
+  "git": {
+    "pr": {
+      "11": { "behind": 0, "ahead": 3, "merge": "clean", "mainFiles": ["README.md"] },
+      "12": { "behind": 4, "ahead": 1, "merge": "conflict", "mainFiles": [] },
+      "13": { "behind": null, "ahead": null, "merge": "clean", "mainFiles": [] }
+    },
+    "pairs": [
+      { "a": 11, "b": 12, "conflict": true },
+      { "a": 11, "b": 13, "conflict": false },
+      { "a": 12, "b": 13, "conflict": false }
+    ],
+    "mainSha": "feedbeefcafe"
+  },
+  "refs": [
+    ["main", "origin/main", "", "2026-01-14T10:00:00+00:00"],
+    [
+      "feat/DEMO-7101-discount-code",
+      "origin/feat/DEMO-7101-discount-code",
+      "",
+      "2026-01-14T11:00:00+00:00"
+    ],
+    ["old/spike", "origin/old/spike", "[gone]", "2025-12-01T10:00:00+00:00"],
+    ["chore/stale", "", "", "2026-01-02T10:00:00+00:00"]
+  ],
+  "refCounts": [
+    ["main", "0", "0"],
+    ["feat/DEMO-7101-discount-code", "0", "3"],
+    ["old/spike", "12", "0"],
+    ["chore/stale", "5", "0"]
+  ],
+  "worktrees": [
+    ["/work/shop", "main"],
+    ["/work/shop-discount", "feat/DEMO-7101-discount-code"],
+    ["/work/shop-stale", "chore/stale"]
+  ],
+  "orcaWorktrees": {
+    "result": { "worktrees": [{ "path": "/work/shop-discount", "displayName": "discount" }] }
+  },
+  "orcaTerminals": {
+    "result": {
+      "terminals": [
+        {
+          "title": "✳ discount-101 worker",
+          "handle": "term_aaaa1111",
+          "worktreePath": "/work/shop-discount"
+        },
+        { "title": "review #12 fix", "handle": "term_bbbb2222", "worktreePath": "/work/shop" }
+      ]
+    }
+  },
+  "lsRemote": [
+    ["aaa", "refs/heads/main"],
+    ["bbb", "refs/heads/feat/DEMO-7101-discount-code"],
+    ["ccc", "refs/heads/fix/DEMO-7102-cart-merge"],
+    ["ddd", "refs/heads/feat/DEMO-7104-price-filter"],
+    ["eee", "refs/heads/release/old"]
+  ],
+  "viewer": "rowan-qa",
+  "tracker": {
+    "DEMO-7101": { "status": "In Test", "bucket": "in_test" },
+    "DEMO-7102": { "status": "QA Approved", "bucket": "tested" },
+    "DEMO-7105": { "status": "QA Approved", "bucket": "tested" }
+  }
+}

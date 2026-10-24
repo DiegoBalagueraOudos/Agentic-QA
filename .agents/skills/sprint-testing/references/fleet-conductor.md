@@ -266,7 +266,7 @@ In this order, stopping as soon as an answer is found:
 
 ### The dashboard
 
-One table per round, presented to the user at every checkpoint and whenever asked:
+One table per round, presented to the user at every checkpoint and whenever asked. When the run uses the Sprint Board (`bun run board:up`), the board is the owner's live dashboard and this table stays the chat summary: `sprint-board.md`.
 
 | Worker | Issue | Stage | Last line | State | Blocked |
 |---|---|---|---|---|---|

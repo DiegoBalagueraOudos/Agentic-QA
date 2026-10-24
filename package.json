@@ -47,6 +47,8 @@
     "api:login:staging": "bun scripts/api-login.ts staging",
     "api:login": "bun scripts/api-login.ts",
     "api:sync": "bun scripts/sync-openapi.ts",
+    "board": "bun run cli/sprint-board/index.ts",
+    "board:up": "bun run cli/sprint-board/index.ts serve --open --sync-every 10 --discover",
     "board:check": "bun scripts/board-check.ts",
     "browser:profiles": "bun scripts/browser-profiles.ts",
     "context:hydrate": "bun scripts/sync-jira-issues.ts pull --include-comments",
