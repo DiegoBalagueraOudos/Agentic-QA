@@ -30,11 +30,12 @@ function write(root: string, relativePath: string, content: string): void {
   writeFileSync(destination, content);
 }
 
-/** The five workflow skills plus the gateway: every one is session-retrofitted. */
+/** The six workflow skills plus the gateway: every one is session-retrofitted. */
 const T1_SKILLS = [
   'framework-development',
   'shift-left-testing',
   'sprint-testing',
+  'exploratory-testing',
   'test-automation',
   'regression-testing',
   'test-documentation',
@@ -420,6 +421,17 @@ describe('lint-skills volatile facts (Critical Rule #17, checks 20-21)', () => {
 
     expect(output).not.toContain('FILE-LINE:');
     expect(output).not.toContain('CURRENT-STATE:');
+  });
+});
+
+describe('lint-skills session scopes (check 12)', () => {
+  test('an exploratory-testing round is a dated scope; a ticket key under it is SESSION-SCOPE-INVALID', () => {
+    const root = fixture({ listCommunityInAgentsMd: true });
+    mkdirSync(join(root, '.session/exploratory-testing/2026-05-20-orders'), { recursive: true });
+    mkdirSync(join(root, '.session/exploratory-testing/PROJ-7012'), { recursive: true });
+    const { output } = runLint(root);
+    expect(output).toContain('SESSION-SCOPE-INVALID: .session/exploratory-testing/PROJ-7012/');
+    expect(output).not.toContain('.session/exploratory-testing/2026-05-20-orders/');
   });
 });
 

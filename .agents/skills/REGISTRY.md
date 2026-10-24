@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-24T19:54:09.966Z`
+> Generated: `2026-10-24T19:58:27.857Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -8,7 +8,7 @@ This file is the per-session compact-rules cache for the Skill Resolver protocol
 The orchestrator copies one or more `## Skill: <slug>` blocks below into every subagent briefing under `## Project Standards (auto-resolved)`.
 Subagents trust those compact rules and only read the full SKILL.md when explicitly instructed.
 
-Skills indexed: 27
+Skills indexed: 28
 
 ---
 ## Skill: acli
@@ -210,6 +210,31 @@ Skills indexed: 27
 **Read full SKILL.md when**: the compact rules above are insufficient (e.g. novel scenario, debugging, or the briefing tells you to load the full skill).
 
 > Source: `.agents/skills/evidence-artifact/SKILL.md` · phase: `unknown` · kind: `workflow` · extraction strategy: A
+
+---
+
+## Skill: exploratory-testing
+
+**Purpose**: Ticket-free exploratory testing of a critical flow, a module or the whole product, across UI, API and DB together, in the Execution stage.
+
+**Compact Rules**:
+- Ticket-free entry into the Execution stage: the scope is a flow, a module or a sweep, never a ticket key (a named ticket routes to `sprint-testing`). Mode from the first `$ARGUMENTS` token (`flow` | `module` | `sweep`), or from a request that clearly names one flow, one module or a sweep (args-as-answers); otherwise ASK.
+- Five steps, always in order: Charter (main thread) -> Recon (Parallel) -> Refute (Parallel) -> Tie-break (main thread) -> Handoff (main thread). Planning and tie-breaks are never delegated. The charter is presented and confirmed before any Recon dispatch, unless the request already named the scope and said go.
+- Build the coverage view BEFORE Recon: the gap list of `project-context` mode `coverage` when it exists, else `coverage-view.json` from `kata-manifest.json` + the TMS Tests read by `bun run context:coverage collect` (never by `jira:sync-issues`: Tests are `sync: never`); a TMS not read is stated `TMS not read` and no manual cover counts. Every candidate is marked NEW / WEAK / COVERED; only a counted `exercises` cover makes COVERED; a `weak`, stale or unverified cover never dedupes a candidate away.
+- Compare at least 2-3 rows plus a control group before calling anything anomalous, and state the detection query verbatim.
+- Refute mandate: every Medium+ anomaly gets a Parallel verifier told to REFUTE it (join fan-out, data quirk, intended behaviour, harness artifact); it survives only if it cannot be explained away. Check a row's own invariant, not just that it differs from another row; execute competing hypotheses side by side, never infer them. Canon: `agentic-qa-core/references/adversarial-verification.md`.
+- Verifier disagreement goes to a main-thread tie-break: a decisive query plus a direct read of the live code path. Never a third verifier, never an average, never one agent's verdict alone on a data-integrity, money or security finding.
+- Oracle: behaviour with no AC is `oracle: observed`; "is this intended?" goes to a person (decision-protocol kind 1), a batch through the `mkd` deck, a single question through the question tool. `oracle: confirmed` (who, where, when) makes the observation PASSED; `not intended` makes it FAILED and a proposed defect. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §4.
+- A candidate is PASSED or FAILED only when observed in the environment its precondition names; a code read, unit test, green CI or another environment leaves it NOT RUN with exactly one reason, BLOCKED or DEFERRED (execution), and it climbs the blocking ladder; with no coverable yet, its follow-up lives on the coverage Tech Story once approved, and until then as an item of the Handoff deck. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §5.
+- Never call anything that sends, notifies or pushes downstream; reads and previews are fine. A project's own list (`## Never-call endpoints` in `agent-project.md`) is carried verbatim in briefing component 7.
+- Mutations only to set up a precondition, within the charter's budget. Every created row goes into `created_rows` the moment it exists; cleanup re-reads each one (a delete's response code is not proof).
+- Person-signed writes: every bug (`sprint-testing/references/reporting-templates.md` §1, gate §1.12, classified per `defect-management-doctrine.md` Part 1), every coverage Tech Story (`discovery-driven-doctrine.md` §3), every module-context write. This skill creates no Test and scores no ROI.
+- Evidence that reaches a person goes through the `evidence-artifact` skill; raw captures stay in the session `evidence/` until a coverable exists.
+- On any subagent failure: STOP, report which surface or finding failed, offer retry / skip-surface / abort; a skipped surface is recorded "not covered this round", never dropped silently. A skill that itself broke is reported upstream per `agentic-qa-core/references/upstream-feedback.md`.
+
+**Read full SKILL.md when**: starting a round cold, resuming a session, or handling a sweep, a tie-break or a Handoff not covered by the rules above.
+
+> Source: `.agents/skills/exploratory-testing/SKILL.md` · phase: `unknown` · kind: `workflow` · stage owner · source: frontmatter `compact_rules` (verbatim)
 
 ---
 
@@ -637,7 +662,7 @@ Skills indexed: 27
 - Apply techniques by trigger: EP always; BVA wherever a range/limit/length/date-window exists; State-Transition for stateful entities; Decision Table when 2+ conditions interact; Pairwise when 3+ combinable factors.
 - Parametrize for artifact economy: same-behavior data variants → ONE Test (`Scenario Outline` + `Examples` rows) per partition, NOT N separate Tests; split only when action / outcome / status / state differs. (Canon: doctrine §"Part 2.5".)
 - Cross-cutting characteristics (XSS, perf, a11y) deferred to app-level suites are an EXPLICIT handoff, not a silent drop — name the receiving suite or file the gap.
-- Documents already-validated behavior only (in a discovery-driven scope: behaviour a person confirmed, `oracle: confirmed`) — not an exploration tool (exploration belongs to `/sprint-testing`).
+- Documents already-validated behavior only (in a discovery-driven scope: behaviour a person confirmed, `oracle: confirmed`) — not an exploration tool (exploration belongs to `/sprint-testing` per ticket and `/exploratory-testing` per module, flow or sweep).
 - TC identity = Precondition + Action + verifiable outcome. Naming (TC): `{US_ID}: TC#: should <expected outcome> [<connector> <condition>] [given <precondition>]`; `Validate <feature>` is reserved for the GROUPING layer (Test Set summary / `describe()`). Reject `"Login test"`, `"Login - error"`, `"TC1: Test form"`.
 - ROI formula → one of three verdicts per TC: Candidate (feeds test-automation), Manual, Deferred. Prioritize by risk.
 - No ROI verdict (Candidate or Manual) while a scenario is `oracle: observed`: a characterized behaviour needs a person's answer to "is this intended?" first (decision-protocol kind 1), and waits unscored until then. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §4.

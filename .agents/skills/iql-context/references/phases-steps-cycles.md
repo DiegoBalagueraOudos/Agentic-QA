@@ -166,4 +166,6 @@ Source: the eight stage cards under `https://www.upexgalaxy.com/metodologia#stag
 
 Two things the web carries per stage that the repo contract table does not name: the role vocabulary above (QA Analyst, QA Lead, QA Automation Engineer, Executor, Verifier, Guardian) and a seven-word guardrail vocabulary (Lectura, Escritura, Aprobación, Secretos, Validación, Trazabilidad, Checkpoints: read, write, approval, secrets, validation, traceability, checkpoints) with a per-stage subset on each card. Both are indexed here by web citation only (`#stages`, and `#principios` "Los guardrails del agente").
 
+The web shows one Execution card, scoped to the Story. The repo adds a second, ticket-free entry into the same stage, owned by `exploratory-testing` (a flow, a module or a whole-product sweep; autonomy 3, no separate verifier, its refutation pass is internal): no new stage on either side (`agentic-qa-core/references/stage-gates.md` §"Execution (exploration without a ticket)").
+
 Sprint close is not a stage on either side: the web shows it as the STR event card, the repo as a batch-close DoD owned by whichever of `sprint-testing` or `regression-testing` arrives first (`agentic-qa-core/references/stage-gates.md` §"Sprint close").

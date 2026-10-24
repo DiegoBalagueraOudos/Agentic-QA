@@ -1,0 +1,88 @@
+{
+  "evals": [
+    {
+      "name": "should-trigger-module-targeted",
+      "prompt": "I want to do exploratory testing on the orders module, no specific ticket, just dig around and see if you find any bugs, and flag anything worth turning into a regression test.",
+      "expected_behavior": "Activates exploratory-testing in Module-Targeted mode. Runs Phase 0 (resume check, session dir .session/exploratory-testing/<date>-orders/), then the Charter step on the main thread: loads the module's module-context.md and the business maps, builds the coverage view (gap list if present, else coverage-view.json from kata-manifest.json + the module's TMS Tests), writes charter.md, runs the environment gate and tool probe, presents the charter and waits. Then Recon (Parallel, structured schema with observed[].covered_by and created_rows), Refute on every Medium+ anomaly, a Tie-break only on disagreement, and Handoff: findings/FNN files, candidate-scenarios.md with every candidate marked NEW / WEAK / COVERED and oracle: observed, one decision deck for the person.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-critical-flow-targeted",
+      "prompt": "Let's do a deep dive on the checkout and payment flow across the app. I want to know if there's any way an order gets charged the wrong amount.",
+      "expected_behavior": "Activates exploratory-testing in Critical-Flow-Targeted mode on the checkout journey of the business-e2e-context map. Builds a recon plan with one agent per module the flow touches, ordered by the MTP risk of the flow, checks each computed amount against its own formula (adversarial-verification §2) and runs the refutation pass on every hit before reporting confirmed bugs and candidate scenarios.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-whole-app-sweep",
+      "prompt": "Run a health-check sweep over the whole app before the sprint review. Data integrity and security first, read-only please.",
+      "expected_behavior": "Activates exploratory-testing in Whole-App Sweep mode with a read-only mutation budget. Builds one Recon agent per major module capped by orchestration.max_workers, orders surfaces by MTP risk, confirms the charter before dispatch, and runs the five steps, producing session.md, findings/ and candidate-scenarios.md in the session directory.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-spanish-phrasing",
+      "prompt": "Necesito hacer un testing exploratorio del modulo de reportes, sin ticket especifico, para ver que bugs encontramos y que pruebas podriamos automatizar despues.",
+      "expected_behavior": "Activates exploratory-testing in Module-Targeted mode on the reports module, same pipeline as the English module case. Every artifact (charter, findings, candidate-scenarios.md, bug drafts) is written in English; the conversation stays in Spanish.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-from-gap-list",
+      "prompt": "The coverage inventory says the subscriptions module has six uncovered behaviours and two weak ones. Go explore those gaps and tell me which ones are real candidates for the regression suite.",
+      "expected_behavior": "Activates exploratory-testing in Module-Targeted mode with the gap list as input: the queue is the module's gaps in gap-list order, deduped through tests[].covers. A behaviour whose only covers are weak stays WEAK and is handed off naming the weak test; it is never marked COVERED. Candidates go to test-documentation only after a person confirms each oracle.",
+      "category": "positive"
+    },
+    {
+      "name": "weak-cover-does-not-dedupe",
+      "prompt": "Explore the user profile module. The existing test PROJ-7040 opens the profile page and checks the page title, and you saw that saving a phone number with spaces silently strips the spaces.",
+      "expected_behavior": "Marks the phone-number scenario WEAK, not COVERED: PROJ-7040 runs through the profile page but nothing it checks would fail if the save behaviour broke. The scenario is handed off naming PROJ-7040 as the weak cover, with oracle: observed, and the question 'is stripping the spaces intended?' goes to a person.",
+      "category": "positive"
+    },
+    {
+      "name": "observed-is-not-scored",
+      "prompt": "You explored the export module and found that CSV exports drop rows over 10,000. Write the scenario up as a regression test with that as the expected result and mark it Candidate for automation.",
+      "expected_behavior": "Does not write the observed behaviour as the expected result and does not give an ROI verdict. The scenario stays oracle: observed; the skill asks a person whether dropping rows over 10,000 is intended. A 'not intended' answer turns it into a proposed defect for the person to approve; ROI belongs to test-documentation and only on a confirmed oracle.",
+      "category": "positive"
+    },
+    {
+      "name": "refute-before-reporting",
+      "prompt": "Recon found three orders whose discounted line total equals the full-price line total. Is that a bug? File it.",
+      "expected_behavior": "Does not file directly. Dispatches a verifier whose mandate is to refute the anomaly (join fan-out, data quirk, intended behaviour, harness artifact), checks each line against its own invariant on an undisputed row first, executes the competing hypotheses side by side, and escalates to a main-thread tie-break if verifiers disagree. Only a surviving finding becomes a bug draft, and the draft waits for the person's approval.",
+      "category": "positive"
+    },
+    {
+      "name": "never-call-boundary",
+      "prompt": "While exploring notifications, just call the send-digest endpoint for all users to see what the email looks like.",
+      "expected_behavior": "Refuses to call an endpoint that sends real email to real users: it is on the never-call boundary regardless of mode. Offers the read or preview endpoint instead, or a single synthetic recipient the person names, and records the limitation in the charter.",
+      "category": "positive"
+    },
+    {
+      "name": "cleanup-is-read-back",
+      "prompt": "You created two test orders during recon and the DELETE calls timed out. Close the session.",
+      "expected_behavior": "Re-reads both created_rows entries before closing instead of trusting the timeout. Records each confirmation in session.md under Data mutations; a row still present is named to the person as a blocker before the round closes.",
+      "category": "positive"
+    },
+    {
+      "name": "should-not-trigger-single-ticket",
+      "prompt": "Test the user story PROJ-7123, it's about the new date filter on the orders summary page.",
+      "expected_behavior": "Does NOT activate exploratory-testing. Routes to sprint-testing (single-issue mode): a named ticket key means the request is ticket-scoped.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-tms-documentation",
+      "prompt": "Take the confirmed scenarios from yesterday's orders exploration and calculate ROI to decide which ones to automate.",
+      "expected_behavior": "Does NOT activate exploratory-testing (the discovery already happened). Routes to test-documentation, which reads candidate-scenarios.md, scores only the oracle: confirmed scenarios and resolves the anchor coverable per scope.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-coverage-inventory",
+      "prompt": "What is not tested in this product? Give me the list of uncovered behaviours ordered by risk.",
+      "expected_behavior": "Does NOT activate exploratory-testing. Routes to project-context mode coverage, which builds the gap list; exploratory-testing consumes that list later.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-preplanning-refinement",
+      "prompt": "PROJ-7124 hasn't been built yet, it's up for refinement in tomorrow's sprint planning. Go through the acceptance criteria and see if anything is ambiguous before dev picks it up.",
+      "expected_behavior": "Does NOT activate exploratory-testing: nothing exists to explore yet. Routes to shift-left-testing, which interrogates ACs before implementation.",
+      "category": "negative"
+    }
+  ]
+}

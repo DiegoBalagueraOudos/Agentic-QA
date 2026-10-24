@@ -285,6 +285,7 @@ const JIRA_WRITE_TAGS = ['[ISSUE_TRACKER_TOOL]', '[TMS_TOOL]'];
 const ANTI_LEAK_SKILLS = [
   'shift-left-testing',
   'sprint-testing',
+  'exploratory-testing',
   'test-automation',
   'regression-testing',
   'test-documentation',
@@ -338,6 +339,7 @@ const SESSION_RETROFITTED_SKILLS: Record<string, RegExp | null> = {
   // module-slug alternative, so no separate branch is needed.
   'test-documentation': /^([A-Z]+-\d+|[a-z0-9][a-z0-9-]*)$/,
   'shift-left-testing': /^\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*$/,
+  'exploratory-testing': /^\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*$/,
 };
 
 /**

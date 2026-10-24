@@ -47,7 +47,7 @@ through it.
 | **Shift-Left** | `shift-left-testing` | pre-sprint (batch) | L1 — Prevention | (Stage 0) |
 | **Planning** | `sprint-testing` | in-sprint | L1 — Prevention | (Stage 1) |
 | **Execution** | `sprint-testing` | in-sprint | L2 — Early Detection | (Stage 2) |
-| **Execution** (exploration without a ticket) | *declared, not implemented* | in-sprint or post-sprint | L2 — Early Detection | (none) |
+| **Execution** (exploration without a ticket) | `exploratory-testing` | in-sprint or post-sprint | L2 — Early Detection | (none) |
 | **Reporting** | `sprint-testing` | in-sprint | L2 — Early Detection | (Stage 3) |
 | **Documentation** | `test-documentation` | post-sprint | L3 — Continuous Detection | (Stage 4) |
 | **Automation** | `test-automation` | post-sprint | L3 — Continuous Detection | (Stage 5) |
@@ -60,11 +60,11 @@ skill), and its capability level is **L4**. It is named here so the pipeline is
 honest about where it stops: no skill under `.agents/skills/` owns it. It deliberately carries **no DoD checklist** below — an empty checklist
 would read as an implemented gate that an orchestrator could tick.
 
-**Exploration without a ticket is declared, not implemented.** It is a second entry into the
-Execution stage, not a new stage: its scope is a module or a flow instead of a ticket, and it
-produces characterized scenarios (`oracle: observed`) for a person to confirm
-(`discovery-driven-doctrine.md` §1, §4). Like Observation it carries no DoD checklist until a skill
-owns it.
+**Exploration without a ticket is a second entry into the Execution stage**, not a new stage, and
+`exploratory-testing` owns it: its scope is a flow, a module or a whole-product sweep instead of a
+ticket, and it produces characterized scenarios (`oracle: observed`) for a person to confirm, each
+marked against existing coverage (`discovery-driven-doctrine.md` §1, §4). Its contract, lifecycle and
+DoD rows below are its own; the ticket-scoped Execution rows stay `sprint-testing`'s.
 
 **Sprint close is not a stage.** It is the batch boundary where the sprint-altitude
 artifacts (STP / STR) are closed out, and it is reached from Reporting or from
@@ -104,6 +104,7 @@ approval to advance, while any CAUTION or NO-GO is signed by a person.
 | **Shift-Left** | Rewrites ACs as Given/When/Then with concrete data, surfaces gaps and ambiguities, authors the pre-sprint ATP into the Story field, applies the Test-Design Checklist | The batch of candidate Stories and the per-Story summary; never lets the Story pass `Estimation` | Rewritten ACs, gaps as open questions to PO/Dev, dated label, review subtask | **2** | **none** — the PO/Dev refining the Story is the natural reviewer |
 | **Planning** | Creates ATS → ATP → ATR set-first, derives TCs or outlines per modality, decides the UI/API/DB surfaces by triage + veto + risk score | The Story Explanation checkpoint (the skill explains the story and waits) | ATP as a Test Plan item, ATR carrying its Test Environment (hard gate), coverage stated on both axes | **2** | **none** |
 | **Execution** | Runs smoke as Go/No-Go, executes the outlines, explores past them across the trifuerza, proposes bugs with derived severity | The triage of every bug and the **filing** of every bug; any security/auth severity recalibration | Screenshots under the PBI `evidence/` folder, smoke demonstrably run first | **3** | **none** |
+| **Execution** (exploration without a ticket) | Writes the charter, fans out recon across UI / API / DB, refutes every Medium+ anomaly, settles disagreements in the main thread, marks every candidate NEW / WEAK / COVERED against existing coverage, drafts bugs and coverage Tech Story proposals | The charter (unless the request already said go); every oracle answer ("is this intended?"); the **filing** of every bug; every coverage Tech Story; every module-context write | `charter.md`, one finding file per finding (confirmed and refuted), `candidate-scenarios.md` with marks and outcomes, captures verified on disk, `created_rows` re-read gone | **3** | **none** — the Refute step is an internal adversarial check, not a separate verifier |
 | **Reporting** | Fills the ATR, writes the QA comment, creates and verifies the traceability links | The workflow transition (`qa_sign_off` / `defect_reported`) | ATR as a Test Execution item, links resolved and verified in direction | **2** | **none** |
 | **Sprint close** | Creates or completes the sprint STR (first-to-arrive creates it, the other completes it), sets its Test Environment, links STR → STP via the `testPlan` edge and STR → RTP (dual membership) | The STP's closure — its final scope/progress and the transition to its terminal state | STR as a Test Execution item carrying its Test Environment, STR → STP and STR → RTP links resolved, STP at its terminal state | **2** | **none** |
 | **Documentation** | Derives scenarios by technique, scores ROI, proposes Candidate / Manual / Deferred, persists only the regression-worthy ones | **Every ROI verdict**, the regression epic, the Test Set | ROI score per scenario; the >50% Candidate/Manual alarm answered | **2** | **recommended** — a second agent re-reads the verdicts against the ATR |
@@ -149,6 +150,7 @@ terminal there) is `artifact-lifecycle.md` §1. Do not restate it; resolve again
 | **Shift-Left** | Story · `[QA] Shift-Left Review` subtask | Story at `estimation` (via `analyze` → `estimate`, stopping there); subtask at `close` (via `complete`) |
 | **Planning** | ATP · ATS · ATR · sprint TCs (xray) · STP | ATP at `ready` (via `designed`); ATS still `designing` (membership is not final until Reporting); ATR `active` **carrying its Test Environment**; TCs at `ready` (via `start_design` → `ready_to_run`), parented to **QA Test Repository**; STP at `ready` once the sprint scope is set |
 | **Execution** | Story / coverable | at `in_test` (via `start_testing`), `qa_assignee` set to self |
+| **Execution** (exploration without a ticket) | filed Bug / Improvement · coverage Tech Story (only those a person approved) | each filed issue at `open`, parented to **QA Defect Management**; each coverage Tech Story at the status its `create` transition lands it, parented to **QA Test Repository** (`artifact-lifecycle.md` §1, row "Coverage Tech Story"); no Test is created here |
 | **Reporting** | ATR · ATS · ATP · Story · filed Bug/Defect/Improvement | ATR at `close` (via `complete`, after every run status is recorded); ATS at `close` (via `done`); ATP at `completed` (via `complete`); Story at `qa_approved` or `blocked`; each filed issue at `open`, parented to **QA Defect Management** |
 | **Sprint close** | STP · STR | STP at `completed` (via `complete`); STR at `close` (via `complete`) after the verdict is written |
 | **Documentation** | promoted TCs · RTP · feature TS · Preconditions | Candidate TCs at `candidate` (via `automation_review_from_ready` → `approve_to_automate`); Manual TCs at `manual` (via `for_manual`, **from `ready` — there is no `in_review` → `manual` edge**); Deferred TCs stay `ready`; RTP at `ready` and **stays there** (long-lived, never `completed`); feature TS stays `designing`; Preconditions stay `active` (no transition exists) |
@@ -236,6 +238,31 @@ the stage NEEDS REVISION.
     on observation in the precondition's environment, else NOT RUN with its ladder reason
     (`discovery-driven-doctrine.md` §5)
 [ ] Bugs filed with story + AC traceability where found
+[ ] Artifact statuses match §"Lifecycle expectations per stage"; light stage verifier run
+```
+
+### Execution (exploration without a ticket) — `exploratory-testing`, Charter / Recon / Refute / Tie-break / Handoff
+
+```
+[ ] Scope mode picked (flow / module / sweep), not a ticket key; charter written and confirmed
+[ ] The module context read for every in-scope module
+[ ] Coverage view built before Recon (the gap list, or the session's coverage-view.json, with
+    `TMS not read` stated when the TMS was not read) and passed to every Recon agent
+[ ] Every Recon report in the structured schema, `created_rows` present even when empty;
+    a failed or skipped surface recorded as "not covered this round"
+[ ] Every Medium+ anomaly sent to a refute-mandated verifier; every disagreement settled by the
+    main-thread tie-break (decisive query + live code read)
+[ ] One finding file per finding, CONFIRMED and REFUTED alike
+[ ] Every candidate marked NEW / WEAK / COVERED (a weak, stale or unverified cover never makes
+    COVERED) and carrying `oracle: observed | confirmed | not intended`; PASSED / FAILED only on
+    observation in the precondition's environment, else NOT RUN with its ladder reason
+    (`discovery-driven-doctrine.md` §5)
+[ ] Oracle questions, bug filings, Tech Stories and module-context writes asked by weight and
+    signed by a person; every approved write read back
+[ ] Module-context harvest asked for every touched module, or recorded as skipped
+[ ] A `DEFERRED (execution)` with no coverable keeps its follow-up on the coverage Tech Story, or
+    as a Handoff item until that Story is approved
+[ ] Every `created_rows` entry re-read gone
 [ ] Artifact statuses match §"Lifecycle expectations per stage"; light stage verifier run
 ```
 
