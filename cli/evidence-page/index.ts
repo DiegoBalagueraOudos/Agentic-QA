@@ -6,6 +6,10 @@
  *                            [--repo <root>] [--bug-pack <BUG>=<pack.json>] [--max-mb N] [--host claude-artifact|local] [--json]
  *   bun run evidence extract --page <page.html> --out <pack.json>
  *   bun run evidence record  --pack <pack.json> --url <url>
+ *   bun run evidence attach  --pack <bug pack.json> | --key <BUG> --png <png>  [--run <id> | --test <TC> --exec <EXEC>]
+ *                            [--source jira-xray|jira-native|none] [--dry-run] [--json]
+ *   bun run evidence link    --pack <pack.json> | --key <KEY> --url <url>  [--run <id> [--case <id>] | --test <TC> --exec <EXEC>]
+ *                            [--source ...] [--dry-run] [--json]
  *   bun run evidence demo    [--out <dir>]
  *
  * CONTRACT
@@ -21,24 +25,37 @@
  *   - `record` stores the URL the Artifact tool returned on the pack; only a host in
  *     `board.evidence.allowed_hosts` is accepted, and a second URL for an already
  *     published pack is refused.
+ *   - `attach` embeds a bug's ONE thumbnail at the end of its tracker Description
+ *     (a comment when the Description cannot be edited) and `link` adds the page as
+ *     a remote link (`cli/lib/evidence-page/tracker.ts`); on jira-xray a named Test
+ *     Run also gets the PNG as evidence / the TC deep link in its comment; `none`
+ *     writes nothing. Every write is read back before the command says done.
+ *     `--dry-run` prints every call of a first run and sends nothing.
  *   - The ticket key pattern and the allowed hosts come from the `board:` block when
- *     it is configured, else the generic key shape and the shipped hosts.
- *   - Exit codes: 0 done, 1 invalid pack / refused secret / size / URL / missing Python, 2 usage.
+ *     it is configured, else the generic key shape and the shipped hosts. The tracker
+ *     modality is `--source`, else `board.source`, else `testing.tms_cli`.
+ *   - Exit codes: 0 done, 1 invalid pack / refused secret / size / URL / missing Python /
+ *     tracker error or read-back mismatch, 2 usage.
  */
 
 import type { EvidenceHost } from '../lib/evidence-page/hosts.ts';
 import type { Pack } from '../lib/evidence-page/pack.ts';
+import type { EvidenceTracker, RunRef, TrackerResult } from '../lib/evidence-page/tracker.ts';
+import type { SourceKind } from '../lib/sprint-source/index.ts';
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
+import { parse as parseYaml } from 'yaml';
 
 import { DEMO_OUT, writeDemo } from '../lib/evidence-page/demo.ts';
-import { describePage, EVIDENCE_HOSTS, publishEvidence, recordPublication } from '../lib/evidence-page/hosts.ts';
+import { describePage, EVIDENCE_HOSTS, evidenceUrlError, publishEvidence, recordPublication } from '../lib/evidence-page/hosts.ts';
 import { GENERIC_TICKET_KEY } from '../lib/evidence-page/pack.ts';
 import { buildError, buildWarnings, pythonPreflight, runBuildPy } from '../lib/evidence-page/python.ts';
-import { DEFAULT_EVIDENCE_HOSTS, loadBoardConfig } from '../lib/sprint-source/index.ts';
+import { createEvidenceTracker, dryRunIO, liveTrackerIO, loadMediaHelpers, xrayDocs } from '../lib/evidence-page/tracker.ts';
+import { DEFAULT_EVIDENCE_HOSTS, loadBoardConfig, modalityFromTmsCli, SOURCE_KINDS } from '../lib/sprint-source/index.ts';
 import { checkoutRoots } from '../lib/worktree.ts';
+import { MUTATIONS, QUERIES } from '../xray/lib/graphql.ts';
 
 const USAGE = `Usage: bun run evidence <command> [options]
 
@@ -55,25 +72,45 @@ const USAGE = `Usage: bun run evidence <command> [options]
                                 recover the pack(s) embedded in a built or published page
   record   --pack <pack.json> --url <url>
                                 store the URL the Artifact tool returned
+  attach   --pack <bug pack.json> | --key <BUG> --png <png>
+                                embed the bug's thumbnail in its tracker Description, read back
+           [--run <id> | --test <TC> --exec <EXEC>]  jira-xray: also the Test Run's evidence
+  link     --pack <pack.json> | --key <KEY> --url <url>
+                                link the published page from the issue (remote link), read back
+           [--run <id> [--case <id>] | --test <TC> --exec <EXEC>]  jira-xray: the TC deep link in the run comment
+           (attach, link) [--source jira-xray|jira-native|none] [--dry-run] print the calls, send nothing
   demo     [--out <dir>]        build synthetic story, bug and review pages (default ${DEMO_OUT})
 
-Needs Python 3.9+ and Pillow (python3 -m pip install pillow).`;
+build, extract, record and demo need Python 3.9+ and Pillow (python3 -m pip install pillow).`;
 
 interface ProjectEvidenceConfig {
   ticketKeyPattern: RegExp
   allowedHosts: readonly string[]
+  /** The tracker `attach` / `link` write to: `board.source`, else `testing.tms_cli`. */
+  source: SourceKind
   note: string | null
+}
+
+/** `testing.tms_cli` read straight from the yaml: the board block may be unconfigured. */
+function tmsModality(): SourceKind {
+  try {
+    const root = parseYaml(readFileSync(join(process.cwd(), '.agents', 'project.yaml'), 'utf8')) as { testing?: { tms_cli?: unknown } } | null;
+    return modalityFromTmsCli(root?.testing?.tms_cli);
+  }
+  catch {
+    return modalityFromTmsCli(undefined);
+  }
 }
 
 function projectConfig(): ProjectEvidenceConfig {
   const result = loadBoardConfig(process.cwd());
   if (result.state === 'ok') {
-    return { ticketKeyPattern: result.config.ticketKeyPattern, allowedHosts: result.config.evidenceHosts, note: null };
+    return { ticketKeyPattern: result.config.ticketKeyPattern, allowedHosts: result.config.evidenceHosts, source: result.config.source, note: null };
   }
   const note = result.state === 'invalid'
     ? `the board: block is invalid (run bun run board:check); using the generic key shape and ${DEFAULT_EVIDENCE_HOSTS.join(', ')}`
     : null;
-  return { ticketKeyPattern: GENERIC_TICKET_KEY, allowedHosts: DEFAULT_EVIDENCE_HOSTS, note };
+  return { ticketKeyPattern: GENERIC_TICKET_KEY, allowedHosts: DEFAULT_EVIDENCE_HOSTS, source: tmsModality(), note };
 }
 
 function usage(message: string): never {
@@ -272,6 +309,153 @@ function runRecord(values: Record<string, string | string[] | boolean | undefine
   return 0;
 }
 
+// ---------------------------------------------------------------------------
+// attach / link: the tracker side (cli/lib/evidence-page/tracker.ts)
+// ---------------------------------------------------------------------------
+
+/** The bug's tracker thumbnail, where `build --thumb` writes it by default. */
+export function defaultThumbPath(packPath: string, pack: Pick<Pack, 'kind' | 'ticket'>): string {
+  return join(dirname(defaultPagePath(packPath, pack)), `${pack.ticket.id}-thumbnail.png`);
+}
+
+interface TrackerTarget { key: string, pack: Pack | null, packPath?: string }
+
+function trackerTarget(values: Record<string, string | string[] | boolean | undefined>, command: string): TrackerTarget {
+  const packPaths = (values.pack as string[] | undefined) ?? [];
+  if (packPaths.length > 1) {
+    usage(`${command} takes one --pack`);
+  }
+  const key = values.key as string | undefined;
+  if (packPaths.length === 1) {
+    const pack = readPack(packPaths[0]);
+    if (pack === null || typeof pack.ticket?.id !== 'string') {
+      usage(`${packPaths[0]}: cannot read the pack's ticket.id`);
+    }
+    if (key !== undefined && key !== pack.ticket.id) {
+      usage(`--key ${key} is not the pack's ticket ${pack.ticket.id}`);
+    }
+    return { key: pack.ticket.id, pack, packPath: packPaths[0] };
+  }
+  if (key === undefined) {
+    usage(`${command} needs --pack <pack.json> or --key <KEY>`);
+  }
+  return { key, pack: null };
+}
+
+function runRef(values: Record<string, string | string[] | boolean | undefined>, source: SourceKind): RunRef | undefined {
+  const run = values.run as string | undefined;
+  const test = values.test as string | undefined;
+  const exec = values.exec as string | undefined;
+  if (run === undefined && test === undefined && exec === undefined) {
+    return undefined;
+  }
+  if (source !== 'jira-xray') {
+    usage(`--run / --test / --exec name an Xray Test Run; the ${source} source has none`);
+  }
+  if (run !== undefined) {
+    if (test !== undefined || exec !== undefined) {
+      usage('give --run <id> OR --test <TC> --exec <EXEC>, not both');
+    }
+    return { runId: run };
+  }
+  if (test === undefined || exec === undefined) {
+    usage('--test and --exec go together');
+  }
+  return { test, execution: exec };
+}
+
+function trackerSource(values: Record<string, string | string[] | boolean | undefined>, config: ProjectEvidenceConfig): SourceKind {
+  const flag = values.source as string | undefined;
+  if (flag === undefined) {
+    return config.source;
+  }
+  if (!(SOURCE_KINDS as readonly string[]).includes(flag)) {
+    usage(`--source must be one of ${SOURCE_KINDS.join(' | ')}`);
+  }
+  return flag as SourceKind;
+}
+
+async function tracker(source: SourceKind, dryRun: boolean, run: RunRef | undefined): Promise<{ tracker: EvidenceTracker, calls: string[] | null }> {
+  if (dryRun || source === 'none') {
+    const io = dryRunIO(run);
+    return { tracker: createEvidenceTracker(source, io, xrayDocs(QUERIES, MUTATIONS), loadMediaHelpers), calls: io.calls };
+  }
+  const live = await liveTrackerIO();
+  return { tracker: createEvidenceTracker(source, live.io, live.docs, loadMediaHelpers), calls: null };
+}
+
+function report(result: TrackerResult, json: boolean, dryRun: boolean, calls: string[] | null, done: string[]): number {
+  if (json) {
+    console.log(JSON.stringify({ ok: result.ok, dryRun, lines: result.lines, ...(result.error === undefined ? {} : { error: result.error }), ...(dryRun && calls !== null ? { calls } : {}), ...(result.ok ? { next: done } : {}) }));
+    return result.ok ? 0 : 1;
+  }
+  if (dryRun && calls !== null) {
+    console.log('dry run: nothing sent. The calls of a first run (a live run reads first and may skip some):');
+    calls.forEach((call, i) => console.log(`  ${i + 1}. ${call}`));
+  }
+  result.lines.forEach(line => console.log(`${result.ok || line !== result.lines.at(-1) ? '✓' : '·'} ${line}`));
+  if (!result.ok) {
+    console.error(`✗ ${result.error}`);
+    return 1;
+  }
+  if (!dryRun) {
+    done.forEach(line => console.log(`→ ${line}`));
+  }
+  return 0;
+}
+
+async function runAttach(values: Record<string, string | string[] | boolean | undefined>, config: ProjectEvidenceConfig, json: boolean): Promise<number> {
+  const target = trackerTarget(values, 'attach');
+  const png = (values.png as string | undefined) ?? (target.pack !== null && target.packPath !== undefined ? defaultThumbPath(target.packPath, target.pack) : undefined);
+  if (png === undefined) {
+    usage('attach needs --png <png> with --key (or a --pack, whose thumbnail path build --thumb writes)');
+  }
+  if (target.pack !== null && target.pack.kind !== 'bug') {
+    usage(`attach takes a bug's pack: ${target.key} is a ${target.pack.kind} pack (its page is linked with link)`);
+  }
+  if (!keyPatternFor(target.packPath, config.ticketKeyPattern).test(target.key)) {
+    usage(`${target.key} does not match the ticket key pattern ${config.ticketKeyPattern.source}`);
+  }
+  if (!existsSync(png)) {
+    console.error(`✗ ${png}: no thumbnail yet; build it with bun run evidence build --pack <bug pack> --thumb ${png}`);
+    return 1;
+  }
+  const source = trackerSource(values, config);
+  const run = runRef(values, source);
+  const dryRun = values['dry-run'] === true;
+  const { tracker: t, calls } = await tracker(source, dryRun, run);
+  const result = await t.attachThumbnail(target.key, resolve(png), run);
+  const parent = target.pack?.ticket.parent ?? '<ticket>';
+  const next = source === 'none' || !result.embedded
+    ? []
+    : [`write "(image embedded below)" in ${target.key}'s report only now, then: bun run board bug ${parent} ${target.key} --evidence-embedded --by worker`];
+  return report(result, json, dryRun, calls, next);
+}
+
+async function runLink(values: Record<string, string | string[] | boolean | undefined>, config: ProjectEvidenceConfig, json: boolean): Promise<number> {
+  const target = trackerTarget(values, 'link');
+  const url = (values.url as string | undefined) ?? target.pack?.artifact?.url;
+  if (url === undefined) {
+    usage(target.pack === null ? 'link needs --url <url> with --key' : `${target.key}'s pack has no artifact.url yet: publish, then bun run evidence record`);
+  }
+  if (!keyPatternFor(target.packPath, config.ticketKeyPattern).test(target.key)) {
+    usage(`${target.key} does not match the ticket key pattern ${config.ticketKeyPattern.source}`);
+  }
+  const urlError = evidenceUrlError(url, config.allowedHosts);
+  if (urlError !== null) {
+    console.error(`✗ ${urlError}`);
+    return 1;
+  }
+  const source = trackerSource(values, config);
+  const run = runRef(values, source);
+  // The deep link names the case by the run's test key unless --case gives the pack's case id
+  const caseId = values.case as string | undefined;
+  const dryRun = values['dry-run'] === true;
+  const { tracker: t, calls } = await tracker(source, dryRun, run);
+  const result = await t.linkEvidence(target.key, { url }, run === undefined ? undefined : { ...run, caseId });
+  return report(result, json, dryRun, calls, []);
+}
+
 function runDemo(values: Record<string, string | string[] | boolean | undefined>): number {
   preflightOrExit(false);
   const out = resolve((values.out as string | undefined) ?? DEMO_OUT);
@@ -302,7 +486,7 @@ function runDemo(values: Record<string, string | string[] | boolean | undefined>
   return failed === 0 ? 0 : 1;
 }
 
-function main(argv: string[]): number {
+async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command === undefined || command === '--help' || command === '-h') {
     console.log(USAGE);
@@ -324,6 +508,13 @@ function main(argv: string[]): number {
         'host': { type: 'string' },
         'json': { type: 'boolean' },
         'url': { type: 'string' },
+        'key': { type: 'string' },
+        'png': { type: 'string' },
+        'run': { type: 'string' },
+        'test': { type: 'string' },
+        'exec': { type: 'string' },
+        'source': { type: 'string' },
+        'dry-run': { type: 'boolean' },
       },
       strict: true,
       allowPositionals: false,
@@ -344,6 +535,10 @@ function main(argv: string[]): number {
       return runExtract(values);
     case 'record':
       return runRecord(values, config);
+    case 'attach':
+      return runAttach(values, config, values.json === true);
+    case 'link':
+      return runLink(values, config, values.json === true);
     case 'demo':
       return runDemo(values);
     default:
@@ -352,5 +547,5 @@ function main(argv: string[]): number {
 }
 
 if (import.meta.main) {
-  process.exit(main(process.argv.slice(2)));
+  process.exit(await main(process.argv.slice(2)));
 }

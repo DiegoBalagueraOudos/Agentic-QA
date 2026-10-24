@@ -1,0 +1,26 @@
+{
+  "getTestExecution": {
+    "issueId": "17141",
+    "jira": {
+      "key": "ACME-7141",
+      "summary": "ATR: ACME-7001",
+      "status": { "name": "In Progress" }
+    },
+    "tests": { "total": 2, "results": [] },
+    "testRuns": {
+      "total": 2,
+      "results": [
+        {
+          "id": "run-7112",
+          "status": { "name": "PASSED", "color": "#95C160" },
+          "test": { "issueId": "17112", "jira": { "key": "ACME-7112" } }
+        },
+        {
+          "id": "run-7111",
+          "status": { "name": "FAILED", "color": "#D45D52" },
+          "test": { "issueId": "17111", "jira": { "key": "ACME-7111" } }
+        }
+      ]
+    }
+  }
+}

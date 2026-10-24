@@ -1,0 +1,13 @@
+[
+  {
+    "self": "https://acme.example/rest/api/3/attachment/7202",
+    "id": "7202",
+    "filename": "ACME-7101-thumbnail.png",
+    "author": { "displayName": "QA Bot" },
+    "created": "2026-01-14T15:20:00.000+0000",
+    "size": 0,
+    "mimeType": "image/png",
+    "content": "https://acme.example/rest/api/3/attachment/content/7202",
+    "thumbnail": "https://acme.example/rest/api/3/attachment/thumbnail/7202"
+  }
+]

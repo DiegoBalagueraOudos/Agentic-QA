@@ -1,0 +1,15 @@
+{
+  "getTestRunById": {
+    "id": "run-7111",
+    "status": { "name": "FAILED", "color": "#D45D52", "description": "The test run has failed" },
+    "comment": "Total ignores the discount after reload.",
+    "defects": ["17101"],
+    "evidence": [{ "id": "ev-7501", "filename": "ACME-7001-TC2-total.png" }],
+    "steps": [],
+    "test": {
+      "issueId": "17111",
+      "jira": { "key": "ACME-7111", "summary": "Discount survives a reload" }
+    },
+    "testExecution": { "issueId": "17141", "jira": { "key": "ACME-7141" } }
+  }
+}

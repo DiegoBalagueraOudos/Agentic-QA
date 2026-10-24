@@ -1,0 +1,7 @@
+{
+  "self": "https://acme.example/rest/api/3/issue/17101/comment/7301",
+  "id": "7301",
+  "author": { "displayName": "QA Bot" },
+  "body": { "type": "doc", "version": 1, "content": [] },
+  "created": "2026-01-14T15:21:00.000+0000"
+}
