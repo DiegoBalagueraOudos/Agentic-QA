@@ -3,7 +3,7 @@
  * the demo `tickets.yaml` through the `none` source, and an injected source for the failure paths.
  * No network.
  */
-import type { BoardConfig, Source, SourceSnapshot } from '../lib/sprint-source/index.ts';
+import type { BoardConfig, Catalogs, Source, SourceSnapshot, Transport } from '../lib/sprint-source/index.ts';
 import type { BoardEvent, TrackerSnapshot } from './model.ts';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,7 +17,8 @@ process.env.SPRINT_BOARD_PROJECT_YAML = join(import.meta.dir, 'demo', 'project.y
 const { appendEvent, BOARD_DIR, readTracker, setCurrent, writeSprint } = await import('./store.ts');
 const { boardConfig, syncFromSource } = await import('./sync.ts');
 const { SCHEMA } = await import('./model.ts');
-const { UnknownStatusError } = await import('../lib/sprint-source/index.ts');
+const { resolveBoardConfig, UnknownStatusError } = await import('../lib/sprint-source/index.ts');
+const { createJiraNativeSource } = await import('../lib/sprint-source/jira-native.ts');
 
 const NOW = new Date('2026-01-14T16:00:00Z');
 
@@ -137,6 +138,80 @@ suite('sync failures keep the last good source.json', () => {
     expect(lines).toContain('sync: DEMO-999 not found in tickets.yaml');
     expect(lines.at(-1)).toContain('(2 missing)');
     expect((readTracker(slug) as TrackerSnapshot).tickets).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// jira-native, replaying the sprint source's recorded responses (no network)
+// ---------------------------------------------------------------------------
+
+const RECORDED = join(import.meta.dir, '..', 'lib', 'sprint-source', 'fixtures', 'recorded');
+/** A recorded response; the Jira search ones are `{ issues: [...] }`. */
+const recorded = <T = { issues: { key: string }[] }>(name: string): T => JSON.parse(readFileSync(join(RECORDED, name), 'utf8')) as T;
+const SPRINT_JQL = 'project = ACME AND sprint in openSprints() AND issuetype = Story';
+
+function jiraConfig(): BoardConfig {
+  const catalogs: Catalogs = {
+    workflows: recorded('workflows.json'),
+    fields: recorded('fields.json'),
+    linkTypes: recorded('link-types.json'),
+  };
+  const r = resolveBoardConfig({
+    project: { project_name: 'Acme Store', project_key: 'ACME' },
+    issue_tracker: { atlassian_url: 'https://company.atlassian.net' },
+    testing: { default_env: 'staging', tms_cli: 'acli' },
+    board: {
+      source: 'auto',
+      jql: SPRINT_JQL,
+      statuses: {
+        tickets: { not_ready: ['to_do'], in_test: ['in_test'], tested: ['qa_approved', 'completed'], blocked: ['blocked'], dropped: ['aborted'] },
+        bugs: { open: ['open'], fixed: ['ready_for_qa'], resolved: ['closed'], discarded: ['rejected'] },
+      },
+    },
+  }, catalogs);
+  if (r.state !== 'ok') { throw new Error(JSON.stringify(r)); }
+  return r.config;
+}
+
+/** The recorded Jira reads; any other request fails the test. */
+function replay(): Transport {
+  const tickets = recorded('jira-search-tickets.json');
+  const sprint = recorded('jira-search-sprint.json');
+  const withAcme3 = { ...tickets, issues: [...tickets.issues, sprint.issues.find(i => i.key === 'ACME-3')] };
+  return {
+    async jira<T>(path: string, body?: unknown): Promise<T> {
+      const jql = (body as { jql?: string } | undefined)?.jql ?? '';
+      if (path !== '/rest/api/3/search/jql') { throw new Error(`unexpected path ${path}`); }
+      if (jql === SPRINT_JQL) { return sprint as T; }
+      if (jql.startsWith('key in (ACME-1, ACME-2, ACME-3)')) { return withAcme3 as T; }
+      if (jql.startsWith('key in (ACME-1, ACME-2)')) { return tickets as T; }
+      if (jql.startsWith('key in (ACME-31)')) { return recorded('jira-search-sets.json'); }
+      if (jql.startsWith('key in (ACME-11, ACME-12')) { return recorded('jira-search-tests.json'); }
+      if (jql.startsWith('key in (ACME-41, ACME-42, ACME-43)')) { return recorded('jira-search-executions.json'); }
+      if (jql.startsWith('key in (ACME-21)')) { return recorded('jira-search-bugs.json'); }
+      throw new Error(`unexpected jql ${jql}`);
+    },
+    async xray<T>(): Promise<T> { throw new Error('jira-native never calls Xray'); },
+  };
+}
+
+suite('sync through jira-native (recorded responses)', () => {
+  test('tracked tickets with their tests, bucket and link; --discover adds the QA owner\'s sprint row', async () => {
+    appendEvent(slug, { kind: 'scope.add', ticket: 'ACME-1', text: 'added' });
+    appendEvent(slug, { kind: 'scope.add', ticket: 'ACME-2', text: 'added' });
+    const config = jiraConfig();
+    await quiet(async () => syncFromSource(slug, { discover: true, now: NOW, config, createSource: c => createJiraNativeSource(c, replay()) }));
+    const t = readTracker(slug)!;
+    expect(t.source).toBe('jira-native');
+    expect(t.tickets['ACME-1']).toMatchObject({ status: 'In Test', statusKey: 'in_test', bucket: 'in_test', priority: 'High', module: 'Search', dev: 'Avery Dev', qa: 'Rowan QA', link: 'https://company.atlassian.net/browse/ACME-1', bugs: ['ACME-21'] });
+    expect(t.tickets['ACME-1'].tcs.map(x => x.id)).toEqual(['ACME-11', 'ACME-12']);
+    expect(t.tickets['ACME-2']).toMatchObject({ status: 'QA Approved', bucket: 'tested' });
+    // ACME-3 sat untracked with QA owner Rowan QA, the board's QA: it joins the board.
+    expect(t.tickets['ACME-3']).toMatchObject({ status: 'To Do', bucket: 'not_ready' });
+    expect(events().some(e => e.kind === 'scope.add' && e.ticket === 'ACME-3' && e.text.includes('found in Jira'))).toBe(true);
+    expect(t.bugs['ACME-21']).toMatchObject({ bucket: 'open', statusKey: 'open' });
+    expect(t.discover?.sprintRows).toBe(3);
+    expect(t.discover?.untracked).toEqual([]);
   });
 });
 
