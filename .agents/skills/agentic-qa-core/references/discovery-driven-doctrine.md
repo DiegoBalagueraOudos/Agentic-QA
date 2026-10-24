@@ -102,7 +102,7 @@ Correctly so, for flow 1. For flow 2 the anchor is a **coverage Tech Story**.
 
 | Property | Value |
 |---|---|
-| Work type | `tech_story` (already `coverable: true` in `.agents/jira-required.yaml`) |
+| Work type | `tech_story`, a coverable type (check its `coverable` key in `.agents/jira-required.yaml`) |
 | Grain | one per gap, or one per module; the person who approves the gap list picks the grain |
 | Parent | **QA Test Repository** (`qa.qa_epics.test_repository_epic`), never a product Epic |
 | Components | the product module |
@@ -119,8 +119,8 @@ Story" is not touched: the Tech Story is its own coverable with its own ATS.
 orphan only when it has no issue link to any `coverable: true` type and no membership in an `ATS:*` Set
 that itself links a coverable. So a Test anchored this way is not an orphan, even when Tech Stories are
 not pulled. It materializes locally, under `tech-stories/`, only when the pull includes the type:
-`tech_story` is declared `sync: optional`, so a project running discovery adds it with `--types`
-or `JIRA_SYNC_TYPES`.
+a plain `pull` sweeps only the types whose `sync` key in `.agents/jira-required.yaml` says `default`, so
+unless `tech_story` is one of them, a project running discovery adds it with `--types` or `JIRA_SYNC_TYPES`.
 
 ---
 
@@ -140,8 +140,9 @@ writes the observed behaviour into a test as the expected result freezes whateve
 4. **Record the answer.** `oracle: confirmed` with who answered, where and when; or `not intended`,
    which turns the scenario into a proposed defect (`./defect-management-doctrine.md`).
 
-**Nothing becomes `Candidate` while it is `oracle: observed`.** The ROI verdict is signed on a
-confirmed expected result or not at all.
+**No ROI verdict, Candidate or Manual, while a scenario is `oracle: observed`.** The ROI verdict is
+signed on a confirmed expected result or not at all: a Manual regression Test with an unconfirmed
+expected result freezes the same defect, only run by hand. An observed scenario waits, unscored.
 
 **How the questions reach the person** follows `AGENTS.md` §2, which picks the instrument by the
 weight of the decision, never by how many questions there are: a single question goes on the coverage
@@ -177,7 +178,7 @@ enter the regression repository; the execution reason says a case was not observ
 qualifier.
 
 **Mapping another vocabulary.** A board, a sync or an importer that holds its own status list maps it
-onto this table: `BLOCKED` and `DEFERRED` are `NOT RUN` with a reason, never separate outcomes for
+onto this table: `BLOCKED` and `DEFERRED` (meaning `DEFERRED (execution)`) are `NOT RUN` with a reason, never separate outcomes for
 counting purposes, and never the ROI verdict. A status the mapping does not know fails loudly; it is
 never counted as one of the three.
 
@@ -198,7 +199,7 @@ A `NOT RUN` case does not wait. It climbs this ladder, in this order:
 1. **Recreate** the precondition in the test environment: a fixture identity or a reset path the product
    already has (`./test-design-doctrine.md` "Unreachable preconditions", outcomes 1 and 2).
 2. **QA defers, on its own authority**, when it cannot be recreated: write the `DEFERRED (execution)` line
-   and open a follow-up task: a subtask on the coverable, `[QA] Deferred: {TC_KEY}: {what is missing}`,
+   and open a follow-up task: a subtask on the coverable, `[QA] Deferred (execution): {TC_KEY}: {what is missing}`,
    assignee the acting QA user, naming who must provide what. With no subtask level on the instance, the
    follow-up is a comment on the coverable. When the cause is a product or test-environment gap worth its
    own ticket, an `Improvement` is proposed as well (`./defect-management-doctrine.md`), and its filing keeps
@@ -214,9 +215,13 @@ The ladder replaces two failure modes: false coverage (a case marked PASSED on i
 
 - A Story is reportable when no case is `BLOCKED`. An open `BLOCKED` keeps it at `in_test`.
 - `qa_sign_off` is allowed when every case is `PASSED` or `DEFERRED (execution)` with its record, and none
-  is `FAILED`. The QA comment lists every deferral. The person who signs the transition sees that list: the
+  is `FAILED` (a FAIL recalibrated to GO-with-debt per `sprint-testing/references/reporting-templates.md`
+  §5.0 counts as not FAILED). The QA comment lists every deferral. The person who signs the transition sees that list: the
   deferral is QA's call, the signature is still the person's (`./stage-gates.md` §"Contract table").
 - The acceptance Test Execution closes once every non-terminal run carries its `DEFERRED (execution)` line.
+- When EVERY case is deferred and none was observed, QA does not sign off on its own: that is ladder step 4,
+  and the owner decides.
+- A bug retest is never closed on a deferral: `retest_passed` requires the repro case observed PASSED.
 
 ---
 
@@ -231,6 +236,15 @@ Strategies without an integration branch or a trunk (`solo-main`, `github-flow`,
 into the production branch directly, so the rule changes nothing there. Where a trunk or an integration
 branch exists (`sdet`, `main-integration`, `enterprise`, `gitflow`, `gitlab-flow`), it keeps the TMS from
 reporting a test as automated before it exists on the branch the regression suite runs.
+
+**Who fires `merged` after a promotion.** Under a strategy with an integration branch, the promotion merge
+into the production branch owes one post-promotion pass: every TC at `pull_request` whose spec file is now
+present on `origin/<production>` gets `merged`, fired through `test-documentation` + `[ISSUE_TRACKER_TOOL]`.
+`git-flow-master` hands that pass off when the promotion lands; it never touches the TMS itself. Presence is
+checked by path (`git cat-file -e origin/<production>:<spec path>`), not by commit ancestry, because a squash
+promotion (`git_strategy.decisions.promote_method`) rewrites the commits. A tracker automation that fires
+`merged` must filter on base branch = the production branch. The `test-automation` light stage verifier is the
+backstop: no TC at `pull_request` whose spec is already on the production branch.
 
 ---
 
@@ -258,8 +272,8 @@ Rules seen in another project enter this repo one at a time, each one re-earned:
   (`.context/ADR/ADR-0006-forensic-measurements-ledger.md`), and the doctrine keeps the why.
 - **Code before doctrine.** A rule a script can check is shipped as the check. Prose is for what no check
   can see.
-- **A size cap per skill.** A new skill keeps its `SKILL.md` body under 500 lines (Anthropic's skill-authoring
-  guidance) and moves detail into `references/`, one topic per file.
+- **A size cap per skill.** This repo caps a new skill's `SKILL.md` body at 500 lines, following Anthropic's
+  skill-authoring guidance, and moves detail into `references/`, one topic per file.
 - A lesson noticed during a session is proposed, never applied, per `./skill-refinement-protocol.md`.
 
 ---

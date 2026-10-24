@@ -165,6 +165,8 @@ test-documentation  (Modality jira-xray)
          link (or last-resort TC→Story). The Xray attach creates NO Jira links; the
          design/execute edges are SEPARATE, explicit, and placement-only.)
         → (opt) automation automates Test      [test_automation]
+        (A discovery-driven Test anchors to a coverage Tech Story instead of a Story:
+         its ATS → Tech Story `test` edge is the coverage one, `discovery-driven-doctrine.md` §3.)
 
 test-documentation  (Modality jira-native)
   └─ Test / Test Execution created for Story

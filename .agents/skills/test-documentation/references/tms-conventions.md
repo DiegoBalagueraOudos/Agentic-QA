@@ -218,8 +218,8 @@ These are **two independent fields** with two independent lifecycles. Mixing the
 | **In Review** | Automation ROI under evaluation | Marked as candidate | Approved or rejected |
 | **Candidate** | Approved for automation | Positive ROI | Automation begins |
 | **In Automation** | ATC being implemented | Developer starts coding | PR created |
-| **Pull Request** | Code submitted, awaiting merge | PR opened | PR merged |
-| **AUTOMATED** | Running in CI/CD | PR merged | Final (unless deprecated) |
+| **Pull Request** | Code submitted, awaiting merge | PR opened | Code on the production branch |
+| **AUTOMATED** | Running in CI/CD | Code on the production branch (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §6) | Final (unless deprecated) |
 | **DEPRECATED** | Obsolete | Feature removed | Can be recovered (`recover` -> Draft) |
 
 ### Rules
@@ -240,7 +240,7 @@ These are **two independent fields** with two independent lifecycles. Mixing the
 | `approve to automate` | In Review -> Candidate | Positive ROI |
 | `start automation` | Candidate -> In Automation | Stage 5 begins |
 | `create PR` | In Automation -> Pull Request | PR created (often auto) |
-| `merged` | Pull Request -> AUTOMATED | PR merged (often auto) |
+| `merged` | Pull Request -> AUTOMATED | PR merged into the production branch (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §6); an automation that fires it must filter on that base branch |
 | `Deprecated` | Any -> DEPRECATED | TC retired |
 | `recover` | DEPRECATED -> Draft | TC revived |
 

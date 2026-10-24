@@ -29,7 +29,7 @@ Coverage resolves through an ordered cascade. Each TC must be reachable from its
 
 Two layers, never confused:
 
-- **Jira layer (issue links)**: container→coverable via the `Test` link type (inward `is tested by`; resolve the slug from `.agents/jira-required.yaml`, never hardcode the literal). `ATS→Story` is MANDATORY — it is what fills the coverage panel. `ATP→Story` / `ATR→Story` are administrative traceability only (verified: they contribute ZERO coverage). Direct `TC→Story` is a valid last-resort, not a defect — the defect is having NO path.
+- **Jira layer (issue links)**: container→coverable via the `Test` link type (inward `is tested by`; resolve the slug from `.agents/jira-required.yaml`, never hardcode the literal). `ATS→Story` is MANDATORY — it is what fills the coverage panel. A coverage Tech Story (`../../agentic-qa-core/references/discovery-driven-doctrine.md` §3) is a coverable: its ATS is checked like a Story's, and a Test reaching it is not an orphan. `ATP→Story` / `ATR→Story` are administrative traceability only (verified: they contribute ZERO coverage). Direct `TC→Story` is a valid last-resort, not a defect — the defect is having NO path.
 - **Membership layer** (modality-dependent):
   - **Both modalities**: `TC ∈ ATS` IS a `TC→ATS` issue link (`test` slug) — one traceability rule, so IQL and the TMS never disagree (`../../agentic-qa-core/references/traceability-linking.md` §9). Instance without a Test Set work type → no ATS; direct `TC→Story` links are the fallback (the cascade still resolves at rung ③).
   - **jira-xray, in addition**: `TC ∈ ATS/ATP/ATR` is also Xray-internal (GraphQL via `/xray-cli`: `addTestsToTestSet` / `getTestSet` etc.); `TC ∈ ATP/ATR` has no membership link.

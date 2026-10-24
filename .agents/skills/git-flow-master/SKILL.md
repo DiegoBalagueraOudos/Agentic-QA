@@ -34,6 +34,7 @@ It does not assume one branching model. The project may run on `main` only, on `
 - DO: stop at PR creation — merging is the user's next step, never automatic. If the `gh` transport is missing or unauthenticated, surface the blocker instead of implying a PR was opened.
 - WHEN reconciling declared policy against the host: run the policy-verify tool once at the first push / PR / merge intent, never hand-query protection endpoints. A `404` on the classic protection endpoint does not mean unprotected, and a push that succeeded may have been a documented bypass, not permission. Report drift; never auto-correct it.
 - WHEN a planned change exceeds ~400 changed lines: run the chained-PR decision (single-pr / stacked-to-main / feature-branch-chain / size-exception) before coding, and re-run it if the real diff outgrows the estimate rather than silently up-budgeting. Return it with its trace, never as a bare label: `Chain strategy: <leaf>`, each tree question answered with the reason drawn from THIS change (`Q1=No (…) · Q2=… · Q3=…`, `n/a` past the leaf), `Decided by: /git-flow-master`. Answers that do not lead to the stated leaf, or a trace that only restates the conclusion, count as no decision; a re-run replaces the trace.
+- WHEN a promotion PR into the production branch merges: hand off the post-promotion `merged` pass to `/test-documentation` ("Promotion landed on `<production>`: run the post-promotion `merged` pass"). Never touch the TMS from this skill. Canon: `agentic-qa-core/references/discovery-driven-doctrine.md` §6.
 - WHEN a conflict fires: diagnose and classify it first, present options ranked by safety, and prefer a safe abort over a guess. Never pick a destructive option silently.
 
 **Read full SKILL.md when**: running Strategy Setup, resolving a specific conflict type, picking a base branch or branch prefix for an unfamiliar strategy, or setting up an isolated worktree.
@@ -475,6 +476,7 @@ The branch plan that comes out of the decision is the **contract** for execution
 | Test case authoring + ROI in TMS                       | `/test-documentation`                                |
 | KATA-compliant automated test authoring                | `/test-automation`                                   |
 | Regression suite execution + GO/NO-GO                  | `/regression-testing`                                |
+| A promotion PR (integration → production) merged       | `/test-documentation`: the post-promotion `merged` pass for every TC at `pull_request` whose spec is on `origin/<production>` (`agentic-qa-core/references/discovery-driven-doctrine.md` §6) |
 | Atlassian (Jira) operations triggered by a commit / PR | `/acli`                                              |
 | First-time orientation                                 | `/agentic-qa-onboard`                                |
 

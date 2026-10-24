@@ -29,6 +29,7 @@ The trunk name derives from the **suite's scope** (the `/test-automation` planni
 | --- | --- | --- |
 | **Module-driven** (Macro) — a whole module | `test/<module-slug>-suite` | `test/monthly-statement-suite` |
 | **Ticket-driven** (Medium) — one user story split across several PRs | `test/<STORY-KEY>-<slug>-suite` | `test/BK-742-checkout-suite` |
+| **Discovery-driven** — a module's gaps (Macro) or one gap (Medium) | `test/<module-slug>-suite`, or `test/<TECHSTORY-KEY>-<slug>-suite` | `test/monthly-statement-suite` |
 | **Bug-driven** (Micro) — a single TC | usually **no trunk** — one `test/{KEY}-{slug}` branch straight to a normal PR; only spin up a trunk if the single TC genuinely fans into multiple chained PRs |
 
 Rule of thumb: the trunk is named after **whatever the suite is about** — a module slug when automating a module, the story key+slug when chaining PRs under one story. The `-suite` suffix is deliberate and scope-neutral: a single trunk collects whatever the chained PRs are — E2E specs, integration specs, or a mix of UI and API ATCs — so `-suite` covers all of them without implying the work is only end-to-end. Keep it lowercase, hyphen-separated, ≤50 chars, and unique per live suite.
@@ -231,8 +232,8 @@ The TMS lifecycle runs **per ticket**, anchored to the ticket-branch PR — not 
 | Moment | Action |
 | --- | --- |
 | Start of a ticket (`/test-automation` Phase 0) | Ticket → In Progress; TCs → In Automation (or reuse Candidate). |
-| Ticket PR opened into the trunk (Phase 3) | TCs → In Review. |
-| Ticket PR **merged into the trunk** | Do NOT flip to Automated. The code is not on `main` yet. Leave at In Review. |
+| Ticket PR opened into the trunk (Phase 3) | TCs → Pull Request (`create_pr`). |
+| Ticket PR **merged into the trunk** | Do NOT flip to Automated. The code is not on `main` yet. Leave at Pull Request. |
 | Final `trunk → main` PR merged + CI green on `main` | TCs → Automated; tickets → Done. |
 
 > "Automated" means running in CI on `main`. Merging into the trunk is not that. The Automated / Done flips for every ticket happen after the final merge, in one post-merge pass. Test status (PASSED/FAILED) is never set manually — the CI reporter owns it.

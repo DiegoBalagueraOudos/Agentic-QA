@@ -116,7 +116,7 @@ Outputs:
 
 Expected TC count: 1–7 per ticket (story-driven).
 
-### 2.3 Bug-driven (micro)
+### 2.3 Micro (bug-driven or discovery-driven)
 
 Inputs:
 
@@ -323,7 +323,7 @@ Teardown: ...
 - [ ] No hardcoded waits
 - [ ] Aliases used
 - [ ] Tests pass locally
-- [ ] TMS TC moved to Pull Request on PR open (never "Automated" after local validation — Automated is exclusively the post-merge `merged` transition, once CI is green on main)
+- [ ] TMS TC moved to Pull Request on PR open (never "Automated" after local validation — Automated is exclusively the `merged` transition, once the code is on the production branch with CI green there)
 ```
 
 Implementation-order rule of thumb: each box in Section 6 should map to a single commit. If a commit would mix "new types" and "new ATC", split it.
@@ -526,7 +526,7 @@ On approval, Phase 2 begins. If approval is not forthcoming, revise the plan —
 - [ ] Every precondition classified (§7).
 - [ ] Implementation order written with one commit per step.
 
-### Bug-driven (micro)
+### Micro (bug-driven or discovery-driven)
 
 - [ ] Bug or gap is well-understood; the TC that would have caught it is written.
 - [ ] TMS TC exists (1–3 bug, 1–2 gap).

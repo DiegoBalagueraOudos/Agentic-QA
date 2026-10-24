@@ -307,12 +307,14 @@ Run the review checklist on the new/modified files. Treat every failed item as a
 [ ] Labels flipped only at the status they belong to (+automated / -automation-candidate
     at `merged`, never at a trunk or integration merge)
 [ ] No TC left at {{jira.status.test_case.candidate}} with code already written for it
+[ ] No TC at {{jira.status.test_case.pull_request}} whose spec is already on the production branch
+    (backstop for the post-promotion `merged` pass, discovery-driven-doctrine.md §6)
 [ ] Any unmapped slug went through the §4 fallback (asked), never a silent skip
 ```
 
 **Progress checkpoint + Archive**: after Phase 3 returns ACCEPT (all 3 Verifiers exit 0), the orchestrator appends `## Phase 3 — Review — <ts>` with `status: completed`, `next: stop` to `.session/test-automation/<scope>/progress.md`, then runs Archive per `agentic-qa-core/references/session-management.md` §8: moves `.session/test-automation/<scope>/` to `.session/.archive/<YYYY-MM-DD>-test-automation-<scope>/` (two-file dir preserved) and calls `mem_session_summary` including the archive path. On REJECT, archive does NOT run — the working directory stays for debug.
 
-#### Git & TMS handoff (sdet integration-trunk suites)
+#### Git & TMS handoff (suites with a trunk or an integration branch)
 
 This skill stops at a clean local review. It does **not** create branches, push, or open PRs — that is `/git-flow-master`'s job. When the repo's git strategy is `sdet` (the standing mode for chained test-automation suites), each ticket flows through the per-ticket loop in `.agents/skills/git-flow-master/references/sdet-integration-trunk.md`:
 
