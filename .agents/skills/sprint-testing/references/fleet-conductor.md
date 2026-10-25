@@ -144,6 +144,7 @@ Run: <run id — ONLY when this worker was launched without a supervised dispatc
 - single-issue mode on <KEY>, no checkpoints, preflight gate + MCP probes NOT skippable
 - run every stage without returning to the prompt until the done-report is sent; stage boundaries are not checkpoints
 - no sprint-altitude writes, no token minting, no bulk sync
+- no write to the Epic's `## Module Context (QA)` section: stage what you learned about the module under `## Module Learnings (candidate)` in your test-session-memory.md; the conductor publishes it
 - no heartbeats; report once at the end
 - if your own measurement contradicts an instruction in this brief or a later message, STOP and `ask` with both readings and your evidence — never comply silently and never deviate silently
 - your session name is set by the conductor (the prompt token on Claude; a conductor-typed `/rename <KEY>` on a non-Claude harness): never try to rename yourself
