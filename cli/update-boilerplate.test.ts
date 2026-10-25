@@ -8,11 +8,21 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import { parse as parseYaml } from 'yaml';
+import { isMaintainerCopy, isSchemaOwner } from './lib/agents-schema.ts';
 import { unusedHarnessPaths } from './lib/harness-selection.ts';
 import { loadBoardConfig } from './lib/sprint-source/index.ts';
 import { cleanupDeprecated, componentOwnedPaths, isRepoOnlyPath, validateComponentRegistry } from './lib/updater-core.ts';
 import { RETIRED_SECTION_FILES } from './lib/updater-instructions.ts';
 import { backfillProjectYamlFromSchema, COMPONENTS, DEPRECATED_FILES, extractIndentedYamlBlock, GATE_SCRIPTS, gatesSummaryLine, parseArgs, resolveProtectedWatchlist, RETIRED_COMMAND_WRAPPERS, RETIRED_SKILL_FILES, runGate, summarizeGates, sweepStaleCloneDirs, TEMP_DIR, worktreeRefusal } from './update-boilerplate.ts';
+
+/**
+ * The boilerplate's own checkout: the package name AND the maintainer sentinel
+ * (the same test `contractsEnforced` makes). Cases that read a bootstrap-only
+ * file as upstream's copy skip downstream, where that file is the project's.
+ */
+const yamlPath = join(import.meta.dir, '..', '.agents', 'project.yaml');
+const MAINTAINER_CHECKOUT = isSchemaOwner(readFileSync(join(import.meta.dir, '..', 'package.json'), 'utf8'))
+  && existsSync(yamlPath) && isMaintainerCopy(readFileSync(yamlPath, 'utf8'));
 
 const temporaryRoots: string[] = [];
 
@@ -63,7 +73,10 @@ describe('component registry', () => {
 
   test('.playwright/cli.config.json ships once (bootstrap-only): a project keeps its tuning, the legacy profile is a parity row', () => {
     expect(COMPONENTS.find(c => c.name === 'playwright-cli-config')).toMatchObject({ type: 'file-list', paths: ['.playwright'], files: ['cli.config.json'], bootstrapOnly: true });
-    // Upstream's own copy is the shape the parity row asks for.
+  });
+
+  // Downstream, the file on disk is the project's own tuning, not upstream's copy.
+  test.skipIf(!MAINTAINER_CHECKOUT)('upstream\'s own .playwright/cli.config.json is the shape the parity row asks for', () => {
     const shipped = JSON.parse(readFileSync(join(import.meta.dir, '..', '.playwright', 'cli.config.json'), 'utf8')) as { browser: Record<string, unknown> };
     expect(shipped.browser.isolated).not.toBe(false);
     expect(shipped.browser).not.toHaveProperty('userDataDir');
