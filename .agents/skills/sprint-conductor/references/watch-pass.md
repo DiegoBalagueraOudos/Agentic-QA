@@ -63,6 +63,12 @@ Nothing NEW or RECHECK: go straight to §5.
      environment's build while the background part was not deployed.
    - **A part deployed on a schedule** proves itself only after its next run: the deploy AND a run
      after it. Hold until both, and recheck after the scheduled run.
+   - **A ticket key in a commit message is not code.** A key found by grepping the deployed branch's
+     history can belong to a docs or roadmap commit only. Limit the search to code paths and to non-merge
+     commits (`git log <deployed-ref> --no-merges --grep=<KEY> -- <code dirs>`), and for a soft result
+     (zero hits for a change you believe shipped, or hits only in shared files) read the route or page the
+     change adds in the deployed build before deciding. Measured on a downstream trial: ten Ready-for-Dev
+     tickets matched only docs commits, and one deployed feature matched no commit by key at all.
    - **Name the FEATURE gate, not a page flag.** A flag that only shows a page proves nothing about the
      behaviour behind it; the brief names the setting that actually turns the behaviour on, and the data
      that puts it in scope.
