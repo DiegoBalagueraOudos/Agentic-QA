@@ -18,8 +18,10 @@
  *   verify   Read the host, diff against git_strategy, report. Read-only.
  *            `--stamp` writes meta.policy_verified / policy_source when clean.
  *            Exit 1 on UNACCEPTED drift; 0 in parity, when every drift is listed
- *            in `policy.accepted_divergences`, or when the host is unreachable
- *            (warned, not verified — absence of data is not drift). Hook-safe.
+ *            in `policy.accepted_divergences`, when the host is unreachable or
+ *            there is no GitHub origin (warned, not verified — absence of data
+ *            is not drift), or while `meta.strategy_source` is `inherited`
+ *            (drift printed as warnings: nobody chose that policy). Hook-safe.
  *   apply    Derive a ruleset from git_strategy and write it to the host.
  *            Dry-run by DEFAULT; `--yes` performs the write.
  *            Refuses to LOOSEN protection unless `--allow-loosening`.
@@ -188,14 +190,36 @@ function readStrategy(): GitStrategy {
   return gs;
 }
 
+/** `owner/repo` of a GitHub remote URL; null for any other remote. */
+export function slugFromRemote(url: string): string | null {
+  const m = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/);
+  return m ? `${m[1]}/${m[2]}` : null;
+}
+
+/** The origin remote's URL, or null when there is no origin. */
+function originUrl(): string | null {
+  const p = Bun.spawnSync(['git', '-C', REPO_ROOT, 'remote', 'get-url', 'origin'], { stdout: 'pipe', stderr: 'pipe' });
+  return p.exitCode === 0 ? p.stdout.toString().trim() : null;
+}
+
 /** `owner/repo` from the origin remote. */
 function readSlug(): string {
-  const p = Bun.spawnSync(['git', '-C', REPO_ROOT, 'remote', 'get-url', 'origin'], { stdout: 'pipe', stderr: 'pipe' });
-  if (p.exitCode !== 0) { fail('No `origin` remote — cannot resolve the repository.'); }
-  const url = p.stdout.toString().trim();
-  const m = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/);
-  if (!m) { fail(`origin is not a GitHub remote: ${url}`); }
-  return `${m[1]}/${m[2]}`;
+  const url = originUrl();
+  if (url === null) { fail('No `origin` remote — cannot resolve the repository.'); }
+  const slug = slugFromRemote(url);
+  if (slug === null) { fail(`origin is not a GitHub remote: ${url}`); }
+  return slug;
+}
+
+/**
+ * verify's exit code. Unaccepted drift blocks only a policy somebody CHOSE:
+ * while `meta.strategy_source` is `inherited` the yaml holds the shipped default,
+ * not a decision, and a fresh repository has no ruleset yet, so every finding is
+ * a warning that points at Strategy Setup. Blocking there refused the first push
+ * of every new project with a host to compare against.
+ */
+export function verifyExitCode(drifts: number, strategySource: unknown): number {
+  return drifts > 0 && strategySource !== 'inherited' ? 1 : 0;
 }
 
 function hasCodeowners(): boolean {
@@ -578,6 +602,12 @@ function verify(gs: GitStrategy, slug: string, stamp: boolean): number {
   }
 
   console.log('');
+  if (drifts.length > 0 && verifyExitCode(drifts.length, gs.meta?.strategy_source) === 0) {
+    log.warn('Declared policy does not match the host, and nobody has chosen it yet (git_strategy.meta.strategy_source: inherited).');
+    log.dim('These are warnings until the strategy is chosen: ask your AI agent to "set up our git strategy" (git-flow-master Strategy Setup).');
+    log.dim('From then on verify blocks on drift.');
+    return 0;
+  }
   if (drifts.length > 0) {
     log.warn('Declared policy does not match the host.');
     log.dim('Fix the host:  bun run git:policy apply --yes');
@@ -790,14 +820,23 @@ function main(): void {
   }
   const cmd = argv[0];
   const gs = readStrategy();
-  const slug = readSlug();
 
   switch (cmd) {
-    case 'verify':
+    case 'verify': {
+      // No host to read is not drift, exactly like an unreachable one: a project
+      // with no origin yet, or a remote that is not GitHub, must still push.
+      const url = originUrl();
+      const slug = url === null ? null : slugFromRemote(url);
+      if (slug === null) {
+        log.warn(url === null ? 'No `origin` remote yet: no host to compare the policy against.' : `origin is not a GitHub remote (${url}): no host rules to compare against.`);
+        log.dim('Parity NOT verified — skipping.');
+        process.exit(0);
+      }
       process.exit(verify(gs, slug, argv.includes('--stamp')));
       break;
+    }
     case 'apply':
-      process.exit(apply(gs, slug, argv.includes('--yes'), argv.includes('--allow-loosening')));
+      process.exit(apply(gs, readSlug(), argv.includes('--yes'), argv.includes('--allow-loosening')));
       break;
     case 'plan': {
       // `plan` makes no host calls, so it cannot know which unmanaged rules

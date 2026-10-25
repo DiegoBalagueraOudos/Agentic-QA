@@ -881,11 +881,30 @@ function scanFiles(files: string[]): ScanResult {
 // Step 4 — produce report
 // -----------------------------------------------------------------------------
 
+/**
+ * A catalog that is the empty `{}` placeholder the installer writes before any
+ * sync reads as ABSENT (`null`): nothing has been synced yet, so an option or a
+ * work type it lacks says nothing about the reference. Checked against it as a
+ * real catalog, every `{{jira.<field>.<option>}}` in a shipped skill became an
+ * UNKNOWN option ERROR, and a fresh project's first commit was refused by its
+ * own pre-commit hook. A populated catalog is returned unchanged.
+ */
+export function asSyncedCatalog<T extends object>(catalog: T | null): T | null {
+  return catalog !== null && Object.keys(catalog).length === 0 ? null : catalog;
+}
+
 function main(): void {
   const declared = loadDeclaredVariables(PROJECT_YAML);
   const manifest = loadManifestSlugs(JIRA_REQUIRED_YAML);
-  const catalog = loadCatalog(JIRA_CATALOG_JSON);
-  const workflows = loadWorkflowsCatalog(JIRA_WORKFLOWS_JSON);
+  const rawCatalog = loadCatalog(JIRA_CATALOG_JSON);
+  const rawWorkflows = loadWorkflowsCatalog(JIRA_WORKFLOWS_JSON);
+  const catalog = asSyncedCatalog(rawCatalog);
+  const workflows = asSyncedCatalog(rawWorkflows);
+  // The placeholders that were read as absent: one warning each, never an error.
+  const unsyncedCatalogs = [
+    ...(rawCatalog !== null && catalog === null ? [{ file: '.agents/jira-fields.json', fix: 'bun run jira:sync-fields' }] : []),
+    ...(rawWorkflows !== null && workflows === null ? [{ file: '.agents/jira-workflows.json', fix: 'bun run jira:sync-workflows' }] : []),
+  ];
   const files = collectFiles();
   const result = scanFiles(files);
 
@@ -1241,8 +1260,9 @@ function main(): void {
     + `(across ${declared.envNames.size} envs: ${envList}) = ${declaredTotal} variables`,
   );
   console.log(`Declared in jira-required.yaml:  ${manifest.all.size} slugs (${manifest.required} required + ${manifest.optional} optional + ${manifest.unmapped} unmapped) + ${manifest.workTypes.size} work_type(s) + ${manifest.linkTypes.size} link_type(s)`);
-  console.log(`Catalog jira-fields.json:               ${catalog === null ? 'absent (option-value checks skipped — run `bun run jira:sync-fields`)' : `${Object.keys(catalog).length} fields available for option-value lookup`}`);
-  console.log(`Catalog jira-workflows.json:     ${workflows === null ? 'absent (workflow checks skipped — run `bun run jira:sync-workflows`)' : `${Object.keys(workflows).length} work_type(s) available for status/transition lookup`}`);
+  const absence = (raw: object | null): string => raw === null ? 'absent' : 'empty placeholder, not synced yet';
+  console.log(`Catalog jira-fields.json:               ${catalog === null ? `${absence(rawCatalog)} (option-value checks skipped — run \`bun run jira:sync-fields\`)` : `${Object.keys(catalog).length} fields available for option-value lookup`}`);
+  console.log(`Catalog jira-workflows.json:     ${workflows === null ? `${absence(rawWorkflows)} (workflow checks skipped — run \`bun run jira:sync-workflows\`)` : `${Object.keys(workflows).length} work_type(s) available for status/transition lookup`}`);
   console.log('');
 
   console.log(`ERRORS (${totalErrors}):`);
@@ -1320,7 +1340,7 @@ function main(): void {
     ? []
     : [...manifest.workTypes.keys()].filter(wt => !(wt in workflows)).sort();
 
-  const totalWarnings = declaredButUnused.length + jiraDeclaredButUnused.length + workTypeWarnings.length + unsyncedWorkTypes.length;
+  const totalWarnings = declaredButUnused.length + jiraDeclaredButUnused.length + workTypeWarnings.length + unsyncedWorkTypes.length + unsyncedCatalogs.length;
   console.log(`WARNINGS (${totalWarnings}):`);
   if (totalWarnings === 0) {
     console.log('  <none>');
@@ -1335,6 +1355,9 @@ function main(): void {
       if (section === 'required') {
         console.log('      `bun run jira:check` makes every consumer project provision this field. If nothing reads it, move it to `optional:` or drop it.');
       }
+    }
+    for (const c of unsyncedCatalogs) {
+      console.log(`  - CATALOG_NOT_SYNCED: ${c.file} is the empty \`{}\` placeholder, so its checks were skipped. Fill it with \`${c.fix}\`.`);
     }
     for (const wt of unsyncedWorkTypes) {
       console.log(`  - WORK_TYPE_NOT_IN_CATALOG: '${wt}' is declared in jira-required.yaml but absent from jira-workflows.json`);

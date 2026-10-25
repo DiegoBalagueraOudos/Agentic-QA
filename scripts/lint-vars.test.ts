@@ -14,7 +14,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { slugUsedAsIdentifier } from './lint-vars.ts';
+import { asSyncedCatalog, slugUsedAsIdentifier } from './lint-vars.ts';
 
 describe('slugUsedAsIdentifier', () => {
   // The three shapes that are real consumption. `scripts/sync-jira-issues.ts`
@@ -53,5 +53,23 @@ describe('slugUsedAsIdentifier', () => {
   test('a slug with regex metacharacters is matched literally, not as a pattern', () => {
     expect(slugUsedAsIdentifier('x = \'a.b\';', 'a.b')).toBe(true);
     expect(slugUsedAsIdentifier('x = \'axb\';', 'a.b')).toBe(false);
+  });
+});
+
+describe('asSyncedCatalog', () => {
+  // The installer writes `{}` for every catalog no sync has filled yet. Read as a
+  // real catalog it made every option reference an ERROR and blocked the first
+  // commit of a new project, so the placeholder must read exactly like a missing file.
+  test('the empty placeholder reads as absent', () => {
+    expect(asSyncedCatalog({})).toBeNull();
+  });
+
+  test('a missing catalog stays absent', () => {
+    expect(asSyncedCatalog(null)).toBeNull();
+  });
+
+  test('a populated catalog is returned unchanged', () => {
+    const catalog = { severity: { id: 'customfield_1', options: { minor: '1' } } };
+    expect(asSyncedCatalog(catalog)).toBe(catalog);
   });
 });

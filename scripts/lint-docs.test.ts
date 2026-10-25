@@ -51,6 +51,25 @@ describe('lint-docs', () => {
     expect(lintDocs(root).findings).toEqual([]);
   });
 
+  // The scaffolder prunes the recorded ADRs; the ADR index and the docs still link them.
+  test('a scaffolded project: links and paths to pruned recorded ADRs are not dead', () => {
+    write('.context/ADR/ADR-NNNN-template.md', '# Template');
+    write('.context/ADR/README.md', '[ADR-0001](./ADR-0001-gone.md) and [template](./ADR-NNNN-template.md)');
+    write('docs/README.md', 'See `.context/ADR/ADR-0002-gone.md`.');
+    expect(lintDocs(root).findings.filter(f => f.kind !== 'meta')).toEqual([]);
+  });
+
+  test('the boilerplate checkout: a link to a missing recorded ADR is still dead', () => {
+    write('package.json', JSON.stringify({ name: 'agentic-qa-boilerplate' }));
+    write('.agents/project.yaml', '# MAINTAINER COPY: fixture\nproject:\n  project_name: x\n');
+    write('.context/ADR/README.md', '[ADR-0001](./ADR-0001-gone.md) and [template](./ADR-NNNN-template.md)');
+    const findings = lintDocs(root).findings.filter(f => f.kind === 'link');
+    expect(findings.map(f => `${f.file}:${f.target}`)).toEqual([
+      '.context/ADR/README.md:./ADR-0001-gone.md',
+      '.context/ADR/README.md:./ADR-NNNN-template.md',
+    ]);
+  });
+
   test('skips roots the checkout does not have (a consumer repo has no packages/)', () => {
     write('docs/README.md', '`packages/decks/README.md` and [deck](../packages/decks/x.html)');
     expect(lintDocs(root).findings).toEqual([]);
