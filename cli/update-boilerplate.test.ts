@@ -1,14 +1,18 @@
+import type { ReportSink } from './lib/updater-types.ts';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+
 import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 
+import { parse as parseYaml } from 'yaml';
 import { unusedHarnessPaths } from './lib/harness-selection.ts';
+import { loadBoardConfig } from './lib/sprint-source/index.ts';
 import { cleanupDeprecated, componentOwnedPaths, isRepoOnlyPath, validateComponentRegistry } from './lib/updater-core.ts';
 import { RETIRED_SECTION_FILES } from './lib/updater-instructions.ts';
-import { COMPONENTS, DEPRECATED_FILES, GATE_SCRIPTS, gatesSummaryLine, parseArgs, resolveProtectedWatchlist, RETIRED_COMMAND_WRAPPERS, RETIRED_SKILL_FILES, runGate, summarizeGates, sweepStaleCloneDirs, TEMP_DIR, worktreeRefusal } from './update-boilerplate.ts';
+import { backfillProjectYamlFromSchema, COMPONENTS, DEPRECATED_FILES, extractIndentedYamlBlock, GATE_SCRIPTS, gatesSummaryLine, parseArgs, resolveProtectedWatchlist, RETIRED_COMMAND_WRAPPERS, RETIRED_SKILL_FILES, runGate, summarizeGates, sweepStaleCloneDirs, TEMP_DIR, worktreeRefusal } from './update-boilerplate.ts';
 
 const temporaryRoots: string[] = [];
 
@@ -134,6 +138,21 @@ describe('component registry', () => {
     expect(existsSync(join(kept, '.agents/skills/adapt-framework/SKILL.md'))).toBe(false);
   });
 
+  test('the framework helpers under tests/utils sync as a file-list; the project\'s own helpers and the watched ones are never walked', () => {
+    const testsUtils = COMPONENTS.find(c => c.name === 'tests-utils');
+    expect(testsUtils).toMatchObject({ type: 'file-list', paths: ['tests/utils'] });
+    expect(testsUtils?.bootstrapOnly).toBeUndefined();
+    const owned = COMPONENTS.flatMap(c => componentOwnedPaths(c));
+    for (const helper of ['testOutcomes.ts', 'knownDefect.ts', 'xrayResults.ts', 'testOutcomes.test.ts', 'xrayResults.test.ts']) {
+      expect(testsUtils?.files).toContain(helper);
+      // Every listed file exists upstream: a stale name would deliver nothing, silently.
+      expect(existsSync(join(import.meta.dir, '..', 'tests/utils', helper))).toBe(true);
+    }
+    for (const kept of ['tests/utils/decorators.ts', 'tests/utils/jiraSync.ts', 'tests/utils/allure.ts', 'tests/KataReporter.ts', 'tests/e2e/login.test.ts']) {
+      expect(isRepoOnlyPath(kept, owned)).toBe(false);
+    }
+  });
+
   test('docs syncs only its shipped half; every other path under docs/ is project-owned', () => {
     const docs = COMPONENTS.find(c => c.name === 'docs');
     expect(docs?.paths).not.toContain('docs');
@@ -158,7 +177,7 @@ describe('protected watchlist', () => {
     expect(warnings).toEqual([]);
     const byPath = Object.fromEntries(watchlist.map(e => [e.path, e]));
     expect(byPath['AGENTS.md']).toMatchObject({ markerPath: '.template/claude-md.upstream.sha', source: 'upstream' });
-    for (const p of ['allurerc.mjs', 'playwright.config.ts', 'config/variables.ts', 'tests/components/TestContext.ts', 'tests/components/api/ApiBase.ts', 'scripts/api-login.ts', '.github/workflows/regression.yml', 'tsconfig.json', 'eslint.config.js']) {
+    for (const p of ['allurerc.mjs', 'playwright.config.ts', 'config/variables.ts', 'tests/components/TestContext.ts', 'tests/components/api/ApiBase.ts', 'scripts/api-login.ts', '.github/workflows/regression.yml', 'tsconfig.json', 'eslint.config.js', 'tests/KataReporter.ts', 'tests/utils/decorators.ts', 'tests/utils/jiraSync.ts']) {
       expect(byPath[p]).toBeDefined();
     }
     for (const p of ['.mcp.json', 'opencode.jsonc', '.codex/config.toml', '.claude/settings.json']) {
@@ -342,5 +361,69 @@ describe('post-apply gates', () => {
     expect(gatesSummaryLine([
       { script: 'types:check', status: 'pass', exitCode: 0, seconds: 3, errorCount: 0, firstErrors: [], failingApplied: [], output: '' },
     ], 'no-changes')).toBe('types:check OK');
+  });
+});
+
+describe('project.yaml back-fill under --auto', () => {
+  const SCHEMA = readFileSync(join(import.meta.dir, '..', '.agents', 'project.schema.yaml'), 'utf8');
+
+  function autoSink(lines: string[]): ReportSink {
+    return {
+      step: (m: string) => lines.push(m),
+      warn: (m: string) => lines.push(m),
+      error: (m: string) => lines.push(m),
+      confirm: async () => { throw new Error('--auto never prompts'); },
+    } as unknown as ReportSink;
+  }
+
+  function fixture(projectYaml: string): { root: string, upstream: string } {
+    const root = temporaryRoot();
+    const upstream = temporaryRoot();
+    mkdirSync(join(root, '.agents'), { recursive: true });
+    mkdirSync(join(upstream, '.agents'), { recursive: true });
+    writeFileSync(join(root, '.agents/project.yaml'), projectYaml);
+    writeFileSync(join(upstream, '.agents/project.schema.yaml'), SCHEMA);
+    writeFileSync(join(upstream, 'package.json'), JSON.stringify({ version: '9.9.9' }));
+    return { root, upstream };
+  }
+
+  test('a whole missing block is inserted from the schema with blank values; a block the project has is never edited', async () => {
+    const boardBlock = extractIndentedYamlBlock(SCHEMA, 'board', '');
+    expect(boardBlock).not.toBeNull();
+    // The project lacks the whole `board:` block AND one leaf of `testing:`.
+    const projectYaml = SCHEMA.replace(`${boardBlock}\n`, '').replace(/^ {2}default_env:.*\n/m, '');
+    expect(projectYaml).not.toContain('\nboard:');
+    const { root, upstream } = fixture(projectYaml);
+    const lines: string[] = [];
+    await backfillProjectYamlFromSchema(upstream, autoSink(lines), true, root);
+
+    const after = readFileSync(join(root, '.agents/project.yaml'), 'utf8');
+    const parsed = parseYaml(after) as { board?: { source?: string }, testing?: Record<string, unknown> };
+    expect(parsed.board?.source).toBe('auto');
+    expect(after).toContain('# NEW in 9.9.9');
+    // The existing block keeps its shape: the missing leaf is only reported.
+    expect(parsed.testing).not.toHaveProperty('default_env');
+    expect(lines.join('\n')).toContain('testing.default_env');
+    // Insert-only: every line the project had is still there, in order, and the
+    // only new lines are the block and its markers.
+    const nonBlank = (text: string): string[] => text.split('\n').filter(l => l.trim() !== '');
+    const kept = nonBlank(after).filter(l => !l.includes('NEW in 9.9.9'));
+    const blockLines = new Set(nonBlank(boardBlock!));
+    expect(kept.filter(l => !blockLines.has(l))).toEqual(nonBlank(projectYaml).filter(l => !blockLines.has(l)));
+    expect(kept.length).toBe(nonBlank(projectYaml).length + nonBlank(boardBlock!).length);
+    // The inserted template block is how the board ships unconfigured: one INFO line, exit 0.
+    expect(loadBoardConfig(root).state).toBe('unconfigured');
+  });
+
+  test('a block silenced through updater.schema_exempt is not inserted, and nothing missing means nothing written', async () => {
+    const boardBlock = extractIndentedYamlBlock(SCHEMA, 'board', '')!;
+    const silenced = fixture(SCHEMA.replace(`${boardBlock}\n`, '').replace(/^updater:\n/m, 'updater:\n  schema_exempt: [board]\n'));
+    const before = readFileSync(join(silenced.root, '.agents/project.yaml'), 'utf8');
+    await backfillProjectYamlFromSchema(silenced.upstream, autoSink([]), true, silenced.root);
+    expect(readFileSync(join(silenced.root, '.agents/project.yaml'), 'utf8')).toBe(before);
+
+    const complete = fixture(SCHEMA);
+    await backfillProjectYamlFromSchema(complete.upstream, autoSink([]), true, complete.root);
+    expect(readFileSync(join(complete.root, '.agents/project.yaml'), 'utf8')).toBe(SCHEMA);
   });
 });

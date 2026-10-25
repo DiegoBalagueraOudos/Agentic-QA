@@ -38,6 +38,14 @@ import { dirname, join } from 'node:path';
 // Types
 // ============================================
 
+/**
+ * One ATC execution as this module reads it. `bun sync` delivers this file
+ * while `decorators.ts` stays the project's own copy, which may predate
+ * `playwrightTestId`: declaring the field here keeps this file compiling
+ * against either copy.
+ */
+export type AtcRun = AtcResult & { playwrightTestId?: string };
+
 export interface XrayTestEntry {
   testKey: string
   status: 'PASSED' | 'FAILED'
@@ -52,12 +60,12 @@ export interface XrayExecutionPayload {
 /** The shape KataReporter.onEnd() writes to reports/atc_results.json. */
 export interface AtcReport {
   runId?: string
-  results?: Record<string, AtcResult[]>
+  results?: Record<string, AtcRun[]>
 }
 
 /** What `readRunReport` returns: the results, or the reasons the report cannot be used. */
 export interface RunReport {
-  results: Record<string, AtcResult[]>
+  results: Record<string, AtcRun[]>
   problems: string[]
 }
 
@@ -72,8 +80,8 @@ export const UNFINISHED_METHOD = '(did not finish)';
 // ============================================
 
 /** Merge the `results` of several reports: executions of one ATC are concatenated. */
-export function mergeAtcReports(reports: AtcReport[]): Record<string, AtcResult[]> {
-  const merged: Record<string, AtcResult[]> = {};
+export function mergeAtcReports(reports: AtcReport[]): Record<string, AtcRun[]> {
+  const merged: Record<string, AtcRun[]> = {};
   for (const report of reports) {
     for (const [testId, executions] of Object.entries(report.results ?? {})) {
       merged[testId] = [...(merged[testId] ?? []), ...executions];
@@ -88,10 +96,10 @@ export function mergeAtcReports(reports: AtcReport[]): Record<string, AtcResult[
  * ends, so a test that timed out inside it has the first and not the second.
  */
 export function addUnfinishedAtcs(
-  results: Record<string, AtcResult[]>,
+  results: Record<string, AtcRun[]>,
   outcomes: Pick<OutcomesDocument, 'generatedAt' | 'records'>,
-): Record<string, AtcResult[]> {
-  const merged: Record<string, AtcResult[]> = { ...results };
+): Record<string, AtcRun[]> {
+  const merged: Record<string, AtcRun[]> = { ...results };
 
   for (const record of outcomes.records) {
     if (record.testStatus !== 'FAILED') {
@@ -128,7 +136,7 @@ export function addUnfinishedAtcs(
  * an ATC whose every execution was a runtime skip is left out (NOT RUN). Never
  * carries `testInfo`, so Xray cannot create a Test.
  */
-export function buildXrayTests(results: Record<string, AtcResult[]>): XrayTestEntry[] {
+export function buildXrayTests(results: Record<string, AtcRun[]>): XrayTestEntry[] {
   const tests: XrayTestEntry[] = [];
 
   for (const [testId, executions] of Object.entries(results)) {
@@ -156,12 +164,12 @@ export function buildXrayTests(results: Record<string, AtcResult[]>): XrayTestEn
 }
 
 /** The import body: always an EXISTING Test Execution, never `info`. */
-export function buildXrayPayload(executionKey: string, results: Record<string, AtcResult[]>): XrayExecutionPayload {
+export function buildXrayPayload(executionKey: string, results: Record<string, AtcRun[]>): XrayExecutionPayload {
   return { testExecutionKey: executionKey, tests: buildXrayTests(results) };
 }
 
 /** One `<id> (<Class.method>)` per ATC id that is not a Jira issue key. */
-export function findKeyProblems(results: Record<string, AtcResult[]>): string[] {
+export function findKeyProblems(results: Record<string, AtcRun[]>): string[] {
   return Object.entries(results)
     .filter(([testId]) => !ISSUE_KEY.test(testId))
     .map(([testId, executions]) => {

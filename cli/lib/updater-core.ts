@@ -56,6 +56,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { CONTEXT_MAP_SKILLS } from './context-maps';
+import { testSiblingsToHoldBack } from './updater-drift';
 import { applyIgnoreAppend, computeBlobSha, detectIgnoreDelta } from './updater-ignore';
 import { applyPackageJsonAppend, applyPackageJsonOverride, detectPackageJsonDelta } from './updater-package';
 import { ComponentOverlapError, CorruptStateError } from './updater-types';
@@ -2916,6 +2917,23 @@ export async function runUpdate(
   // A deprecated file leaves through cleanupDeprecated (Phase 5), not the delete prompt.
   entries = dropDeprecatedDeletes(entries, cfg.deprecatedFiles);
 
+  // The test of a protected file the project kept travels with that file: held
+  // back (not delivered, not overwritten) while the two copies differ.
+  const heldSiblings = testSiblingsToHoldBack(cfg.holdTestSiblingsOf ?? [], repoRoot, templateDir);
+  const testSiblingsHeldBack: { path: string, protectedPath: string }[] = [];
+  if (heldSiblings.length > 0) {
+    const byPath = new Map(heldSiblings.map(h => [h.path, h]));
+    entries = entries.filter((e) => {
+      const held = byPath.get(e.path.replace(/\\/g, '/'));
+      if (held === undefined) { return true; }
+      if (e.classification !== 'unchanged' && e.classification !== 'binary-skip') { testSiblingsHeldBack.push(held); }
+      return false;
+    });
+    for (const held of testSiblingsHeldBack) {
+      sink.warn(`${held.path}: retenido junto a su archivo protegido ${held.protectedPath} (tu copia difiere de upstream).`);
+    }
+  }
+
   // Business context skills: the whole folder once, when the project has none.
   entries.push(...collectContextMapBootstrap(cfg.components, templateDir, repoRoot, entries));
 
@@ -3002,7 +3020,7 @@ export async function runUpdate(
   };
   if (visible.length === 0 && ignoreDeltasPre.length === 0 && pkgJsonDeltasPre.length === 0 && settledBootstrap.length === 0) {
     sink.step('Sin cambios detectados respecto al upstream. Nada que sincronizar.');
-    return finish({ ...emptySummary, newHeadSha });
+    return finish({ ...emptySummary, newHeadSha, testSiblingsHeldBack });
   }
   if (visible.length > 0) {
     let suffix = '';
@@ -3239,6 +3257,10 @@ export async function runUpdate(
   // report gets one row per key, so a non-interactive run does not lose the
   // FYI in the terminal scrollback.
   const packageJsonKept: PackageJsonKeptKey[] = [];
+  // Every key appended this run (planned, on a dry-run), with its value: the
+  // parity stage checks an appended script's target file once every component
+  // has written its files.
+  const packageJsonAppended: { file: string, section: string, key: string, value: string }[] = [];
   if (pkgJsonDeltasPre.length > 0) {
     sink.subphase('PACKAGE.JSON KEYS');
     for (const delta of pkgJsonDeltasPre) {
@@ -3423,6 +3445,13 @@ export async function runUpdate(
       }
     }
 
+    for (const [section, keys] of Object.entries(writtenBySection)) {
+      for (const key of keys) {
+        const value = selection.values[section]?.[key];
+        if (typeof value === 'string') { packageJsonAppended.push({ file: spec.path, section, key, value }); }
+      }
+    }
+
     // Materialise v7State lazily (bootstrap mode) so the state update sticks.
     if (v7State === null) {
       v7State = {
@@ -3507,6 +3536,8 @@ export async function runUpdate(
     backupDir,
     localEditsOverwritten,
     packageJsonKept,
+    packageJsonAppended,
+    testSiblingsHeldBack,
   };
 
   // State write

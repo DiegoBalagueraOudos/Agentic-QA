@@ -156,6 +156,44 @@ export function mergeProtectedWatchlist(upstream: readonly ProtectedWatchEntry[]
   return merged;
 }
 
+/** A test file held back because the file it tests is a kept project copy. */
+export interface HeldTestSibling {
+  /** The `.test.*` file the sync did not deliver or overwrite. */
+  path: string
+  /** The protected file it tests. */
+  protectedPath: string
+}
+
+/** `dir/name.ts` -> `dir/name.test.ts` (also `.js`, `.mjs`); null for any other file. */
+export function testSiblingPath(filePath: string): string | null {
+  const match = /^(.*)\.(ts|js|mjs)$/.exec(filePath.replace(/\\/g, '/'));
+  if (match === null || match[1].endsWith('.test')) { return null; }
+  return `${match[1]}.test.${match[2]}`;
+}
+
+/**
+ * The test siblings of protected files that this run must hold back. A test is
+ * written against upstream's copy of the file it tests; delivering it next to a
+ * kept project copy that differs makes `bun test` fail on code nobody changed
+ * (measured: a project protecting `scripts/lint-skills.ts` got upstream's
+ * `lint-skills.test.ts` and five new failures). Held only while the two copies
+ * differ: a protected file still byte-identical to upstream keeps its test
+ * flowing, so a watched entry does not freeze its test in every project.
+ */
+export function testSiblingsToHoldBack(protectedPaths: readonly string[], repoRoot: string, templateDir: string): HeldTestSibling[] {
+  const held: HeldTestSibling[] = [];
+  for (const protectedPath of protectedPaths) {
+    const sibling = testSiblingPath(protectedPath);
+    if (sibling === null || !fs.existsSync(path.join(templateDir, sibling))) { continue; }
+    const local = path.join(repoRoot, protectedPath);
+    const upstream = path.join(templateDir, protectedPath);
+    if (!fs.existsSync(local) || !fs.existsSync(upstream)) { continue; }
+    if (normalizeForCompare(fs.readFileSync(local, 'utf8')) === normalizeForCompare(fs.readFileSync(upstream, 'utf8'))) { continue; }
+    held.push({ path: sibling, protectedPath });
+  }
+  return held;
+}
+
 /** Default marker directory for watchlist entries (one .sha file per entry). */
 const MARKER_DIR = '.template/upstream-sha';
 

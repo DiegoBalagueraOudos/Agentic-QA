@@ -185,6 +185,13 @@ const ENV_SCHEMA_FILES = ['.env.schema', '.env.core.schema'];
 // The hook adapter carries no project state and keeps flowing.
 const CODEX_FRAMEWORK_FILES = ['hooks.json'];
 const CLAUDE_ROOT_CONFIG_FILES = ['settings.json'];
+// The framework helpers under `tests/utils/`: pure logic every project runs as
+// is (outcome classes, the known-defect marker, the Xray JSON body) plus their
+// tests. A file-list, not the directory: `decorators.ts` and `jiraSync.ts` sit
+// beside them on PROTECTED_WATCHLIST, and every other helper there is the
+// project's own. Without this component a synced skill cites files that never
+// arrive, and `skills:check` refuses the sync's own commit.
+const TESTS_UTILS_FILES = ['testOutcomes.ts', 'testOutcomes.test.ts', 'knownDefect.ts', 'xrayResults.ts', 'xrayResults.test.ts'];
 
 // `docs/` is the human documentation site. The boilerplate owns ONLY its
 // shipped half: `docs/core/**` (the pages), `docs/assets/**` (shared css/js and
@@ -314,6 +321,7 @@ export const COMPONENTS: Component[] = [
   { name: 'agents-docs', type: 'file-list', paths: ['.agents'], files: AGENTS_DOCS_FILES },
   { name: 'tooling', type: 'file-list', paths: ['.'], files: TOOLING_FILES },
   { name: 'config-core', type: 'file-list', paths: ['config'], files: CONFIG_CORE_FILES },
+  { name: 'tests-utils', type: 'file-list', paths: ['tests/utils'], files: TESTS_UTILS_FILES },
   // `.env.example` carries NO secrets (placeholder values only) and fast-forwards
   // safely. Shipping it is the prerequisite for env-var drift detection — the
   // afterApply hook can only diff against an `.env.example` we have shipped.
@@ -972,7 +980,9 @@ function makeKataManifestHook(sink: ReportSink): (summary: RunSummary) => Promis
 // Everything the old hooks promised is kept verbatim, because those promises
 // are what make writing to a project's identity file acceptable at all:
 // INSERT-ONLY, never an edit to an existing line, idempotent, interactive
-// confirm, and `--auto` warns without mutating. One prompt per BLOCK: per-key
+// confirm. `--auto` inserts only a WHOLE missing block (nothing of the
+// project's can live in a block it lacks) and warns about the leaves missing
+// from a block the project has. One prompt per BLOCK: per-key
 // prompting on a project 46 paths behind is abusive, and a single
 // all-or-nothing prompt hides what is being accepted.
 //
@@ -990,12 +1000,13 @@ function upstreamRelease(templateDir: string): string | null {
   catch { return null; }
 }
 
-async function backfillProjectYamlFromSchema(
+export async function backfillProjectYamlFromSchema(
   templateDir: string,
   sink: ReportSink,
   nonInteractive: boolean,
+  cwd: string = process.cwd(),
 ): Promise<void> {
-  const consumerPath = path.join(process.cwd(), SCHEMA_SOURCE);
+  const consumerPath = path.join(cwd, SCHEMA_SOURCE);
   const schemaPath = path.join(templateDir, SCHEMA_FILE);
   if (!fs.existsSync(consumerPath) || !fs.existsSync(schemaPath)) { return; }
 
@@ -1017,28 +1028,36 @@ async function backfillProjectYamlFromSchema(
   if (delta.gaps.length === 0) { return; }
 
   const release = upstreamRelease(templateDir);
-  const total = delta.gaps.reduce((n, g) => n + g.paths.length, 0);
 
+  // Non-interactive (`--auto`, headless, an agent run): a WHOLE missing block is
+  // inserted, copied from the schema with its blank values, because nothing of
+  // the project's can be in a block it does not have, and a shipped skill that
+  // reads the block (`CONFIG_BLOCK_READERS`) would otherwise fail at runtime.
+  // A block the project HAS stays untouched: its missing leaves are only listed.
   if (nonInteractive) {
-    sink.warn(`Tu \`${SCHEMA_SOURCE}\` no tiene ${total} clave(s) que el schema de upstream declara.`);
-    for (const gap of delta.gaps) {
-      sink.step(`  ${gap.block}${gap.wholeBlock ? ' (bloque completo)' : ''}: ${gap.paths.join(', ')}`);
+    const partial = delta.gaps.filter(g => !g.wholeBlock);
+    if (partial.length > 0) {
+      const missing = partial.reduce((n, g) => n + g.paths.length, 0);
+      sink.warn(`Tu \`${SCHEMA_SOURCE}\` no tiene ${missing} clave(s) que el schema de upstream declara dentro de bloques que ya tienes.`);
+      for (const gap of partial) { sink.step(`  ${gap.block}: ${gap.paths.join(', ')}`); }
+      sink.step('Modo --auto: un bloque existente no se modifica. Ejecuta el updater interactivo, o `bun run agents:schema --project`.');
     }
-    sink.step('Modo --auto: no se modifica nada. Ejecuta el updater interactivo, o `bun run agents:schema --project`.');
-    return;
+    if (partial.length === delta.gaps.length) { return; }
   }
 
   let current = consumer;
   const applied: string[] = [];
   for (const gap of delta.gaps) {
+    if (nonInteractive && !gap.wholeBlock) { continue; }
     const what = gap.wholeBlock
       ? `el bloque \`${gap.block}\` completo (${gap.paths.length} clave(s))`
       : `${gap.paths.length} clave(s) nueva(s) en \`${gap.block}\`: ${gap.paths.join(', ')}`;
-    const proceed = await sink.confirm(
+    const proceed = nonInteractive || await sink.confirm(
       `Tu \`${SCHEMA_SOURCE}\` no tiene ${what}. Insertarlas ahora? (insert-only — ningún valor tuyo se modifica)`,
       false,
     );
     if (!proceed) { continue; }
+    if (nonInteractive) { sink.step(`Modo --auto: insertando ${what} (valores en blanco, insert-only).`); }
 
     // A whole missing block is inserted as ONE unit, not leaf by leaf: its
     // children come with it, and asking for each would be the per-key
@@ -1322,6 +1341,11 @@ const PROTECTED_WATCHLIST: ProtectedWatchEntry[] = [
   { path: 'tests/components/UiFixture.ts', reason: 'UI fixture wiring adapted per project' },
   { path: 'tests/components/api/ApiBase.ts', reason: 'KATA L2 HTTP base adapted to the target API' },
   { path: 'tests/components/ui/UiBase.ts', reason: 'KATA L2 UI base adapted to the target app' },
+  // The reporter and the two helpers that carry project wiring. Their pure
+  // neighbours sync through `tests-utils`; these get a drift row with the hunks.
+  { path: 'tests/KataReporter.ts', reason: 'the project\'s reporter: merge upstream\'s outcome records (reports/test-outcomes.json, the run id shared with atc_results.json), without which the board never shows an automated result' },
+  { path: 'tests/utils/decorators.ts', reason: 'the @atc decorator adapted per project: merge upstream\'s AtcResult.playwrightTestId and the runtime test.skip() as SKIP' },
+  { path: 'tests/utils/jiraSync.ts', reason: 'the project\'s TMS write-back: merge upstream\'s Xray body built through the synced tests/utils/xrayResults.ts and its key check before authenticating' },
   // Since the api-login split the generic CLI lives in `scripts/lib/api-login-core.ts`
   // (plainly synced) and the project's auth flow in `scripts/api-login.project.ts`
   // (bootstrapOnlyPaths below). The entry itself stays watched: a repo scaffolded
@@ -1652,6 +1676,7 @@ function makeParityHook(sink: ReportSink, priorLockSha: string, dryRun: boolean,
     const findings = collectParityFindings({
       root: cwd,
       upstreamDir: UPSTREAM_DIR,
+      dryRun,
       drift: drifted.map(d => ({ path: d.path, reason: d.reason, structural: d.structural === true, source: d.source })),
       compatErrors,
       compatWarnings,
@@ -1674,6 +1699,8 @@ function makeParityHook(sink: ReportSink, priorLockSha: string, dryRun: boolean,
         backupPath: summary.backupDir ? path.join(summary.backupDir, edit.path) : null,
       })),
       packageJsonKept: summary.packageJsonKept ?? [],
+      packageJsonAppended: summary.packageJsonAppended ?? [],
+      testSiblingsHeldBack: summary.testSiblingsHeldBack ?? [],
       gates: runFacts.gates,
       pbiCache: runFacts.pbiCache,
       shadowingCommandsMoved: runFacts.shadowingCommandsMoved,
@@ -2237,6 +2264,9 @@ async function main(): Promise<void> {
       '.agents/skills/iql-context/references/project-overrides.md',
       ...watchlist.map(e => e.path),
     ],
+    // A kept protected file keeps its own test: upstream's `.test.*` sibling
+    // asserts upstream's copy (testSiblingsToHoldBack in ./lib/updater-drift.ts).
+    holdTestSiblingsOf: watchlist.map(e => e.path),
     // Files inside a synced component that must NEVER be delivered or
     // overwritten by the sync: the generated surfaces (see GENERATED_PATHS).
     // CLAUDE.md is the shim the migration / scaffold writes, REGISTRY.md is
