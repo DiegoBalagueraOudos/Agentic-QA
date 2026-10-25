@@ -44,6 +44,20 @@ describe('buildDocuments (the jq port)', () => {
     expect(JSON.parse(JSON.stringify(buildDocuments(reading(), PARAMS, prev())))).toEqual(golden);
   });
 
+  test('a check run superseded by a later run of the same check does not fail the gate', () => {
+    const r = reading();
+    const cancelled = { id: 1, name: 'test', status: 'completed', conclusion: 'cancelled', started_at: '2026-01-14T11:00:00Z', completed_at: '2026-01-14T11:00:30Z' };
+    const success = { id: 2, name: 'test', status: 'completed', conclusion: 'success', started_at: '2026-01-14T11:00:31Z', completed_at: '2026-01-14T11:10:00Z' };
+    const review = r.prs['11'].checks.check_runs.filter((c: { name: string }) => c.name !== 'test');
+    for (const order of [[cancelled, success], [success, cancelled]]) {
+      r.prs['11'].checks.check_runs = [...order, ...review];
+      const checks = buildDocuments(r, PARAMS, prev()).docs['prs/11'].gates.checks;
+      expect(checks).toMatchObject({ lamp: 'go', code: 'green', total: 1, failing: [] });
+    }
+    r.prs['11'].checks.check_runs = [{ ...success, conclusion: 'failure' }, cancelled, ...review];
+    expect(buildDocuments(r, PARAMS, prev()).docs['prs/11'].gates.checks).toMatchObject({ code: 'failing', failing: ['test'] });
+  });
+
   test('gates, lanes and owners read the way the view expects', () => {
     const out = buildDocuments(reading(), PARAMS, prev());
     const pr11 = out.docs['prs/11'];

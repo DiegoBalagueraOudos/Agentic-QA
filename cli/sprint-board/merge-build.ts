@@ -115,6 +115,18 @@ const maxStr = (xs: (string | null | undefined)[]): string | null => {
   const ys = xs.filter((x): x is string => typeof x === 'string');
   return ys.length ? ys.reduce((a, b) => (b > a ? b : a)) : null;
 };
+/** The newest check run per check name (latest `started_at`, then the higher id), in first-seen order. */
+const latestPerName = (runs: J[]): J[] => {
+  const latest = new Map<string, J>();
+  for (const c of runs) {
+    const k = String(c.name ?? '');
+    const prev = latest.get(k);
+    const s = String(c.started_at ?? '');
+    const ps = String(prev?.started_at ?? '');
+    if (!prev || s > ps || (s === ps && Number(c.id) > Number(prev.id))) { latest.set(k, c); }
+  }
+  return [...latest.values()];
+};
 /** jq `unique`: sorted, distinct. */
 const unique = (xs: string[]): string[] => [...new Set(xs)].sort();
 /** jq `tonumber?`: a number, or null for '' and anything that does not parse. */
@@ -163,8 +175,9 @@ export function buildDocuments(r: Reading, p: BuildParams, prev: J | null): Buil
     const base = pr.base?.ref;
     const head = pr.head?.ref;
     const feeder = base !== p.mainBranch;
-    // checks: every run on the head except the review bot's own run
-    const runs = arr(rr.checks?.check_runs).filter(c => !CLAUDE_REVIEW.test(c.name ?? ''));
+    // checks: the newest run of each check on the head, except the review bot's own run; an older run
+    // that a later run of the same check superseded (a concurrency cancel, a re-run) no longer counts
+    const runs = latestPerName(arr(rr.checks?.check_runs).filter(c => !CLAUDE_REVIEW.test(c.name ?? '')));
     const sts = arr(rr.status?.statuses);
     const pending = runs.filter(c => c.status !== 'completed').length + sts.filter(s => s.state === 'pending').length;
     const failing = [
