@@ -195,6 +195,8 @@ wt() { awk '/^work_types:/{f=1;next} f&&/^[a-z_]+:/{f=0} f&&/^  [a-z_]+:/{print 
 diff <(wt .agents/jira-required.yaml) <(wt /tmp/jira-required.upstream.yaml)
 ```
 
+Then diff the whole file (`diff .agents/jira-required.yaml /tmp/jira-required.upstream.yaml`): nested `required_statuses`, `required_transitions` and `fallback:` changes inside an existing work type are invisible to the key lists.
+
 The same `wt` shape works on the `required:` / `optional:` sections by changing the anchor — check those too, not just `work_types:`. A missing field slug is quieter than a missing work type but breaks the skill that references it.
 
 Report the delta and **stop for a decision** — do not merge it silently. The file is genuinely co-owned: upstream owns the baseline contract (which work types and slugs the skills reference), the project owns its adaptations (fields its Jira lacks, `fallback:` declarations). Blindly adopting upstream clobbers real local customization; ignoring the delta ships an amputated catalog. Present both sides and let the operator choose per work type.
@@ -206,13 +208,14 @@ If the manifest does need updating, **update it first, then run the syncs** — 
 ```bash
 bun run jira:sync-fields --force
 bun run jira:sync-link-types
-bun run jira:sync-workflows
+bun run jira:sync-workflows --dry-run
+bun run jira:sync-workflows --force < /dev/null
 ```
 
 Three behaviors to anticipate, and they differ per script — do not assume one rule covers all three:
 
 - **`jira:sync-fields` REQUIRES `--force`.** Its populated-catalog guard sits on the main path, so a plain re-run stops with `already populated. Re-run with --force to overwrite.` and exits `1`.
-- **`jira:sync-workflows` does NOT need `--force`, and should not get it.** Its identical-looking guard lives *inside* the `--upex` branch only, so the normal Jira path is idempotent. Adding `--force` re-prompts for already-mapped slugs and buys nothing. (In practice a canonical slug with exactly one candidate auto-resolves either way; prompts only appear on a collision or a no-match.)
+- **`jira:sync-workflows` NEEDS `--force` after an instance migration.** Its per-slug idempotency guard keeps every slug that already has an id, so a plain run writes the OLD instance's status ids back and reports success. Run `--dry-run` first, then `--force < /dev/null` (prompts fire only on a collision or a no-match, and stdin is closed). Transition ids are workflow-local and usually survive a site restore.
 - **`jira:sync-link-types` has NO `--force` flag at all.** Its argument parser (check `--help`) has no `default:` case — so `--force` is silently swallowed rather than rejected. Passing it appears to work, which is exactly why it is worth not teaching.
 
 Plus one behavior shared with Phase 2:
