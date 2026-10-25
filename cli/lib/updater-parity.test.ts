@@ -1,3 +1,4 @@
+import type { ProtectedWatchEntry } from './updater-drift.ts';
 import type { ParityFinding, ParityInput, ParityMeta } from './updater-parity.ts';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -6,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, test } from 'bun:test';
+import { detectProtectedDrift, persistMarkers, resolveMarkerPath, splitFirstProjectAdvice } from './updater-drift.ts';
 import {
   ABORTED_OUTRO,
   archivedSkillsToReport,
@@ -32,6 +34,7 @@ import {
   PATH_PREREQUISITES,
   persistArchivedSkillMarkers,
   PLAYWRIGHT_CLI_CONFIG,
+  prerequisiteArbiterPasses,
   prerequisiteFor,
   protectNote,
   readGitStrategyStamp,
@@ -1517,6 +1520,98 @@ describe('a kept file whose hunk gates another file of the same release', () => 
     expect(prerequisiteFor('scripts/lint-skills.ts')?.gate).toBe('bun run skills:check');
     expect(prerequisiteFor('scripts\\lint-skills.ts')).toBe(PATH_PREREQUISITES['scripts/lint-skills.ts']);
     expect(prerequisiteFor('README.md')).toBeNull();
+  });
+});
+
+describe('a BLOCKING row stays while its arbiter fails, whatever its marker says', () => {
+  // Live finding: run 1 printed the kept `.github/workflows/regression.yml` as
+  // BLOCKING and stamped its upstream-sha marker; run 2, with nothing changed
+  // and `grep -q 'xray:payload'` still failing, printed no row for it at all.
+  // The marker records "upstream seen", never "project resolved".
+  const FILE = '.github/workflows/regression.yml';
+  const KEPT = 'jobs:\n  Project:\n    steps:\n      - run: bun xray import junit test-results/junit.xml\n';
+  const UPSTREAM = 'jobs:\n  XrayImport:\n    steps:\n      - run: bun run xray:payload\n';
+  const watch: ProtectedWatchEntry[] = [{ path: FILE, reason: 'CI suite adapted (secrets, envs, jobs)' }];
+  const arbiterFails = (root: string) => (entry: ProtectedWatchEntry): boolean => {
+    const prerequisite = prerequisiteFor(entry.path);
+    return prerequisite !== null && !prerequisiteArbiterPasses(prerequisite, root);
+  };
+
+  /** One sync's parity pass, as the wrapper's hook runs it: detect, split, persist, collect. */
+  function syncRun(root: string, upstream: string, withArbiter = true): ParityFinding[] {
+    const { advised, seeded, seededNoUpstreamChange } = splitFirstProjectAdvice(
+      detectProtectedDrift(watch, upstream, root, withArbiter ? arbiterFails(root) : undefined),
+    );
+    persistMarkers([...advised, ...seeded, ...seededNoUpstreamChange], root);
+    return collectParityFindings({
+      root,
+      upstreamDir: upstream,
+      drift: advised.map(d => ({ path: d.path, reason: d.reason, structural: false, source: d.source })),
+      compatErrors: [],
+      archivedSkills: [],
+      archivedSkillsDir: join(root, 'x'),
+      heldBack: [],
+      envNewKeys: [],
+    }).filter(f => f.path === FILE);
+  }
+
+  test('run 1 emits it, run 2 with the same failing arbiter still emits it, a passing arbiter removes it', () => {
+    const root = temporaryRoot();
+    const upstream = temporaryRoot();
+    write(root, FILE, KEPT);
+    write(upstream, FILE, UPSTREAM);
+
+    const first = syncRun(root, upstream);
+    expect(first).toHaveLength(1);
+    expect(first[0].blocking).toBe(true);
+    expect(existsSync(resolveMarkerPath(watch[0], root))).toBe(true);
+
+    const second = syncRun(root, upstream);
+    expect(second).toHaveLength(1);
+    expect(second[0].blocking).toBe(true);
+
+    // The project ports the hunk and keeps its own job: it still differs from
+    // upstream, but the arbiter passes, so the row is gone.
+    write(root, FILE, `${KEPT}  XrayImport:\n    steps:\n      - run: bun run xray:payload\n`);
+    expect(syncRun(root, upstream)).toEqual([]);
+  });
+
+  test('the repro without the arbiter: the stamped marker silences the row on run 2', () => {
+    const root = temporaryRoot();
+    const upstream = temporaryRoot();
+    write(root, FILE, KEPT);
+    write(upstream, FILE, UPSTREAM);
+    expect(syncRun(root, upstream, false)).toHaveLength(1);
+    expect(syncRun(root, upstream, false)).toEqual([]);
+  });
+
+  test('a failing arbiter is never seeded: not as a project-declared path, not as unchanged since the cursor', () => {
+    const upstream = temporaryRoot();
+    write(upstream, FILE, UPSTREAM);
+    const g = (args: string[]): string => spawnSync('git', ['-C', upstream, ...args], { encoding: 'utf8' }).stdout;
+    g(['init', '--quiet', '--initial-branch=main']);
+    g(['-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '--quiet', '--allow-empty', '-m', 'base']);
+    g(['add', '-A']);
+    g(['-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'upstream']);
+    const cursor = g(['rev-parse', 'HEAD']).trim();
+    const failing = { path: FILE, reason: 'r', upstreamSha: 'x', firstAdvice: true, arbiterFailing: true };
+
+    const declared = splitFirstProjectAdvice([{ ...failing, source: 'project' as const }]);
+    expect(declared.advised.map(e => e.path)).toEqual([FILE]);
+    expect(declared.seeded).toEqual([]);
+
+    const sinceCursor = splitFirstProjectAdvice([failing], { tempDir: upstream, lockCursor: cursor });
+    expect(sinceCursor.advised.map(e => e.path)).toEqual([FILE]);
+    expect(sinceCursor.seededNoUpstreamChange).toEqual([]);
+    // The same entry with a passing arbiter is seeded, exactly as before.
+    const { arbiterFailing: _passing, ...passing } = failing;
+    expect(splitFirstProjectAdvice([passing], { tempDir: upstream, lockCursor: cursor }).seededNoUpstreamChange.map(e => e.path)).toEqual([FILE]);
+  });
+
+  test('an arbiter that cannot run counts as failing (fail-closed)', () => {
+    expect(prerequisiteArbiterPasses({ requiredBy: 'x', gate: 'exit 3' }, temporaryRoot())).toBe(false);
+    expect(prerequisiteArbiterPasses({ requiredBy: 'x', gate: 'definitely-not-a-command-xyz' }, temporaryRoot())).toBe(false);
+    expect(prerequisiteArbiterPasses({ requiredBy: 'x', gate: 'true' }, temporaryRoot())).toBe(true);
   });
 });
 

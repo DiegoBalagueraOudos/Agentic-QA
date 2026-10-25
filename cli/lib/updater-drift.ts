@@ -21,6 +21,8 @@
  *     tracked by a content hash in `.template/upstream-sha/<slug>.sha`
  *     (one nudge per upstream change, never on dry-run — afterApply is
  *     skipped there).
+ *  4. Except for a BLOCKING entry (a release prerequisite): it fires on every
+ *     run while its arbiter gate still fails, marker or not.
  *
  * The advisory itself (section-level evidence, the copy-paste prompt, the
  * persisted `.agents/prompts/parity-plan.md`) is rendered by
@@ -220,17 +222,31 @@ export interface DriftedEntry extends ProtectedWatchEntry {
   upstreamSha: string
   /** True when this is the first advice ever for this entry (no marker yet). */
   firstAdvice: boolean
+  /**
+   * The entry's prerequisite arbiter (a BLOCKING row's gate) still fails:
+   * reported whatever its marker says, and never seeded silently.
+   */
+  arbiterFailing?: boolean
 }
 
 /**
  * Detect which watchlist entries drifted: upstream exists, local exists,
  * local differs from upstream, and upstream changed since the last advice.
  * Pure with respect to markers — does NOT write them (see persistMarkers).
+ *
+ * `arbiterFails` (optional) answers, for an entry that differs from upstream,
+ * whether the gate of its BLOCKING row still fails. Such an entry is reported
+ * even when its marker already holds this upstream's hash: the marker records
+ * "upstream seen", the arbiter records "project resolved", and a release
+ * prerequisite stays on the table until the arbiter passes. Injected rather
+ * than read from the prerequisite table here, so this module stays free of
+ * the parity layer and its tests run no real gate.
  */
 export function detectProtectedDrift(
   entries: readonly ProtectedWatchEntry[],
   tempDir: string,
   cwd: string,
+  arbiterFails?: (entry: ProtectedWatchEntry) => boolean,
 ): DriftedEntry[] {
   const drifted: DriftedEntry[] = [];
   for (const entry of entries) {
@@ -259,9 +275,11 @@ export function detectProtectedDrift(
     }
     catch { /* unreadable marker — treat as first advice */ }
 
-    if (lastSha === upstreamSha) { continue; } // no NEW upstream change since last nudge
+    const failing = arbiterFails?.(entry) === true;
+    // No NEW upstream change since last nudge, and no failing arbiter holding the row open.
+    if (lastSha === upstreamSha && !failing) { continue; }
 
-    drifted.push({ ...entry, upstreamSha, firstAdvice: lastSha === '' });
+    drifted.push({ ...entry, upstreamSha, firstAdvice: lastSha === '', ...(failing ? { arbiterFailing: true } : {}) });
   }
   return drifted;
 }
@@ -319,6 +337,10 @@ export interface SplitFirstAdviceResult {
  *    run noise the project-declared rule above already avoids for a
  *    narrower case. Skipped when `cursorCheck` is omitted or its `lockCursor`
  *    is unknown (no lock yet): first advice is kept, exactly as before.
+ *
+ * Neither seed rule applies to an entry whose arbiter still fails
+ * (`arbiterFailing`): a release prerequisite is never silenced, whatever its
+ * source or the cursor says. It is always advised.
  */
 export function splitFirstProjectAdvice(
   drifted: readonly DriftedEntry[],
@@ -328,6 +350,7 @@ export function splitFirstProjectAdvice(
   const seeded: DriftedEntry[] = [];
   const seededNoUpstreamChange: DriftedEntry[] = [];
   for (const entry of drifted) {
+    if (entry.arbiterFailing === true) { advised.push(entry); continue; }
     if (entry.source === 'project' && entry.firstAdvice) { seeded.push(entry); continue; }
     if (
       entry.firstAdvice

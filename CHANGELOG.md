@@ -24,6 +24,13 @@ below names which one it applies to:
   "project lock" line of every parity prompt) stayed releases behind. A re-run at the same head
   repairs a lock left that way; a component with a pending delta, deselected or skipped, still
   holds its cursor.
+- **A BLOCKING protected-file row stays until its arbiter passes.** The gate of every
+  `PATH_PREREQUISITES` entry that differs from upstream now runs on each sync (fail-closed: a gate
+  that cannot run counts as failing), and while it fails the row is printed whatever the
+  `.template/upstream-sha/` marker says, and is never seeded silently. Before, run 1 printed the
+  kept `.github/workflows/regression.yml` as BLOCKING and stamped its marker, and run 2 printed
+  nothing while `grep -q 'xray:payload'` still failed. A project whose marker is already stamped
+  gets the row back on its next sync.
 
 ### Fixed (a new project commits, pushes and sees its prerequisites on day one)
 - **The hooks of a scaffolded project pass**: `vars:check` reads the `{}` placeholder catalogs as not
