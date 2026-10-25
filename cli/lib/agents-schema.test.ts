@@ -603,7 +603,10 @@ describe('insertion', () => {
   test('no release means no marker, not the string "null"', () => {
     const old = stripBlock(source, 'orchestration');
     const { text } = applyInsertions(old, planInsertions(old, schema, ['orchestration'], null));
-    expect(text).not.toContain('# NEW in');
+    // Relative to the input: a project's yaml may already carry a marker from an
+    // earlier insert (`bun sync --auto` adds one with each block).
+    expect(text.split('# NEW in').length).toBe(old.split('# NEW in').length);
+    expect(text).not.toContain('# NEW in null');
   });
 
   // The case the parent-offset bug produced: a first child has no preceding
