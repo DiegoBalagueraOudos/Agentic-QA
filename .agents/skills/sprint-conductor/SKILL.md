@@ -88,6 +88,10 @@ workflow skill that names the orchestrator, because the owner invoked it to run 
 | state B, binary with an unreachable runtime | open the app once and re-check once, as `orca-orchestration` says; still unreachable → state A |
 | state A, no binary | ONE line, then stop, nothing written: "/sprint-conductor runs on Orca and no reachable Orca runtime is on this machine; run the sprint with /sprint-testing sprint-wide and N executors, which writes paste-ready launch lines." |
 
+The conductor runs as a TOP-LEVEL session. Started as a supervised worker of another conductor, it has no
+fleet wherever the app's nested-worker depth is 1 (`orca-orchestration/references/gotchas.md` G77): a session
+above it launches it with `agent launch` and reads its reports from that session's own Run inbox.
+
 The one line is the whole report: no install walkthrough, no second paragraph. `sprint-testing`,
 `fleet-conductor.md` and `sprint-board.md` keep their silence about the orchestrator unchanged; the
 fan-out without Orca stays theirs.
