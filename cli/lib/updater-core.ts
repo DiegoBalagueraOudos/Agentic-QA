@@ -1288,8 +1288,9 @@ export function dirtyTreeExemptions(
  *
  * The dirty-tree guard blocks ONLY on user work inside this surface: those
  * files would be overwritten and their pre-write backup lives in `.backups/`
- * (gitignored). Uncommitted work anywhere else (`tests/`, project code, a
- * protected file) is listed and never blocks: the sync does not write there.
+ * (gitignored). Uncommitted work anywhere else (`tests/` outside the
+ * `tests-utils` helpers, project code, a protected file) is listed and never
+ * blocks: the sync does not write there.
  */
 export function isWithinWriteSurface(
   cfg: Pick<UpdaterConfig, 'components' | 'ignoreFiles' | 'packageJsonSpecs' | 'deprecatedFiles' | 'excludePaths' | 'repoOnlyPaths' | 'bootstrapOnlyPaths'>,

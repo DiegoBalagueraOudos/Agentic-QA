@@ -44,15 +44,17 @@ below names which one it applies to:
   failed and the pre-commit hook refused the sync's own commit, and the appended `xray:payload`
   script failed with `Module not found`. `xrayResults.ts` now declares the one field it reads
   beyond `AtcResult` (`AtcRun`), so it compiles next to a project's older `decorators.ts`. A
-  project that copied and edited one of these files by hand gets its copy in `.backups/` and an
-  overwritten-edit row; list the path in `updater.protected_paths` to keep it instead.
+  project that copied and edited one of these files by hand gets upstream's copy on the first
+  sync, with its own saved under `.backups/` and no parity row (the component is new, so there
+  is no earlier sync to compare against): to keep its copy, list the path in
+  `updater.protected_paths` BEFORE that sync.
 - **`tests/KataReporter.ts`, `tests/utils/decorators.ts` and `tests/utils/jiraSync.ts` are
   watched**: never overwritten, delivered once when missing, and a drift row with the hunks when
   upstream changes them (they used to get no row at all).
 - **`--auto` inserts a whole missing `.agents/project.yaml` block** (headless and agent runs
   included), copied from the schema with its blank values and a `# NEW in <release>` marker. It
   still never edits a block the project has: missing leaves inside one are listed, as before, and
-  `updater.schema_exempt` still silences a block. The `board:` block is now declared as read by
+  `updater.schema_exempt` silences a block for both the insert and the blocking row below. The `board:` block is now declared as read by
   `/sprint-conductor`, so a project still missing it gets a blocking row. An inserted blank block
   is "board not configured": `board:check` prints one INFO line and exits 0.
 - **A protected file keeps its own test.** The `.test.*` sibling of a watched or

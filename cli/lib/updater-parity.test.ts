@@ -816,6 +816,12 @@ describe('a missing config block a shipped skill reads blocks the run', () => {
     expect(row!.evidence).not.toContain('BLOCKING');
   });
 
+  test('a block the project exempted through updater.schema_exempt never escalates', () => {
+    const upstream = 'project:\n  name: upstream\nboard:\n  source: auto\n';
+    expect(missingConfigBlocks('.agents/project.yaml', 'project:\n  name: consumer\n', upstream)).toEqual([{ block: 'board', reader: CONFIG_BLOCK_READERS['.agents/project.yaml'].board }]);
+    expect(missingConfigBlocks('.agents/project.yaml', 'project:\n  name: consumer\nupdater:\n  schema_exempt: [board]\n', upstream)).toEqual([]);
+  });
+
   test('missingConfigBlocks is top-level only and declaration-driven', () => {
     const project = 'git_strategy:\n  strategy: solo-main\n';
     const upstream = 'git_strategy:\n  strategy: solo-main\n  policy:\n    direct_push_to_protected: allowed\n';

@@ -45,7 +45,7 @@ import { parse as parseYaml } from 'yaml';
 
 import { stripJsonComments } from './agent-compatibility-contracts.ts';
 import { compatibilityErrorGroup, HARNESS_COMMAND_DIRS, RETIRED_COMMAND_ALIAS_OVERLAY, SHADOWING_COMMANDS_BACKUP_DIR } from './agent-compatibility.ts';
-import { hasDeepWalk, walkGovernedFile } from './agents-schema.ts';
+import { hasDeepWalk, SCHEMA_SOURCE, schemaExemptions, walkGovernedFile } from './agents-schema.ts';
 import { contextMapAdvice, contextMapStatuses, mapRelPath } from './context-maps.ts';
 import { HARNESS_LEVEL_MCPS } from './harness-level-mcps.ts';
 import { declaredHarnesses } from './harness-selection.ts';
@@ -426,16 +426,20 @@ export function missingConfigBlocks(
   upstream: string,
   readers: Record<string, Record<string, ConfigBlockReader>> = CONFIG_BLOCK_READERS,
 ): { block: string, reader: ConfigBlockReader }[] {
-  const declared = readers[filePath.replace(/\\/g, '/')];
+  const normalized = filePath.replace(/\\/g, '/');
+  const declared = readers[normalized];
   if (declared === undefined) { return []; }
   const mine = configEntries(project, filePath);
   const theirs = configEntries(upstream, filePath);
   if (!mine || !theirs) { return []; }
+  // A block the project removed on purpose (`updater.schema_exempt`) is its
+  // decision, not a half-delivered release: the back-fill skips it, so must this.
+  const exempt = new Set(normalized === SCHEMA_SOURCE ? schemaExemptions(project) : []);
   return Object.entries(declared)
     // Top-level only: `configEntries` also carries `top.child` rows, and a
     // missing CHILD of a block the project has is a value-shaped difference,
     // not the absent-block failure this escalates.
-    .filter(([block]) => theirs.has(block) && !mine.has(block))
+    .filter(([block]) => theirs.has(block) && !mine.has(block) && !exempt.has(block))
     .map(([block, reader]) => ({ block, reader }));
 }
 
