@@ -421,8 +421,8 @@
         <code>atc_results.json</code>; con <code>AUTO_SYNC=true</code>,
         <code>bun run test:sync</code> lo sube (<code>syncToXray()</code> en jira-xray,
         <code>syncToJiraDirect()</code> en jira-native). En la regresión con Xray, CI
-        importa el JUnit (<code>bun xray import junit</code>) en lugar de llamar a
-        <code>test:sync</code>.
+        importa los mismos resultados por ATC (<code>bun run xray:payload</code> +
+        <code>bun xray import xray</code>) en lugar de llamar a <code>test:sync</code>.
       </div>
     </section>
   </div>

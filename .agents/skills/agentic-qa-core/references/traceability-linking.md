@@ -64,7 +64,7 @@ Resolve every slug via `{{jira.link_types.<slug>}}`; an absent slug STOPs (§2).
 | `relates`          | Symmetric reference (fallback)     | Any ↔ Any (symmetric)                                       | `relates to`           | `relates to`          | Fallback            | Degradation target ONLY when a required type is absent from the workspace. **Direction is lost** — warn on degradation (§6). |
 | `test_design`      | Placement — ATP designs a Test Case | ATP (Test Plan) → TC (Test)                                 | `designs`              | `is designed by`      | **REQUIRED** (jira-xray) / N-A (jira-native) | The prescribed ATP↔TC edge under Modality `jira-xray`. Created for each TC the ATP plans. Inside the ATP you read `designs TC-x`; inside the TC you read `is designed by ATP`. Placement/administrative — coverage does NOT flow through this edge (see the two-layer model below); it does not replace a last-resort direct TC→Story link. |
 | `test_execute`     | Placement — ATR executes a Test Case | ATR (Test Execution) → TC (Test)                           | `executes`             | `is executed by`      | **REQUIRED** (jira-xray) / N-A (jira-native) | The prescribed ATR↔TC edge under Modality `jira-xray`. Created for each TC the ATR runs. Inside the ATR you read `executes TC-x`; inside the TC you read `is executed by ATR`. Placement/administrative — coverage does NOT flow through this edge (see the two-layer model below). |
-| `test_automation`  | Xray refinement — automation covers a manual test | Automation → manual Test                          | `automation test for`  | `is automated by`     | Optional            | Xray-special refinement to bind an automated test to the manual Test it automates (test-automation Stage). |
+| `test_automation`  | Xray refinement — automation covers a manual test | Automation → manual Test                          | `automation test for`  | `is automated by`     | Optional            | Catalog entry only; no skill creates it. `@atc('<TC_KEY>')` makes the TC itself the automated test and run results land on it (`test-automation` step 6), so there is no separate automation issue to bind. |
 
 > **Two-layer model (binding — never confuse the layers).** An ATS/ATP/ATR↔TC↔Story graph lives in TWO distinct layers:
 >
@@ -77,7 +77,7 @@ Resolve every slug via `{{jira.link_types.<slug>}}`; an absent slug STOPs (§2).
 >
 > **The ATS (Acceptance Test Set) — third canonical per-Story artifact.** Title `ATS: {US_ID}: {story title}`. **MANDATORY per Story**, even when it holds a single TC. Set-first: the ATP and ATR derive their test lists from the ATS membership. Parents to the **QA Test Artifacts** epic; **components INHERITED from the Story (mandatory)** — the components exemption applies only to feature-level `TS:` sets, never to the ATS. Feature-level `TS: {EPIC|module}: Validate {feature}` sets remain optional (smoke / regression / feature grouping), components optional.
 >
-> **Items-first (default by excellence):** in BOTH modalities the ATP and ATR are real Jira **items** — a **Test Plan** item (`ATP: {STORY-KEY}: {title}`) and a **Test Execution** item (`ATR: {STORY-KEY}: Story Testing`) — so the `test` / `test_design` / `test_execute` edges above apply uniformly. The **fallback** branch — ATP/ATR carried as Story custom fields with no separate issues — applies ONLY when the Test Plan / Test Execution work types are unavailable in the instance and the items therefore cannot be created; there `test_design` / `test_execute` are N-A and the Story is linked directly to each Test via the generic `test` edge instead (the cascade's last rung). `test_automation` stays an optional refinement in both cases.
+> **Items-first (default by excellence):** in BOTH modalities the ATP and ATR are real Jira **items** — a **Test Plan** item (`ATP: {STORY-KEY}: {title}`) and a **Test Execution** item (`ATR: {STORY-KEY}: Story Testing`) — so the `test` / `test_design` / `test_execute` edges above apply uniformly. The **fallback** branch — ATP/ATR carried as Story custom fields with no separate issues — applies ONLY when the Test Plan / Test Execution work types are unavailable in the instance and the items therefore cannot be created; there `test_design` / `test_execute` are N-A and the Story is linked directly to each Test via the generic `test` edge instead (the cascade's last rung). `test_automation` stays a catalog entry that no skill creates, in both cases.
 >
 > **QA-process Epic parenting (axis 1) + roll-up.** Independently of the coverage links above, every Plan and Run also parents to a QA-process Epic: every **Test Plan** item (ATP · FTP · STP · RTP) parents to the **QA Master Test Plan** epic; every **Test Execution** item (ATR · STR · RTR), **Test Set** (ATS and feature-level `TS:`), and **Precondition** parents to the **QA Test Artifacts** epic. Optional **roll-up** edges aggregate coverage up the ladder: ATP `is part of` FTP, and FTP `is part of` STP (`relates` family / `is part of`) — the parent Epic stays the QA-process Epic regardless of roll-up.
 >
@@ -164,14 +164,14 @@ test-documentation  (Modality jira-xray)
         (Coverage does NOT flow through the ATP/ATR — it flows through the ATS→Story
          link (or last-resort TC→Story). The Xray attach creates NO Jira links; the
          design/execute edges are SEPARATE, explicit, and placement-only.)
-        → (opt) automation automates Test      [test_automation]
+        (No automation link: @atc('<TC_KEY>') makes the TC the automated test, test-automation step 6.)
         (A discovery-driven Test anchors to a coverage Tech Story instead of a Story:
          its ATS → Tech Story `test` edge is the coverage one, `discovery-driven-doctrine.md` §3.)
 
 test-documentation  (Modality jira-native)
   └─ Test / Test Execution created for Story
         → Story is tested by Test/TestExec    [test]
-        → (opt) automation automates Test     [test_automation]
+        (No automation link: @atc('<TC_KEY>') makes the TC the automated test.)
 
 sprint-testing
   ├─ Stage 1 — Set-first: ATS created/updated for the Story (mandatory, even for 1 TC)
@@ -272,6 +272,6 @@ Concretely: the three link reads are the `/acli` link-list read (§4's direction
 
 - `sprint-testing` — creates/updates the per-Story ATS and its coverage-bearing `ATS→Story` link (`test`) in Stage 1 (Set-first), then find-or-creates the ATP item from the field and its administrative `ATP→Story` link; files Bug (`problem_incident`) and blocks Story (`blocks`) during in-sprint QA.
 - `shift-left-testing` — creates no link: the pre-sprint ATP lives in the `{{jira.acceptance_test_plan}}` field, and `sprint-testing` Stage 1 creates the ATP item and its `test` link from it.
-- `test-documentation` — binds Story to ATP + ATR (`test`, administrative); binds each TC to the ATP (`test_design`) and ATR (`test_execute`) as placement edges — direct `TC→Story` stays the cascade's last resort (Modality `jira-xray`). In Modality `jira-native` binds Story to Test / Test Execution (`test`, opt. `test_automation`).
+- `test-documentation` — binds Story to ATP + ATR (`test`, administrative); binds each TC to the ATP (`test_design`) and ATR (`test_execute`) as placement edges — direct `TC→Story` stays the cascade's last resort (Modality `jira-xray`). In Modality `jira-native` binds Story to Test / Test Execution (`test`).
 - `regression-testing` — re-binds existing Tests via ATP (`test_design`) and ATR (`test_execute`) per regression cycle.
 - `xray-cli` — owns the Xray-internal `TC ∈ ATS/ATP/ATR` membership in Modality `jira-xray`; the `TC→ATS` link that accompanies `TC ∈ ATS` in both modalities goes through `[ISSUE_TRACKER_TOOL]` (§9).

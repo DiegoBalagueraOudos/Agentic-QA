@@ -358,7 +358,7 @@ link_types:
       inward: is automated by
       description: Links a manual Test to its automation.
       fallback: relates
-      used_by: [test-automation]
+      used_by: []
 
     blocking:
       name: Blocking

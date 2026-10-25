@@ -567,6 +567,8 @@ const result = await graphql<ResponseType>(MUTATIONS.createTest, {
 
 ### JUnit Import
 
+The CLI refuses a file with any testcase lacking a `test_key` / `test_id` property: Xray would create a new Generic Test for it (see `../SKILL.md` §Import Results).
+
 ```bash
 POST /api/v2/import/execution/junit?projectKey=DEMO
 Content-Type: application/xml

@@ -33,6 +33,34 @@ below names which one it applies to:
   names gets an `automated` chip beside its own status, for a run in the board's environment only;
   lanes, metrics, counts and the share and report snapshots are unchanged (ADR-0023 amendment).
 
+### Fixed (the CI import to Xray can no longer create a Test)
+- **The regression workflow's Xray write-back imports explicit Test keys.** The `XrayImport` job
+  used to post `junit.xml` with no `test_key` per testcase, and Xray creates a new Generic Test for
+  every unmatched JUnit testcase: the first opted-in run would have minted one unsigned, unparented
+  Test per spec test, setup and teardown included, past the signed ROI gate. It now imports Xray
+  JSON built from each test job's `reports/atc_results.json` (new `*-atc-results` artifacts): one
+  entry per ATC, `testKey` = the `@atc` id, never `testInfo`, so it can only write runs onto existing
+  Tests. A new payload step (`bun run xray:payload`) fails the job with one line naming every id
+  that is not a Test key, before anything is sent; the import step stays `continue-on-error`.
+  `bun run test:sync` builds its Xray body through the same code (`tests/utils/xrayResults.ts`).
+- **`bun xray import junit` and `import xray` refuse a Test-creating input.** A JUnit testcase without
+  `test_key` / `test_id` inside its own `<properties>` (or with two keys, a malformed key, or
+  `test_summary` / `test_description` / `tags`, which rewrite the Test), or an Xray JSON entry with
+  `testInfo` or a missing, malformed or repeated `testKey`, stops the command with one message
+  naming each one; a body the guard cannot read is refused too.
+- **The write-back reports what ran, and only this run.** A runtime `test.skip()` inside an ATC is
+  recorded `SKIP` and left out (NOT RUN), never sent as FAILED. An ATC whose test failed before it
+  could record a result (a timeout on a non-Playwright await) is sent as FAILED from the outcome
+  records. `atc_results.json` and `test-outcomes.json` carry one run id, a report from another run
+  is refused, and a run with no ATC deletes the previous run's `atc_results.json`. `bun run
+  test:sync` checks the keys before it authenticates.
+- **No separate "automated test" issue.** `test-automation` step 6 no longer links an
+  `{AUTOMATED_TEST_KEY}` to the TC: the `@atc` id is the TC's key and the run result lands on the TC.
+- Before a project's first import, every `@atc` id must be the key of an existing Test (template
+  placeholder ids included): Xray returns an error for an unknown key. The docs that described
+  the JUnit import (`xray-platform.md` §6 matching rules, the regression and xray-cli references, the
+  Xray setup page and the regression decks) now say what the import does and does not do.
+
 ### Changed (signed ROI gate for automation, discovery intake)
 - **`test-automation` no longer creates Tests.** A TC source gate runs before Plan and first on
   every resume. In scope are the Tests at `candidate` whose signature comment was created and last

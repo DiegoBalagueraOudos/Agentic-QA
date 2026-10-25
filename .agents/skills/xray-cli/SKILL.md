@@ -27,6 +27,7 @@ metadata:
 - DO: treat Xray run statuses as PER-INSTANCE vocabulary. `TODO` / `EXECUTING` / `PASSED` / `FAILED` are the safe floor; `ABORTED` and `BLOCKED` are Xray defaults a project may not define, and the mutation is rejected when it does not. Record a blocked case in a status the project DOES define and explain it in the run comment — never leave the run `TODO`, which reads as never executed.
 - WHEN a Jira-fallback path created the container without authenticated Xray: the Xray layer never registered the tests and runs come back empty. Reconcile with the per-entity sync (or the bulk repair scan) before importing results.
 - DO: import results onto an existing Execution key, never scoped to a project — the import API cannot set a parent, so a project-scoped import mints a fresh unparented Execution on every run, outside the artifact ladder.
+- DO NOT: import results that could create or rewrite a Test. `import junit` refuses any testcase without a `test_key` / `test_id` inside its own `<properties>` (or with two keys, or with `test_summary` / `test_description` / `tags`) and `import xray` refuses `testInfo` or a missing, malformed or repeated `testKey`, naming each one. A KATA run is imported per ATC with explicit keys (`bun run xray:payload`, then `import xray`), never as its `junit.xml`; a missing Test is created by `/test-documentation` behind a signed ROI verdict, never by an import.
 - DO NOT: hand-craft Xray JSON payloads outside this CLI, or reuse a bearer token past its 24h TTL. A stale token produces silent 401s mid-import that read like network blips.
 - DO: dry-run any import or backup restore before applying. Both write irreversibly across hundreds of tests and runs.
 - WHEN moving between sites: restore in sync-by-key mode (GraphQL ids are re-assigned per site, keys are not), re-authenticate between export and restore because auth holds ONE site at a time, and finish with the Jira instance-migration flow — field ids are reassigned and an old id silently resolves to a different field.
@@ -585,6 +586,27 @@ bun xray import cucumber --file cucumber-report.json --project DEMO
 bun xray import xray --file xray-results.json
 ```
 
+> **An import never creates a Test.** Xray creates a new Generic Test for every JUnit testcase
+> that carries no `test_key` / `test_id` property (matching it by `classname` + `name` first), and
+> a Test for every Xray JSON entry that carries `testInfo` (Xray Cloud docs: "Taking advantage of
+> JUnit XML reports", "Using Xray JSON format to import execution results"). So `import junit`
+> refuses a file with any testcase lacking a key inside its own `<properties>` (a key in
+> `<system-out>` or outside `<properties>` is not read), holding two, carrying a `test_key` that
+> is not a Jira key, or carrying `test_summary` / `test_description` / `tags` (they rewrite the
+> Test); `import xray` refuses `testInfo`, a missing, malformed or repeated `testKey`, and any
+> body whose `tests` is not an array. The error names every offending testcase or entry and
+> nothing is sent. A key that does not exist makes Xray return an error. Cucumber results imports
+> need no guard: they map only to existing Tests through scenario tags and never create one;
+> untagged results fail with "No tests found in execution result" (Xray Cloud docs, BDD "Common
+> problems"). Only a `.feature` import creates Cucumber Tests, and `bun xray` exposes none.
+>
+> A KATA run is NOT imported as its `junit.xml`: one Playwright testcase holds zero, one or
+> several ATCs, and the setup and teardown projects land in it with no key. It is imported per
+> ATC from `reports/atc_results.json`, one entry per `@atc` id (which IS the Test key):
+> `bun run xray:payload --execution <EXEC-KEY> --out xray-results.json reports/atc_results.json`,
+> then `bun xray import xray --file xray-results.json`. That is what the regression workflow's
+> XrayImport job runs; `bun run test:sync` does the same from a local run.
+
 > **`--plan` without `--execution` mints a NEW Test Execution.** `import junit --plan <RTP-KEY>`
 > with no `--execution` makes Xray create a fresh Test Execution and link it to that plan: the
 > CLI appends `testPlanKey` and omits `testExecKey` (`cli/xray/commands/import.ts`), and Xray's
@@ -719,13 +741,15 @@ bun xray test add-step --test <issueId> --action "Submit form" --result "Success
 
 # 3. Create a test execution pinned to the environment under test
 bun xray exec create --project DEMO --summary "Registration Tests - Sprint 5" --environment staging
-#    -> DEMO-123
+#    -> DEMO-7123
 
 # 4. Run automated tests and import results INTO the execution created above.
 #    Import onto an existing Execution key, never with --project: Xray's import
 #    API cannot set a parent, so a --project import mints a fresh, unparented
 #    Execution on every run — outside the QA Test Artifacts epic and the ladder.
-bun xray import junit --file test-results/junit.xml --execution DEMO-123
+#    One entry per ATC with its Test key, never the junit.xml (see Import Results).
+bun run xray:payload --execution DEMO-7123 --out xray-results.json reports/atc_results.json
+bun xray import xray --file xray-results.json
 
 # 5. Check execution status
 bun xray exec list --project DEMO --limit 5
@@ -784,8 +808,9 @@ bun xray exec add-set {{PROJECT_KEY}}-194 --set {{PROJECT_KEY}}-180
 # 5. (Optional) Associate the Execution with the Plan
 bun xray plan add-executions {{PROJECT_KEY}}-110 --executions {{PROJECT_KEY}}-194
 
-# 6. Run / import results, then set run statuses
-bun xray import junit --file test-results/junit.xml --execution {{PROJECT_KEY}}-194
+# 6. Run / import results (one entry per ATC, see Import Results), then set run statuses
+bun run xray:payload --execution {{PROJECT_KEY}}-194 --out xray-results.json reports/atc_results.json
+bun xray import xray --file xray-results.json
 #    or drive runs manually:
 bun xray run list --execution {{PROJECT_KEY}}-194
 bun xray run status --id <runId> --status PASSED

@@ -29,6 +29,8 @@ export interface AtcResult {
   executedAt: string
   duration: number
   softFail: boolean
+  /** Playwright's id of the test that ran this ATC, when one was running. */
+  playwrightTestId?: string
 }
 
 export interface AtcOptions {
@@ -147,6 +149,7 @@ export function atc(testId: string, options: AtcOptions = {}) {
       // annotations into the outcome records (reports/test-outcomes.json),
       // which is how a test outcome maps to its TC ids (ADR-0020).
       try {
+        result.playwrightTestId = test.info().testId;
         const annotations = test.info().annotations;
         if (!annotations.some(a => a.type === 'atc' && a.description === testId)) {
           annotations.push({ type: 'atc', description: testId });
@@ -172,9 +175,19 @@ export function atc(testId: string, options: AtcOptions = {}) {
         return returnValue;
       }
       catch (error: unknown) {
-        result.status = 'FAIL';
         result.error = error instanceof Error ? error.message : String(error);
         result.duration = Date.now() - startTime;
+
+        // A runtime `test.skip()` inside the ATC throws to stop the test: that is
+        // NOT RUN (ADR-0020), never a failure, and it must still propagate.
+        if (isSkipping()) {
+          result.status = 'SKIP';
+          storeResult(testId, result);
+          console.log(`⏭️ [${testId}] ${methodName} - SKIP: ${result.error}`);
+          throw error;
+        }
+
+        result.status = 'FAIL';
         storeResult(testId, result);
 
         console.log(`❌ [${testId}] ${methodName} - FAIL: ${result.error}`);
@@ -287,6 +300,16 @@ function formatValue(value: unknown, key?: string): string {
   }
 
   return String(value);
+}
+
+/** True when the running test was just skipped at runtime (`test.skip()` / `test.fixme()`). */
+function isSkipping(): boolean {
+  try {
+    return test.info().expectedStatus === 'skipped';
+  }
+  catch {
+    return false;
+  }
 }
 
 function formatArgs(args: unknown[]): string {

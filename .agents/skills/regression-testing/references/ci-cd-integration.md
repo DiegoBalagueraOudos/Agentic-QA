@@ -48,26 +48,31 @@ regression.yml
 │        STP_EXECUTION_KEY = inputs.execution_key || secrets.STP_EXECUTION_KEY
 │                 (the Execution this run imports into: the RTR by default,
 │                  the sprint-close STR when the run is the sprint close)
-├── job: integration   → bun run test:integration  → Sync Results to TMS → uploads integration-allure-results + integration-test-results
-├── job: e2e           → bun run test:e2e          → Sync Results to TMS → uploads e2e-allure-results + e2e-test-results
+├── job: integration   → bun run test:integration  → Sync Results to TMS → uploads integration-allure-results + integration-test-results + integration-atc-results
+├── job: e2e           → bun run test:e2e          → Sync Results to TMS → uploads e2e-allure-results + e2e-test-results + e2e-atc-results
 │       (the sync step is `bun run test:sync`, gated on AUTO_SYNC == 'true' AND
 │        TMS_PROVIDER != 'xray' — the xray leg is the XrayImport job below, and
 │        running both would import the same runs twice)
 ├── job: allure-report (if: always, unless generate_allure=false)
 │       merges both allure-results dirs → merged-allure-results-<TEST_ENV>
 │       generates + publishes the Allure report (same allurerc.mjs as local runs)
-└── job: XrayImport   (if: always() && vars.TMS_PROVIDER == 'xray', continue-on-error)
-        downloads the *-test-results artifacts → [TMS_TOOL] JUnit import into $STP_EXECUTION_KEY
-        skips with an annotation when AUTO_SYNC != 'true', Xray creds are missing,
-        or no execution key resolved (no execution_key input AND no secret);
-        a jira-native repo skips the job silently
+└── job: XrayImport   (if: always() && vars.TMS_PROVIDER == 'xray')
+        downloads the *-atc-results artifacts (reports/atc_results.json)
+        gate: skips with an annotation when AUTO_SYNC != 'true', Xray creds are missing,
+              or no execution key resolved (no execution_key input AND no secret);
+              a jira-native repo skips the job silently
+        payload: bun run xray:payload → one Xray JSON entry per ATC, testKey = @atc id,
+              no testInfo; an id that is not a Test key FAILS the job, nothing sent
+        import: [TMS_TOOL] Xray JSON import into $STP_EXECUTION_KEY (continue-on-error)
 ```
 
 Key points:
 - Credentials are the env-prefixed pairs (`LOCAL_*` / `STAGING_*`) matching `config/variables.ts` — there are no `TEST_USER_*` secrets, and no URL secrets: `config.baseUrl` resolves from `.agents/project.yaml` by `TEST_ENV`.
 - TMS sync (Xray) runs off `AUTO_SYNC` + `XRAY_CLIENT_ID` / `XRAY_CLIENT_SECRET`; the Jira-Direct alternative uses `ATLASSIAN_EMAIL` / `ATLASSIAN_API_TOKEN` (present in the file, commented until enabled).
-- **There are two write-back legs, one per modality, and they never both fire.** On a jira-native project the `Sync Results to TMS` step inside each test job runs `bun run test:sync` after the Playwright process has exited (`reports/atc_results.json` is written by `KataReporter.onEnd()`, too late for anything inside the run). On an Xray project that step is skipped and the `XrayImport` job below does the import instead.
-- **The Xray write-back leg is the `XrayImport` job**, gated on `TMS_PROVIDER` (a repo VARIABLE — a job-level `if:` can read `vars` but never `secrets`). It runs `if: always()` so a failing suite still reports its results, and `continue-on-error` so a TMS outage never turns a green suite red. `STP_EXECUTION_KEY` names **the Execution this run imports into**: the **RTR** (`RTR: {scope-id}: Regression Testing`, created by `/regression-testing` Phase 1 before the trigger) by default, the sprint-close **STR** when the run is the sprint close. Never a Test Plan (the STP or the RTP): a plan derives its status from its Executions and is never written into. The name is kept for downstream secrets; the semantics are the new ones.
+- **There are two write-back legs, one per modality, and they never both fire.** On a jira-native project the `Sync Results to TMS` step inside each test job runs `bun run test:sync` after the Playwright process has exited (`reports/atc_results.json` is written by `KataReporter.onEnd()`, too late for anything inside the run). On an Xray project that step is skipped and the `XrayImport` job below does the import instead, from the same per-ATC file (uploaded as the `*-atc-results` artifacts).
+- **The Xray write-back leg is the `XrayImport` job**, gated on `TMS_PROVIDER` (a repo VARIABLE — a job-level `if:` can read `vars` but never `secrets`). It runs `if: always()` so a failing suite still reports its results, and its import step is `continue-on-error` so a TMS outage never turns a green suite red. `STP_EXECUTION_KEY` names **the Execution this run imports into**: the **RTR** (`RTR: {scope-id}: Regression Testing`, created by `/regression-testing` Phase 1 before the trigger) by default, the sprint-close **STR** when the run is the sprint close. Never a Test Plan (the STP or the RTP): a plan derives its status from its Executions and is never written into. The name is kept for downstream secrets; the semantics are the new ones.
+- **The Xray import never creates a Test.** It sends Xray JSON built from `reports/atc_results.json`: one entry per ATC, `testKey` = the `@atc` id (which IS the Test key), and no `testInfo`, the only field Xray creates a Test from. `junit.xml` is not imported: Xray creates a new Generic Test for every JUnit testcase without a `test_key` property, and a Playwright testcase holds zero, one or several ATCs (the setup and teardown projects land in it with none). What it does: write one run per ATC that ran onto existing Tests in the target Execution, FAILED when any execution of that ATC failed (with retries on, a flaky ATC that failed once is FAILED), PASSED otherwise. An ATC whose test failed before the ATC could record a result (a timeout on a non-Playwright await) is still sent as FAILED, read from the `atcIds` of that test's record in `reports/test-outcomes.json` (uploaded in the same artifact). What it does not do: create a Test, report a test that called no ATC, send an ATC that was only skipped at runtime (NOT RUN, ADR-0020), or write to a key Xray does not know (Xray returns an error; the step fails without failing the job). Before the payload is sent, an id that is not shaped like a Jira key, an unreadable report, or a report whose run id differs from its `test-outcomes.json` fails the job with one line naming it; an execution key that is not key-shaped skips the import with a warning naming it. A missing Test is created by `/test-documentation` behind a signed ROI verdict. `[TMS_TOOL] import junit` refuses the same back door locally (load `/xray-cli`): a testcase without `test_key` / `test_id` inside its `<properties>` stops it. `bun run test:sync` runs the same key check before it authenticates.
+- **Before the first import, every `@atc` id must be the key of an existing Test** in the TMS (replace any placeholder id the template components carry): Xray returns an error for an unknown key (Xray Cloud JUnit import docs: "If the given test issue id or key does not exist, an error will be thrown").
 - **The `execution_key` `workflow_dispatch` input overrides the secret.** `env.STP_EXECUTION_KEY` resolves to `inputs.execution_key || secrets.STP_EXECUTION_KEY`, and that input is how `/regression-testing` passes the RTR it just created (`-f execution_key=<RTR-KEY>`). Regression, smoke and sanity all declare it.
 - **A scheduled nightly with no key skips the import with a warning.** A scheduled run has no dispatcher to mint an RTR, so `regression.yml` imports only when the secret is set. Two fixes: run the nightly through `/regression-testing` (one RTR per verdict, the intended path), or point the secret at a standing RTR for the period it covers. Neither the STP nor the RTP is ever a valid value.
 - The `allure-report` job runs `if: always()` so failures still produce a report; the Slack failure notification block exists but ships commented out.

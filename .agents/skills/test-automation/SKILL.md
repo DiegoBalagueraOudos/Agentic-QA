@@ -268,17 +268,17 @@ bun run lint:check                         # ESLint, no errors
 
 If any step fails, fix before moving to Review.
 
-6. **Signal it in the TMS** — per TC, both signals, neither optional:
-   - **Link**: bind the automated test to the manual `Test` it automates via the `test_automation`
-     link type (`{{jira.link_types.test_automation}}`, outward `automation test for` — slug-resolved,
-     never a literal; catalog: `agentic-qa-core/references/traceability-linking.md` §3).
-   - **Labels**: ADD `automated` on the `Test` and REMOVE `automation-candidate` — the two are
+6. **Signal it in the TMS** — per TC:
+   - **No separate automated Test issue.** The `@atc('<TC_KEY>')` id IS the TC's key, so the TC
+     itself is the automated test: each run result is recorded on the TC (one Xray run per ATC,
+     imported by its key; the import never creates a Test, `regression-testing/references/ci-cd-integration.md`).
+     Never create a second "automated" Test, and never link one to the TC.
+   - **Labels**, not optional: ADD `automated` on the `Test` and REMOVE `automation-candidate` — the two are
      mutually exclusive (`test-documentation/SKILL.md` §Labels). Flip them at the point the TC
      actually reaches **AUTOMATED** (see §Git & TMS handoff: the `merged` transition once the
      code is on the production branch with CI green), not on a merge into an integration branch or a suite trunk.
 
 ```
-[ISSUE_TRACKER_TOOL] Link work items: {AUTOMATED_TEST_KEY} -> {TC_KEY}  type: {{jira.link_types.test_automation}}
 [ISSUE_TRACKER_TOOL] Update work item: {TC_KEY}  labels: + automated  - automation-candidate
 ```
 
@@ -319,7 +319,7 @@ Run the review checklist on the new/modified files. Treat every failed item as a
 
 ```
 [ ] Every in-scope TC at {{jira.status.test_case.in_automation}} or beyond (start_automation fired)
-[ ] TCs bound to their automated test via the {{jira.link_types.test_automation}} link
+[ ] Every ATC carries its TC's own key (`@atc('<TC_KEY>')`); no separate automated Test issue created
 [ ] Labels flipped only at the status they belong to (+automated / -automation-candidate
     at `merged`, never at a trunk or integration merge)
 [ ] No TC left at {{jira.status.test_case.candidate}} with code already written for it

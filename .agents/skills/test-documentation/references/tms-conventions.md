@@ -693,8 +693,8 @@ Automated results flow from CI to the TMS:
 
 ```
 [TMS_TOOL] Import results:
-  format: junit | cucumber
-  file: {from CI test results path}
+  format: xray-json   # never junit: it creates Tests
+  file: {the per-ATC payload built from reports/atc_results.json, one testKey per @atc id}
   project: {{PROJECT_KEY}}
   execution: {from execution key or auto-create}
 

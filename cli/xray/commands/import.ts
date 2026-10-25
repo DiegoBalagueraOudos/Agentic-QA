@@ -6,6 +6,7 @@
 
 import type { Flags, ImportResult } from '../types/index.js';
 import { existsSync, readFileSync } from 'node:fs';
+import { findJunitCreations, findXrayJsonCreations, guardMessage } from '../lib/import-guard.js';
 import { log } from '../lib/logger.js';
 import { getFlag, requireFlag } from '../lib/parser.js';
 import { restApi } from '../lib/rest.js';
@@ -25,6 +26,12 @@ export async function junit(flags: Flags): Promise<void> {
   }
 
   const content = readFileSync(file, 'utf-8');
+
+  // A testcase without a test_key / test_id becomes a NEW Generic Test in Xray.
+  const creations = findJunitCreations(content);
+  if (creations.length > 0) {
+    throw new Error(guardMessage(file, creations));
+  }
 
   log.dim(`Importing JUnit results from ${file}...`);
 
@@ -113,6 +120,12 @@ export async function xray(flags: Flags): Promise<void> {
   }
 
   const content = readFileSync(file, 'utf-8');
+
+  // An entry with testInfo (or without testKey) can create a Test in Xray.
+  const creations = findXrayJsonCreations(JSON.parse(content));
+  if (creations.length > 0) {
+    throw new Error(guardMessage(file, creations));
+  }
 
   log.dim(`Importing Xray JSON results from ${file}...`);
 

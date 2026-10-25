@@ -530,8 +530,8 @@ One per execution run. Holds Test Runs with PASS / FAIL / TODO per Test.
   # Parent Epic: QA Test Artifacts
 
 [TMS_TOOL] Import Results:
-  format: junit      # or cucumber, xray-json
-  file:   ./test-results/junit.xml
+  format: xray-json  # never junit: it creates Tests
+  file:   the per-ATC payload built from reports/atc_results.json (one testKey per @atc id)
   execution: {EXEC_KEY}
 ```
 

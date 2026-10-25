@@ -137,8 +137,9 @@ jobs:
       # (issue #27). `always()` so a failing suite still reports its results.
       #
       # Skipped for the xray modality on purpose: the XrayImport job below
-      # already pushes this run's junit.xml into the same Test Execution, and
-      # two imports of the same runs is a double-import, not a safety net.
+      # imports this run's per-ATC results (reports/atc_results.json, uploaded
+      # below) into the same Test Execution, and two imports of the same runs
+      # is a double-import, not a safety net.
       - name: Sync Integration Results to TMS
         if: always() && env.AUTO_SYNC == 'true' && env.TMS_PROVIDER != 'xray'
         run: bun run test:sync
@@ -157,6 +158,21 @@ jobs:
         with:
           name: integration-test-results
           path: test-results/
+          retention-days: 10
+
+      # The per-ATC verdicts the XrayImport job imports, with the outcome
+      # records that name an ATC whose test failed before it could record a
+      # result. A separate artifact on purpose: adding these files to the
+      # test-results upload would move junit.xml one level down inside it.
+      - name: Upload Integration ATC Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-atc-results
+          path: |
+            reports/atc_results.json
+            reports/test-outcomes.json
+          if-no-files-found: ignore
           retention-days: 10
 
       - name: Cleanup Workspace
@@ -207,8 +223,9 @@ jobs:
       # (issue #27). `always()` so a failing suite still reports its results.
       #
       # Skipped for the xray modality on purpose: the XrayImport job below
-      # already pushes this run's junit.xml into the same Test Execution, and
-      # two imports of the same runs is a double-import, not a safety net.
+      # imports this run's per-ATC results (reports/atc_results.json, uploaded
+      # below) into the same Test Execution, and two imports of the same runs
+      # is a double-import, not a safety net.
       - name: Sync E2E Results to TMS
         if: always() && env.AUTO_SYNC == 'true' && env.TMS_PROVIDER != 'xray'
         run: bun run test:sync
@@ -227,6 +244,21 @@ jobs:
         with:
           name: e2e-test-results
           path: test-results/
+          retention-days: 10
+
+      # The per-ATC verdicts the XrayImport job imports, with the outcome
+      # records that name an ATC whose test failed before it could record a
+      # result. A separate artifact on purpose: adding these files to the
+      # test-results upload would move junit.xml one level down inside it.
+      - name: Upload E2E ATC Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-atc-results
+          path: |
+            reports/atc_results.json
+            reports/test-outcomes.json
+          if-no-files-found: ignore
           retention-days: 10
 
       - name: Upload Playwright Report
@@ -384,16 +416,27 @@ jobs:
           fi
 
   # ============================================
-  # Job 4: Import JUnit Results to Xray
+  # Job 4: Import Results to Xray
   # ============================================
-  # The write-back leg. Playwright always emits test-results/junit.xml (see
-  # playwright.config.ts), both test jobs upload it, and this job pushes it into
-  # the Test Execution the QA process already created.
+  # The write-back leg. Each test job uploads reports/atc_results.json (one
+  # verdict per ATC, keyed by its @atc id, which IS the Test key), and this job
+  # writes them into the Test Execution the QA process already created.
+  #
+  # IT NEVER CREATES A TEST. The import is Xray JSON with an explicit testKey
+  # per entry and no testInfo; Xray creates a Test only from testInfo. The
+  # junit.xml is NOT imported: Xray mints a new Generic Test for every JUnit
+  # testcase without a test_key, and a Playwright testcase holds zero, one or
+  # several ATCs (the setup and teardown projects land there with none). A Test
+  # is created by /test-documentation behind a signed ROI verdict, never here.
   #
   # OPT-IN AND NON-BLOCKING BY CONSTRUCTION. This boilerplate is used by projects
   # with no TMS at all, so every gate below exits 0 with a GitHub annotation
   # instead of failing, and the import step is continue-on-error so an Xray
   # outage never turns a green suite red. A repo without Xray sees a skip note.
+  # One exception, on purpose: once the import is enabled, a result whose id is
+  # not a Test key, or a report that cannot be read or belongs to another run,
+  # fails this job with one line naming it, before anything is sent. That is a
+  # defect in the suite, not an outage.
   #
   # The modality gate is different in kind: it is not "Xray is misconfigured"
   # but "this project has no Xray", so it skips the whole job SILENTLY. A
@@ -424,22 +467,22 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
-      - name: Download Integration Test Results
+      - name: Download Integration ATC Results
         uses: actions/download-artifact@v4
         with:
-          name: integration-test-results
+          name: integration-atc-results
           path: xray-artifacts/integration
         continue-on-error: true
 
-      - name: Download E2E Test Results
+      - name: Download E2E ATC Results
         uses: actions/download-artifact@v4
         with:
-          name: e2e-test-results
+          name: e2e-atc-results
           path: xray-artifacts/e2e
         continue-on-error: true
 
-      - name: Import JUnit Results to Xray
-        continue-on-error: true
+      - name: Check the Xray Import Is Enabled
+        id: gate
         shell: bash
         env:
           XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
@@ -465,23 +508,46 @@ jobs:
             exit 0
           fi
 
-          bun xray auth login
-
-          imported=0
-          for report in xray-artifacts/integration/junit.xml xray-artifacts/e2e/junit.xml; do
-            if [ -f "$report" ]; then
-              echo "Importing $report into ${STP_EXECUTION_KEY}..."
-              bun xray import junit --file "$report" --execution "${STP_EXECUTION_KEY}"
-              imported=$((imported + 1))
-            fi
-          done
-
-          if [ "$imported" -eq 0 ]; then
-            echo "::warning title=Xray import::No junit.xml found in the downloaded artifacts — nothing to import."
-          else
-            echo "## Xray Import" >> $GITHUB_STEP_SUMMARY
-            echo "Imported $imported JUnit report(s) into Test Execution \`${STP_EXECUTION_KEY}\` (the RTR for this run, or the sprint-close STR). Set execution_key when dispatching, or the STP_EXECUTION_KEY secret for scheduled runs; never the RTP/STP key." >> $GITHUB_STEP_SUMMARY
+          # A typo in the key is a configuration slip, not a suite defect: skip
+          # with a warning naming it, never turn a green suite red.
+          if ! [[ "${STP_EXECUTION_KEY}" =~ ^[A-Z][A-Z0-9_]+-[0-9]+$ ]]; then
+            echo "::warning title=Xray import skipped::The execution key '${STP_EXECUTION_KEY}' is not a Test Execution key (PROJECT-123 shape), so results were NOT imported. Fix execution_key or the STP_EXECUTION_KEY secret."
+            exit 0
           fi
+
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      # NOT continue-on-error: an id that is not a Test key fails the job here,
+      # with one line naming it, and nothing reaches Xray. No ATC in the run =
+      # a notice and no payload.
+      - name: Build the Xray Payload and Check Every Test Key
+        id: payload
+        if: steps.gate.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun run --silent xray:payload --execution "${STP_EXECUTION_KEY}" --out xray-results.json \
+            xray-artifacts/integration/atc_results.json xray-artifacts/e2e/atc_results.json
+          if [ -f xray-results.json ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import Results to Xray
+        if: steps.payload.outputs.ready == 'true'
+        continue-on-error: true
+        shell: bash
+        env:
+          XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
+          XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+
+          bun xray auth login
+          echo "Importing $(jq '.tests | length' xray-results.json) ATC result(s) into ${STP_EXECUTION_KEY}..."
+          bun xray import xray --file xray-results.json
+
+          echo "## Xray Import" >> $GITHUB_STEP_SUMMARY
+          echo "Imported $(jq '.tests | length' xray-results.json) ATC result(s) into Test Execution \`${STP_EXECUTION_KEY}\` (the RTR for this run, or the sprint-close STR), one per existing Test key; the import carries no testInfo, so it cannot create a Test. Set execution_key when dispatching, or the STP_EXECUTION_KEY secret for scheduled runs; never the RTP/STP key." >> $GITHUB_STEP_SUMMARY
 
   # ============================================
   # TODO: Implement Slack notification job

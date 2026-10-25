@@ -145,7 +145,7 @@ bun run test:sync (tests/utils/jiraSync.ts, paso aparte cuando Playwright ya sal
         { testExecutionKey | info:{...}, tests:[{ testKey:'PROJ-101', status:'PASSED', comment }] }
         → con STP_EXECUTION_KEY escribe sobre esa Test Execution; sin ella, Xray crea una nueva
    └─ (alternativa jira-native) syncToJiraDirect(): PUT al issue + comentario
-   (en regression.yml con Xray, CI importa el junit.xml en un job aparte en lugar de test:sync)
+   (en regression.yml con Xray, CI importa estos mismos resultados por ATC en un job aparte, nunca el junit.xml)
 ```
 
 Trazabilidad (modelo tres letras): Historia (US) ↔ ATP (plan) ↔ ATR
@@ -459,7 +459,8 @@ Reglas que el ensamblador debe hacer cumplir (con feedback visual):
 - `retries: 0`, `workers: 1` en el config del seed (conservador a propósito).
 - La sync automática a TMS está **apagada por defecto** (`AUTO_SYNC=false`).
   Encendida, la hace `bun run test:sync` después de la corrida (nunca el
-  teardown); en la regresión con Xray, CI importa el JUnit (`bun xray import junit`).
+  teardown); en la regresión con Xray, CI importa los resultados por ATC con su clave
+  de Test (`bun run xray:payload` + `bun xray import xray`), nunca el JUnit.
 - Un mismo ID NO puede aparecer en 2 métodos. El seed daba `PROJ-101` a
   `AuthApi.authenticateSuccessfully` y a `LoginPage.loginSuccessfully` a la vez,
   y eso colapsaba las dos ATCs en una sola fila del reporte de cobertura: un

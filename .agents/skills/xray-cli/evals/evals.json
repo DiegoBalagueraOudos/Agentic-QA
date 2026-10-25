@@ -10,7 +10,7 @@
     {
       "name": "should-trigger-import-results",
       "prompt": "Import the JUnit results from test-results/junit.xml into Xray for project DEMO.",
-      "expected_behavior": "Activates xray-cli. Runs `bun xray import junit --file test-results/junit.xml --project DEMO` and surfaces the import summary or created execution key.",
+      "expected_behavior": "Activates xray-cli. For a KATA run it imports per ATC instead: `bun run xray:payload --execution <EXEC-KEY> --out xray-results.json reports/atc_results.json`, then `bun xray import xray --file xray-results.json`, onto an existing Execution. If it tries `bun xray import junit --file test-results/junit.xml`, the CLI refuses the file and names each testcase without a `test_key` / `test_id`; the skill reports that instead of working around it: an import never creates a Test.",
       "category": "positive"
     },
     {

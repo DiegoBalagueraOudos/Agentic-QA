@@ -120,29 +120,29 @@ The QA completeness checklist in `tms-architecture.md` §Completeness criteria i
 
 ---
 
-## 6. Data flow: Playwright → JUnit → Xray
+## 6. Data flow: Playwright → per-ATC results → Xray
 
 ```
 PLAYWRIGHT TEST EXECUTION
-   test('PROJ-101 | login flow', async ({ fixture }) => {
-     await fixture.api.auth.loginWithValidCredentials({...});
+   test('PROJ-100: login flow', async ({ fixture }) => {
+     await fixture.api.auth.loginWithValidCredentials({...});   // @atc('PROJ-101')
    });
           |
-          | generates
+          | KataReporter.onEnd() writes
           v
-JUNIT XML (or Cucumber JSON)
-   <testcase name="PROJ-101 | login flow" time="1.234">
-     <system-out>Passed</system-out>
-   </testcase>
+reports/atc_results.json   (one record per ATC execution, keyed by the @atc id)
+   "PROJ-101": [{ status: "PASS", duration: 1234, ... }]
           |
-          | [TMS_TOOL] Import Results
-          |   OR CI step (curl POST /api/v2/import/execution/junit)
+          | bun run xray:payload  (CI)  /  bun run test:sync  (local)
+          v
+XRAY JSON  (POST /api/v2/import/execution)
+   { testExecutionKey: "PROJ-400",
+     tests: [{ testKey: "PROJ-101", status: "PASSED", comment: "..." }] }   // no testInfo
+          |
           v
 XRAY API PROCESSING
-   PARSE junit.xml
-   MATCH "PROJ-101" to existing Test issue
-   CREATE Test Execution PROJ-400 (if not pre-existing)
-   UPDATE Test Runs with statuses
+   MATCH testKey "PROJ-101" to the existing Test issue (unknown key = Xray error)
+   UPDATE Test Runs with statuses in the existing Test Execution PROJ-400
           |
           v
 XRAY ENTITIES UPDATED
@@ -150,19 +150,18 @@ XRAY ENTITIES UPDATED
      Test Plan: PROJ-300
      Environment: staging
      Test Runs:
-       PROJ-101 -> PASS (1.234s)
-       PROJ-102 -> FAIL (2.1s) "Timeout after 5000ms"
+       PROJ-101 -> PASS
+       PROJ-102 -> FAIL "Timeout after 5000ms"
    Test Plan PROJ-300:
      Progress: 43/45 passing (95.5%)
 ```
 
-Matching rules (how Xray finds which Test issue a result belongs to):
+Matching rules (how Xray finds which Test issue a result belongs to; Xray Cloud docs, "Taking advantage of JUnit XML reports" and "Using Xray JSON format to import execution results"):
 
-1. **By Jira key in test name**: `test('PROJ-101 | ...', ...)` — most reliable.
-2. **By Generic Test Definition**: match on `testKey` field — for Generic tests.
-3. **By Test Summary**: exact match — least reliable, avoid.
+1. **JUnit**: a `test_key` (or `test_id`) property on the testcase names the Test; a key that does not exist is an error. Without one, Xray matches a Generic Test by its Generic Test Definition (`classname` + `name`) and **creates a new Generic Test** when none matches. The test NAME is never matched against a Jira key.
+2. **Xray JSON**: `testKey` names the Test (any test type). A Test is created only from a `testInfo` element.
 
-The KATA convention `@atc('PROJ-101')` + `test('PROJ-101: should ...', ...)` ensures rule 1 always applies. See `test-automation/references/atc-tracing.md`.
+The `@atc('PROJ-101')` id IS the Test key, and a Playwright test can call several ATCs (or none), so the KATA import is Xray JSON with one `testKey` entry per ATC and never `testInfo`: it can write runs onto existing Tests and cannot create one. `junit.xml` is not imported, and `[TMS_TOOL] import junit` refuses a testcase without a key. The `PROJ-100:` prefix in a test title is the story key, for humans and grep only. See `test-automation/references/atc-tracing.md`.
 
 ---
 
@@ -205,8 +204,9 @@ The live pattern is the `XrayImport` job in `.github/workflows/regression.yml`; 
 
 1. Skips with a notice when `AUTO_SYNC` is not `true` or `XRAY_CLIENT_ID` / `XRAY_CLIENT_SECRET` are not set.
 2. Skips with a warning when there is no target Test Execution: the `execution_key` dispatch input (the RTR) or the `STP_EXECUTION_KEY` secret. It never imports with only a project key, because that mints a new Execution that Xray's import API cannot parent to the QA Test Artifacts epic.
-3. Authenticates, then imports each `junit.xml` INTO that execution: `[TMS_TOOL] import junit: file=<report>, execution=<STP_EXECUTION_KEY>` (load `/xray-cli` for the literal command; `--plan` without `--execution` mints a new Execution, see that skill).
-4. Runs `continue-on-error`, so an Xray outage never turns a green suite red.
+3. Builds the Xray JSON payload from each test job's `reports/atc_results.json` (one entry per ATC, `testKey` = the `@atc` id, no `testInfo`); an id that is not shaped like a Test key fails the job there, naming it, and nothing is sent.
+4. Authenticates, then imports that payload INTO the execution: `[TMS_TOOL] import xray: file=<payload>` (load `/xray-cli` for the literal command). It never imports `junit.xml`, so it never creates a Test.
+5. Runs the import step `continue-on-error`, so an Xray outage never turns a green suite red.
 
 There is no `XRAY_TEST_PLAN_KEY` / `XRAY_ENVIRONMENT` variable: the target Execution already carries its Test Plan link and its Test Environment.
 
@@ -233,7 +233,7 @@ Rule: sync only from CI to the TMS (never from local runs). Feature branch resul
 |-------|-------|-----|
 | `401 Unauthorized` | Token expired or wrong credentials | Regenerate; verify `XRAY_CLIENT_ID` / `XRAY_CLIENT_SECRET` |
 | `404 Not Found` | Wrong project or Test Plan key | Verify the key exists in Jira via `[ISSUE_TRACKER_TOOL]` |
-| `400 No valid tests` | Test IDs in JUnit don't match any Test issue | Make sure test names include the Jira key (`@atc('PROJ-101')`) |
+| `400 No valid tests` / test key not found | An imported `testKey` matches no Test issue | Every `@atc('<id>')` must be the key of an existing Test; a missing Test goes to `/test-documentation` (signed ROI), never created by the import |
 | `403 Forbidden` | Xray project permissions | User needs "Edit Tests" + "Import Executions" in the Xray permission scheme |
 | Test Type change rejected | Cannot convert Manual ↔ Cucumber | Delete the Test and recreate with the correct type |
 | Test Execution never closes | Xray does not auto-close Executions | Transition manually via `[ISSUE_TRACKER_TOOL] Transition Issue` after import |
