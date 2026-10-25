@@ -86,7 +86,7 @@ These are one-writer surfaces. A worker that runs them races every sibling:
 |---|---|
 | `bun run api:login` (token mint) | the default token file is shared, and concurrent writers interleave. The conductor mints once and workers only read it; when a worker genuinely needs its own credential, the conductor mints an isolated set for it (`bun run api:login <env> --profile <label>`) — never a second concurrent login against the default path |
 | `bun run api:sync` (OpenAPI types) | regenerates `api/schemas/` for everyone |
-| issue-tracker / TMS **writes** — TC transitions, labels, `test_automation` links | rate limits, and two sessions transitioning the same TC produce a contradictory history |
+| issue-tracker / TMS **writes** — TC transitions, labels | rate limits, and two sessions transitioning the same TC produce a contradictory history |
 | `bun run kata:manifest` at integration time | see §6 |
 | worktree creation and removal | includes the orphan audit before removal (`.agents/skills/git-flow-master/references/worktrees.md`) |
 

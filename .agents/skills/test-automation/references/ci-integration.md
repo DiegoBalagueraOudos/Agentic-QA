@@ -157,7 +157,7 @@ The reporter array is load-bearing. Reporters run in order and the first one can
 1. **`KataReporter`** (custom) — colored terminal tree, prints step boundaries, reads the NDJSON written by `@atc` to show per-ATC status. Goes first so its step events are registered before Allure grabs them.
 2. **`html`** — Playwright's built-in HTML report. Lives in `playwright-report/`. `open: 'never'` prevents it from auto-opening locally (annoying in CI-like local runs).
 3. **`json`** — machine-readable summary for tooling (`test-results/results.json`).
-4. **`junit`** — XML for CI tools (`test-results/junit.xml`). Always on, local and CI.
+4. **`junit`** — XML for CI tools (`test-results/junit.xml`). Always on, local and CI. Never imported into Xray: a testcase without a `test_key` would become a new Test there; the Xray write-back sends one entry per ATC from `reports/atc_results.json` instead.
 5. **`allure-playwright`** — writes to `config.reporting.allureResultsDir`. The `bun run allure:generate` script post-processes this directory into a static site.
 6. **`github`** (opt-in) — annotates PRs with failure locations when enabled in GitHub Actions. Not recommended with matrix strategies (errors multiply in the UI).
 
@@ -236,7 +236,7 @@ The config reads through `config/variables.ts`, the single source of truth. It d
 | `TEST_ENV` | `config/variables.ts` | Selects the environment entry in the internal URL map AND the credential set. `config.baseUrl` (frontend, feeds `use.baseURL`) and `config.apiUrl` (API host, feeds `ApiBase`) both come from that map — there are NO `BASE_URL` / `API_BASE_URL` env vars. |
 | `LOCAL_USER_EMAIL` / `LOCAL_USER_PASSWORD` | auth setup projects | Local credentials |
 | `STAGING_USER_EMAIL` / `STAGING_USER_PASSWORD` | auth setup projects | Staging credentials |
-| `AUTO_SYNC` | `jiraSync.ts`, the workflows' `Sync Results to TMS` step | Enable the TMS write-back. It runs as a step AFTER the test step, not inside the teardown (see atc-tracing reference) |
+| `AUTO_SYNC` | `jiraSync.ts`, the workflows' `Sync Results to TMS` step, the regression `XrayImport` job | Enable the TMS write-back. It runs as a step AFTER the test step, not inside the teardown (see atc-tracing reference) |
 | `TMS_PROVIDER` | `jiraSync.ts` | `xray` / `jira` / `none` |
 | `STP_EXECUTION_KEY` | `jiraSync.ts` | **Xray only.** Target of the write-back: the key of the **RTR** Test Execution (or the sprint-close **STR**) — never a Test Plan (the sync reads the issue type and refuses a Test Plan). Unset → each run mints a new, unparented Execution. |
 

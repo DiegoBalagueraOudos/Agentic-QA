@@ -239,7 +239,9 @@ bun run test:sync             # reads it and writes the results back
 
 The suite workflows under `.github/workflows/` run the second line as a
 `Sync Results to TMS` step gated on `AUTO_SYNC == 'true'`, right after the test
-step. `syncResults()` itself still honours the `AUTO_SYNC` gate, and in CI it
+step. On an Xray project, `regression.yml` skips that step and its `XrayImport`
+job imports the same file instead, through the same payload builder
+(`tests/utils/xrayResults.ts`). `syncResults()` itself still honours the `AUTO_SYNC` gate, and in CI it
 exits non-zero when the report file is missing rather than returning silently.
 
 **When you may run `bun run test:sync`.** Only after a run against the environment the TC's
@@ -255,7 +257,9 @@ never a TMS result: leave `AUTO_SYNC` off for it. This is a usage rule; the sync
 syncResults()
 ├── provider = 'xray'  → syncToXray()
 │   ├── POST /authenticate  (bearer token)
-│   └── POST /import/execution (batch, all ATCs in one payload)
+│   └── POST /import/execution (batch, all ATCs in one payload:
+│        one entry per ATC, testKey = the @atc id, never testInfo,
+│        so the import cannot create a Test)
 │
 ├── provider = 'jira'  → syncToJiraDirect()
 │   ├── For each testId:
