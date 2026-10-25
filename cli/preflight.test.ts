@@ -152,7 +152,8 @@ describe('checks for bun setup', () => {
   // Python with Pillow serves only the evidence pages: never a warning, never a block.
   test('a missing Python, an old one or a missing Pillow is information, with the fix', () => {
     const none = pythonCheck(machine(['python3', 'python']), 'darwin', 'en');
-    expect(none).toMatchObject({ id: 'python', state: 'info', neededBy: 'evidence', fix: 'brew install pillow' });
+    expect(none).toMatchObject({ id: 'python', state: 'info', neededBy: 'evidence', fix: 'python3 -m pip install pillow' });
+    expect(none.msg).toContain('Homebrew Python: brew install pillow');
     const old = pythonCheck(machine([], { [`python3 ${PY_PROBE}`]: OK('3.8') }), 'linux', 'en');
     expect(old).toMatchObject({ state: 'info', value: '3.8' });
     const noPillow = pythonCheck(machine([], { [`python3 ${PY_PROBE}`]: { ...FAIL, stdout: '3.12' } }), 'linux', 'en');

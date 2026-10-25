@@ -365,9 +365,13 @@ function truthyEnv(v: string | undefined): boolean {
 export function pythonCheck(run: typeof runCmd, platform: string, lang: Lang): PreflightCheck {
   const L = S[lang];
   const candidates = platform === 'win32' ? [['py', '-3'], ['python3'], ['python']] : [['python3'], ['python']];
-  const fix = platform === 'win32'
-    ? 'py -m pip install pillow'
-    : platform === 'darwin' ? 'brew install pillow' : 'python3 -m pip install pillow';
+  const fix = platform === 'win32' ? 'py -m pip install pillow' : 'python3 -m pip install pillow';
+  // Same words as `pillowInstall`: a Homebrew or distro Python refuses a bare pip install (PEP 668).
+  const hint = platform === 'win32'
+    ? fix
+    : platform === 'darwin'
+      ? `${fix} (Homebrew Python: brew install pillow, or a venv)`
+      : `${fix} (a distro Python: your package manager's python3-pil, or a venv)`;
   const row = { id: 'python', group: L.tools, label: 'Python + Pillow', neededBy: 'evidence' };
   for (const argv of candidates) {
     const probe = run(argv[0], [...argv.slice(1), '-c', 'import sys; print("%d.%d" % sys.version_info[:2]); import PIL'], { timeoutMs: 5000 });
@@ -377,9 +381,9 @@ export function pythonCheck(run: typeof runCmd, platform: string, lang: Lang): P
     if (!versionAtLeast(v, [3, 9, 0])) { return { ...row, value: version, state: 'info', msg: L.pythonOld(version) }; }
     return probe.ok
       ? { ...row, value: version, state: 'ok' }
-      : { ...row, value: `${version}, no Pillow`, state: 'info', msg: L.pillowMissing(fix), fix };
+      : { ...row, value: `${version}, no Pillow`, state: 'info', msg: L.pillowMissing(hint), fix };
   }
-  return { ...row, value: '-', state: 'info', msg: L.pythonMissing(fix), fix };
+  return { ...row, value: '-', state: 'info', msg: L.pythonMissing(hint), fix };
 }
 
 function onPath(run: typeof runCmd, bin: string): boolean {
