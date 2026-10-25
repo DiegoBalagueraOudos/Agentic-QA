@@ -51,6 +51,14 @@ const realSource = (): string => readFileSync(join(REPO_ROOT, SCHEMA_SOURCE), 'u
 const committedSchema = (): string => readFileSync(join(REPO_ROOT, SCHEMA_FILE), 'utf8');
 
 /**
+ * The boilerplate's own checkout (the package name AND the maintainer sentinel,
+ * the same test `contractsEnforced` makes). A scaffolded project runs this file
+ * too: its yaml is its own, its schema is synced and `packages/` is pruned, so
+ * the assertions about the maintainers' copy are skipped there, never failed.
+ */
+const MAINTAINER_CHECKOUT = isSchemaOwner(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8')) && isMaintainerCopy(realSource());
+
+/**
  * The real source with EVERY identity leaf filled the way a maintainer fills
  * it: a concrete value, and the `TODO: ` prefix dropped from its comment.
  * Values are distinct per leaf so a single survivor is attributable.
@@ -360,11 +368,11 @@ describe('identity is blanked, whatever this repo filled in', () => {
     }
   });
 
-  test('the real source generates the committed schema byte for byte', () => {
+  test.skipIf(!MAINTAINER_CHECKOUT)('the real source generates the committed schema byte for byte', () => {
     expect(generateSchema(realSource()).schema).toBe(committedSchema());
   });
 
-  test('filling every identity leaf changes nothing in the schema, byte for byte', () => {
+  test.skipIf(!MAINTAINER_CHECKOUT)('filling every identity leaf changes nothing in the schema, byte for byte', () => {
     const { text, values } = fillEveryIdentityLeaf(realSource());
     const result = generateSchema(text);
     expect(result.error).toBeNull();
@@ -406,7 +414,7 @@ describe('the value-leak net under IDENTITY_PATHS', () => {
 // `package.json` with it, so nothing but the header sentinel tells the copy
 // from the original.
 describe('the maintainer copy and the template route', () => {
-  test('this repo\'s own yaml carries the sentinel; the schema never does', () => {
+  test.skipIf(!MAINTAINER_CHECKOUT)('this repo\'s own yaml carries the sentinel; the schema never does', () => {
     expect(isMaintainerCopy(realSource())).toBe(true);
     expect(isMaintainerCopy(committedSchema())).toBe(false);
     expect(committedSchema()).not.toContain('MAINTAINER COPY');
@@ -429,7 +437,7 @@ describe('the maintainer copy and the template route', () => {
     expect(originIsUpstream(null)).toBe(false);
   });
 
-  test('classifyProjectYaml: maintainer here, copied-template elsewhere, consumer without the sentinel', () => {
+  test.skipIf(!MAINTAINER_CHECKOUT)('classifyProjectYaml: maintainer here, copied-template elsewhere, consumer without the sentinel', () => {
     expect(classifyProjectYaml(realSource(), 'https://github.com/upex-galaxy/agentic-qa-boilerplate')).toBe('maintainer');
     expect(classifyProjectYaml(realSource(), 'https://github.com/acme/acme-qa.git')).toBe('copied-template');
     expect(classifyProjectYaml(realSource(), null)).toBe('copied-template');
@@ -451,7 +459,7 @@ describe('the maintainer copy and the template route', () => {
     expect(reseeded.startsWith(CONSUMER_YAML_HEADER)).toBe(true);
   });
 
-  test('the consumer header matches its twin in the scaffolder', () => {
+  test.skipIf(!MAINTAINER_CHECKOUT)('the consumer header matches its twin in the scaffolder', () => {
     const prepare = readFileSync(join(REPO_ROOT, 'packages', 'create-agentic-qa', 'src', 'prepare.ts'), 'utf8');
     const twin = /const CONSUMER_YAML_HEADER = `([\s\S]*?)`;/.exec(prepare)![1].replace(/\\`/g, '`');
     expect(twin).toBe(CONSUMER_YAML_HEADER);
@@ -508,7 +516,7 @@ describe('projectDelta', () => {
   // The headline of the whole change: this path sits at depth 3, so the
   // 2-level walk could not see it at all.
   test('a missing DEPTH-3 leaf is visible', () => {
-    const stripped = source.replace('    direct_push_to_protected: allowed #', '    #x: y #');
+    const stripped = source.replace(/ {4}direct_push_to_protected: \w+ #/, '    #x: y #');
     const paths = projectDelta(stripped, schema).gaps.flatMap(g => g.paths);
     expect(paths).toContain('git_strategy.policy.direct_push_to_protected');
   });
@@ -610,7 +618,7 @@ describe('insertion', () => {
   // sibling, so it anchors to the top of the parent's body — and a block's
   // value node starts AFTER the indent, so a naive splice lands mid-indent.
   test('a first-child leaf lands at the right indent inside its parent', () => {
-    const old = source.replace(/ {4}direct_push_to_protected: allowed #[^\n]*\n/, '');
+    const old = source.replace(/ {4}direct_push_to_protected: \w+ #[^\n]*\n/, '');
     const plan = planInsertions(old, schema, ['git_strategy.policy.direct_push_to_protected'], '8.5');
     const { text, error } = applyInsertions(old, plan);
     expect(error).toBeNull();

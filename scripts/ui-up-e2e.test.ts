@@ -20,10 +20,14 @@ import { join, resolve } from 'node:path';
 
 import { afterAll, describe, expect, test } from 'bun:test';
 
+import { contractsEnforced } from './lib/doc-contracts.ts';
 import { buildUpFixture } from './ui-up-fixture.ts';
 
 const REPO = resolve(import.meta.dir, '..');
-const deep = spawnSync('git', ['-C', REPO, 'rev-parse', '--verify', '-q', 'HEAD~30']).status === 0;
+// The fixture rolls THIS repo back 30 commits and syncs it forward from itself:
+// it needs that much history, and it means something only in the boilerplate's
+// own checkout (a scaffolded project is not an upstream of anything).
+const deep = contractsEnforced(REPO) && spawnSync('git', ['-C', REPO, 'rev-parse', '--verify', '-q', 'HEAD~30']).status === 0;
 // Built at runtime so this file never holds the literal: the fixture syncs
 // `scripts/`, and a hunk of this very file in the summary would read as a leak.
 const SECRET = ['fixture', 'secret', 'value-9f3a'].join('-');
