@@ -7,12 +7,21 @@ import type { BoardState, LiveLine, LiveTicket } from './model.ts';
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { fold, MARKERS } from './model.ts';
+import { applyAutomated, fold, MARKERS } from './model.ts';
 import { readEvents, readSprint, readTracker, REPO_ROOT } from './store.ts';
 
 const PBI = join(REPO_ROOT, '.context', 'PBI');
 const SESSIONS = join(REPO_ROOT, '.session', 'sprint-testing');
 const IMG = /\.(?:png|jpe?g|gif|webp)$/i;
+/** The automated run's outcome records (ADR-0020), written by `tests/KataReporter.ts`. */
+const OUTCOMES = join(REPO_ROOT, 'reports', 'test-outcomes.json');
+
+/** The outcomes file as JSON; `null` when absent, `{ unreadable: true }` when it does not parse (the fold refuses it). */
+export function readAutomatedFile(path = OUTCOMES): unknown {
+  if (!existsSync(path)) { return null; }
+  try { return JSON.parse(readFileSync(path, 'utf8')) as unknown; }
+  catch { return { unreadable: true }; }
+}
 
 const dirsOf = (dir: string): string[] => {
   try { return readdirSync(dir).filter(n => !n.startsWith('.') && statSync(join(dir, n)).isDirectory()); }
@@ -113,13 +122,13 @@ export function readLive(ids: string[]): Record<string, LiveTicket> {
   return out;
 }
 
-/** Files whose change should refresh the page: the sprint folder plus each ticket's memory file. */
+/** Files whose change should refresh the page: the sprint folder, each ticket's memory file, the automated outcomes. */
 export function watchedFiles(ids: string[]): string[] {
-  return ids.flatMap((id) => {
+  return [OUTCOMES, ...ids.flatMap((id) => {
     const story = storyFolder(id);
     const session = sessionFolder(id);
     return [...(session ? [join(session, 'test-session-memory.md')] : []), ...(story ? [join(story, 'evidence')] : [])];
-  });
+  })];
 }
 
 /**
@@ -135,7 +144,8 @@ export function buildState(slug: string, now = new Date().toISOString(), opts: {
   // A closed sprint's worker files moved on to other sprints; do not read them.
   const live = sprint.closedAt ? {} : readLive(ids);
   if (opts.closingAt && !sprint.closedAt) { sprint.closedAt = opts.closingAt; }
-  const state = fold({ sprint, events, tracker, live, now });
+  // The automated chip is live state too: a closed board keeps what its tracker said, not a later run.
+  const state = applyAutomated(fold({ sprint, events, tracker, live, now }), sprint.closedAt ? null : readAutomatedFile());
   if (bad) { state.warnings.push(`${bad} unreadable line(s) in events.ndjson were skipped`); }
   return state;
 }

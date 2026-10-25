@@ -161,6 +161,21 @@ into the answer box. A need recorded without any of these flags renders as a pla
 exactly as before. The two needs the board raises itself (a DEFERRED case with no reason, a
 worker that stopped without a verdict) carry a plain Why.
 
+## Automated outcomes
+
+The board reads `reports/test-outcomes.json` from the main checkout (written by `tests/KataReporter.ts`,
+schema `test-outcomes/1.0`, ADR-0020) each time it builds the page, and the page refreshes when the
+file changes. In the ticket drawer's Test cases table, a TC that an automated record names (its `@atc`
+id in `atcIds`) gets an `automated` chip and the run's status BESIDE its own status pill, with one line
+under the heading naming the run's time and environment. Several records naming one TC show the worst
+of them (FAILED, then a not-run reason, then PASSED).
+
+The chip never changes anything else: the TC's own status, the lanes, "shipped at risk", the metrics,
+the report counts and the Copy-for-Slack tables stay what the tracker and the board say. It is shown
+only for a run in the board's environment (`new --env`, from `testing.default_env`), never on a closed
+board, and never in a share or report snapshot. A file with another schema, a record the board cannot
+read or invalid JSON is ignored with one warning line on the page.
+
 ## Evidence panel
 
 `evidence --tc <tc> --outcome passed|failed|blocked` ties an image to a test case and says what
@@ -487,7 +502,7 @@ listed without an expectation.
 
 `model.ts` pure fold, lanes, metrics, share and report allowlists, Slack table ·
 `sentinel.ts` the sentinel's pure decisions · `sentinel-run.ts` its loop, port probe and server lifecycle ·
-`store.ts` files and the event log · `sources.ts` Live Progress + evidence ·
+`store.ts` files and the event log · `sources.ts` Live Progress + evidence + the automated outcomes file ·
 `sync.ts` the tracker read through `cli/lib/sprint-source/` · `server.ts` local server + SSE ·
 `build.ts` page bundle · `brand.ts` the header's brand slot · `snapshot.ts` frozen HTML ·
 `merge.ts` Merge Line lanes, order and freshness (pure) · `merge-read.ts` reads the collector's
@@ -498,4 +513,4 @@ merge-view, charts, tour, demo, i18n) · `demo/` the demo sprint · `fixtures/` 
 (`cli/lib/sprint-source/types.ts`, `cli/lib/evidence-page/statuses.ts`), never a file that touches
 `node:*` (`build.test.ts` fails on one).
 
-Tests: `bun test cli/sprint-board` (`views.test.ts` renders the views to a string).
+Tests: `bun test cli/sprint-board` (`views.test.ts` renders the views to a string; `automated.test.ts` covers the automated chip).
