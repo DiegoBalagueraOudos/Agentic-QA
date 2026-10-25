@@ -154,7 +154,7 @@ this skill. A workflow skill never spells out a command for it.
 | put it in a **non-bypassable probe** | a machine without it would fail a gate it has no reason to pass |
 | mention it in the **ATR environment block** or any report of record | the artifact of record must read identically on every machine, forever |
 | include it in the **blocked-token sweep** | the sweep is the fallback that must work WITHOUT it |
-| **name it to the user when the gate fails** | state A is total silence. Not a hint, not a suggestion, not an aside. The install recommendation belongs to `orca-orchestration`, and fires only because the user ASKED for orchestration |
+| **name it to the user when the gate fails** | state A is total silence. Not a hint, not a suggestion, not an aside. The single exception is `/sprint-conductor`, which exists to run on Orca and stops with one line. The install recommendation belongs to `orca-orchestration`, and fires only because the user ASKED for orchestration |
 | change what a single worker does | N=1 must keep its existing behaviour byte for byte. Fleet mode adds a coordinator above the loop; it does not alter the loop |
 | paraphrase the prompt, on either path | see §1 and §2.1b: the prompt is the payload both paths share |
 | detect fleet mode from an environment variable | it does not survive either path. Measured empty on a real fleet (§2.1) |
