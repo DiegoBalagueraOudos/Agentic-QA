@@ -294,6 +294,7 @@ The shape of `<scope>` is decided per skill, not per invocation. Each retrofitte
 | `regression-testing` | `<env>-<YYYY-MM-DD>` (e.g. `staging-2026-05-20`) | Invocation env + date |
 | `shift-left-testing` | `<YYYY-MM-DD>-<descriptor>` | Session init |
 | `exploratory-testing` | `<YYYY-MM-DD>-<scope-slug>` (the module, the flow, or `sweep`) | Session init, from the scope mode |
+| `sprint-conductor` | `sprint-<N>` (boot and resume state only: `kickoff.md`, `passes.md`; the fleet files stay in `sprint-testing`'s `sprint-<N>/`) | The sprint number at boot |
 | `project-discovery` | (none — project scope) | — |
 
 `orca-orchestration` is not in this table: it does not write `.session/<skill-slug>/<scope>/` at all. Its scope lives under the registered sibling `.session/orchestration/<slug>/` (§3), so it is exempt from the shape check below.

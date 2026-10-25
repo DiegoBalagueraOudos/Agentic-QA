@@ -6,6 +6,18 @@
   },
   "prompts": [
     {
+      "prompt": "boot the sprint conductor for sprint 7 and keep watching the test environment from the board",
+      "expect": ["context-map", "project-variables", ".agents/project.yaml"]
+    },
+    {
+      "prompt": "arranca el conductor del sprint 7 y vigila el entorno de pruebas desde el board",
+      "expect": ["context-map", "project-variables", ".agents/project.yaml"]
+    },
+    {
+      "prompt": "the laptop rebooted, resume the conductor: three workers were still running",
+      "expect": ["context-map", "orchestration-detail"]
+    },
+    {
       "prompt": "run exploratory testing on the orders module, no ticket, and tell me what is worth a regression test",
       "expect": ["context-map"]
     },

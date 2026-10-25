@@ -46,18 +46,11 @@ A row that fails is reported with its evidence, never fixed by the subagent: the
 
 ### Step 2 — module learnings, published once per module
 
-In a fleet a worker never writes its Epic's `## Module Context (QA)` section: N workers replacing one
-section race, and the last writer erases the others without an error. Each worker stages its learnings
-under `## Module Learnings (candidate)` in its own `test-session-memory.md`
-(`fleet-conductor.md` §3). Here, once per module touched in the round:
-
-1. read the Epic's current `## Module Context (QA)` section live (the synced `module-context.md` may be
-   older than the Epic);
-2. merge every candidate into it, deduplicated against what is already there; keep every line that exists
-   only in the Epic;
-3. publish the section once (`sprint-testing/references/session-entry-points.md`, the module-context
-   publish step: replace that section only, never the product owner's text), then re-sync and read it
-   back.
+In a fleet a worker never writes its Epic's `## Module Context (QA)` section; it stages candidates under
+`## Module Learnings (candidate)` in its own `test-session-memory.md` (`fleet-conductor.md` §3). Merge them
+into the Epic once per module touched, per `fleet-conductor.md` §10 "Module learnings" (read the section
+live, deduplicate, keep every line that exists only in the Epic, publish that section only, re-sync and
+read it back).
 
 ### Step 3 — the sprint record
 

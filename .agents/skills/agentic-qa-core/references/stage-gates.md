@@ -66,6 +66,12 @@ ticket, and it produces characterized scenarios (`oracle: observed`) for a perso
 marked against existing coverage (`discovery-driven-doctrine.md` §1, §4). Its contract, lifecycle and
 DoD rows below are its own; the ticket-scoped Execution rows stay `sprint-testing`'s.
 
+**A sprint run through a fleet is not a new stage either.** `sprint-conductor` boots, watches and closes
+a fleet of `sprint-testing` workers (one per issue) from the Sprint Board; each worker runs Planning,
+Execution and Reporting on its own issue, and the DoD rows of those stages stay `sprint-testing`'s. What
+the conductor adds is verification at each close: it reads the issue's status back itself and checks the
+artifacts, never the report alone (`sprint-conductor/references/round-close.md`).
+
 **Sprint close is not a stage.** It is the batch boundary where the sprint-altitude
 artifacts (STP / STR) are closed out, and it is reached from Reporting or from
 Regression, whichever arrives there first. It keeps its own DoD block below.

@@ -16,6 +16,23 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Added (`/sprint-conductor`, the sprint QA conductor on Orca)
+- **`/sprint-conductor`**, a thin workflow skill that runs the sprint as a fleet of `/sprint-testing`
+  workers watched from the Sprint Board: boot in seven steps (board, conductor-owned pre-flight, Run
+  with a reply probe, sentinel, what the owner and the workers left, one status screen), one watch
+  pass per sentinel wake (arrivals, deploy check, launch under the cap, redeploy notice), the close of
+  each worker with the conductor's own status read-back and one verification subagent, and the resume
+  after a reboot. Orca is required: without a reachable runtime it stops with one line, the one
+  declared exception to the orchestrator-silence rule. It cites `fleet-conductor.md`, `sprint-board.md`
+  and `orca-orchestration` instead of restating them; a how-it-works deck ships with it.
+- **Fleet canon gaps closed** in `fleet-conductor.md`: fixture setup and the Epic's module-context
+  section as conductor-only writes (a fleet worker stages its module learnings), the conductor never
+  investigates an issue, auth freshness before every launch, the ad-hoc retest details, localhost
+  sibling-repo worktrees, and the status read-back at each close. Orca gotchas G74-G76.
+- **Sprint Board: automated outcomes in the ticket drawer.** Each TC that `reports/test-outcomes.json`
+  names gets an `automated` chip beside its own status, for a run in the board's environment only;
+  lanes, metrics, counts and the share and report snapshots are unchanged (ADR-0023 amendment).
+
 ### Changed (signed ROI gate for automation, discovery intake)
 - **`test-automation` no longer creates Tests.** A TC source gate runs before Plan and first on
   every resume. In scope are the Tests at `candidate` whose signature comment was created and last
