@@ -26,18 +26,13 @@ nothing is stale, so running it each time costs little and catches what went sta
 - Mint API tokens for every role the next round needs, from this terminal, before the launch
   (`fleet-conductor.md` §7: environment named positionally, one profile per worker when isolation is
   needed). A worker never logs in.
-- Browser state files (`.auth/<env>-<role>.json`, `agentic-qa-core/references/browser-sessions.md` §4):
-  regenerate every state older than the app's session lifetime BEFORE the launch, only the stale roles;
-  after any `BLOCKED_AUTH_STALE`, regenerate every role. Measured on the source fleet: states left from two
-  days earlier expired mid-round and three of four workers each logged in again and saved the same state
-  files concurrently.
-- **Prove the credential with the API login before driving a browser.** The API login fails in seconds
-  against the same credential that a browser login spends a launch and three interactions on. When it
-  fails, stop after three attempts: lockout policies are common, and varying the identifier or the
-  password to test a theory is credential guessing (Critical Rule #1). Compare what the owner says works
-  against the stored value without printing either, by name only, then ask. Measured on the source fleet:
-  three roles rejected at once read like a reset identity store; it was one stale password plus two
-  accounts that did not exist in that environment, two unrelated causes with one symptom.
+- Token and browser-state freshness before every launch, and the API login before any browser login with
+  its three-attempt stop: `fleet-conductor.md` §7 owns the rule and its measurement. The state files are
+  `.auth/<env>-<role>.json` (`agentic-qa-core/references/browser-sessions.md` §4).
+- **When the API login fails**, compare what the owner says works against the stored value without
+  printing either, by name only, then ask. Measured on the source fleet: three roles rejected at once read
+  like a reset identity store; it was one stale password plus two accounts that did not exist in that
+  environment, two unrelated causes with one symptom.
 - The paths are stable: regenerating a state file in place keeps every brief and launch line valid, so a
   late credential fix costs nothing. Seed the whole round while the login waits; only the launch waits.
 
@@ -102,7 +97,7 @@ the endpoints under test did not exist.
 Record, per repository, the build the environment runs (its commit and finish time) in `kickoff.md`.
 Where it comes from is the deploy check's source (`session-entry-points.md` Step 1c: a version endpoint,
 the CI deploy job, the hosting platform's deployment). Each watch pass compares against it
-(`references/watch-pass.md` §5.6), and every brief's deploy-state line names it, so a worker knows which
+(`references/watch-pass.md` §5, item 6), and every brief's deploy-state line names it, so a worker knows which
 build it tests.
 
 ### 2.5 Fixture gaps, before launch

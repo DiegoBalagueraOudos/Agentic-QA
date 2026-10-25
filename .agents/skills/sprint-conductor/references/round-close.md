@@ -15,19 +15,26 @@ half of the checklist that leaves a trace it can read without asking anyone.
 
 ## 1. The conductor reads back the final status itself
 
-Before anything else, read the ticket's tracker status from this session, with a bounded poll for the
-value the worker reported (`[ISSUE_TRACKER_TOOL]`, the synced copy refreshed with
-`bun run jira:sync-issues get <KEY>`). The poll ends without that value → the worker's transition did not
-land: say so, and re-run the transition only after the round-close subagent confirms the gate below.
-Measured on the source fleet: a subagent reported the tested status "straight from the tracker row"; ten
-minutes later the tracker still showed the earlier status. A worker's or a subagent's "verified" is never
-the proof (Critical Rule #16).
+The rule and the measurement behind it are `sprint-testing/references/fleet-conductor.md` §10 "Sprint-altitude
+record stays with the conductor" (the report is a claim; Critical Rule #16). The procedure here: read the
+ticket's tracker status from this session, with a bounded poll for the value the worker reported
+(`[ISSUE_TRACKER_TOOL]`, the synced copy refreshed with `bun run jira:sync-issues get <KEY>`). The poll
+ends without that value → the worker's transition did not land: say so, and re-run the transition only
+after the round-close subagent confirms the gate below.
 
 ## 2. The round-close subagent (one per finished worker)
 
 Dispatch ONE subagent, 7-component briefing (`agentic-qa-core/references/briefing-template.md`). It works
 sequentially and returns a count table. Component 7 carries: credentials by name only, no tracker write
-outside the steps below, no message to any developer, STOP on the first failed write with its output.
+outside the steps below, no message to any developer, STOP on the first failed write with its output, and
+the Epic it may publish to in Step 2 is the one the conductor named, with no other close of that Epic
+running.
+
+**Closes that touch the same Epic run one after another, never in parallel.** Two workers of one Epic
+that finish in the same pass get their round-close subagents in sequence: the second is dispatched only
+after the first returned, so it reads the `## Module Context (QA)` section the first one published. Closes
+of different Epics may run side by side. This is how "one writer per module" (`fleet-conductor.md` §10
+"Module learnings") holds when several closes are due at once.
 
 ### Step 1 — verify the artifacts, not the report
 
@@ -50,7 +57,8 @@ In a fleet a worker never writes its Epic's `## Module Context (QA)` section; it
 `## Module Learnings (candidate)` in its own `test-session-memory.md` (`fleet-conductor.md` §3). Merge them
 into the Epic once per module touched, per `fleet-conductor.md` §10 "Module learnings" (read the section
 live, deduplicate, keep every line that exists only in the Epic, publish that section only, re-sync and
-read it back).
+read it back). Only one close of an Epic runs at a time (§2 above), so the live read always sees the
+previous close's publish.
 
 ### Step 3 — the sprint record
 
@@ -87,5 +95,5 @@ Do not close a worker whose artifacts failed Step 1 until it answered.
 ## 4. The round is complete
 
 When every issue of the round is closed, the status screen says "round <n> complete" with its count table,
-and the next round forms (`fleet-conductor.md` §6). One team-decision message per wave stays the rule for
-anything that needs a developer or product answer (`sprint-board.md` §4).
+and the next round forms (`fleet-conductor.md` §6). One team-decision message per round stays the rule for
+anything that needs a developer or product answer (`sprint-board.md` §4, whose "wave" is this round).
