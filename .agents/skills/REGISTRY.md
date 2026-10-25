@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-24T21:37:56.131Z`
+> Generated: `2026-10-25T01:27:28.014Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -8,7 +8,7 @@ This file is the per-session compact-rules cache for the Skill Resolver protocol
 The orchestrator copies one or more `## Skill: <slug>` blocks below into every subagent briefing under `## Project Standards (auto-resolved)`.
 Subagents trust those compact rules and only read the full SKILL.md when explicitly instructed.
 
-Skills indexed: 28
+Skills indexed: 29
 
 ---
 ## Skill: acli
@@ -581,6 +581,30 @@ Skills indexed: 28
 **Read full SKILL.md when**: running the batch grooming pipeline, writing the per-Story `shift-left-refinement.md`, or handling the PO/Dev handoff.
 
 > Source: `.agents/skills/shift-left-testing/SKILL.md` · phase: `unknown` · kind: `workflow` · stage owner · extraction strategy: A
+
+---
+
+## Skill: sprint-conductor
+
+**Purpose**: Boot, run and resume the sprint QA conductor: one session that conducts a fleet of sprint-testing workers (one per ticket) on Orca and wa...
+
+**Compact Rules**:
+- Orca is REQUIRED (owner decision, the one exception to the orchestrator-silence rule): run the gate of `orca-orchestration` (binary + reachable runtime) before anything else. It fails → say ONE line and stop, writing nothing: "/sprint-conductor runs on Orca and no reachable Orca runtime is on this machine; run the sprint with /sprint-testing sprint-wide and N executors, which writes paste-ready launch lines." Every other workflow skill keeps its silence unchanged.
+- Split of duties: this skill owns the MANEUVER (boot, watch pass, round close, resume); `sprint-testing/references/fleet-conductor.md` owns the fleet WHAT (briefs, launch.txt, rounds, claims, the sprint record); `sprint-testing/references/sprint-board.md` owns the board (commands per stage, the worker block, the four channels, the sentinel wake table); `orca-orchestration` owns the transport HOW. Cite them, never restate them.
+- Ask the owner only what the board, the tracker and the files cannot decide: the sprint when the CURRENT board and the tracker disagree or no board exists, and the worker cap when the ticket count exceeds it and the owner named none (held for this session, never persisted as a new default). Everything else is decided and reported.
+- The conductor never tests and never investigates a ticket. The line is fixture versus finding: seeding data, verifying with ONE query that a fixture exists and belongs to whom the brief says, and creating an owner-approved fixture user are conductor work; what a case asserts, the code behind it and any id the test needs are the worker's.
+- Conductor-owned pre-flight, before EVERY launch (a watch-pass launch included): tokens and browser states minted by the conductor only, refreshed when stale; a credential proven with the cheap API login before any browser login, stopping after 3 failed attempts; the sibling-repo fetch is a GATE (non-zero exit stops and escalates, never falls through to the counts) and its two drift counts go into every brief; the schema sync runs from a current checkout or is skipped with the skip written into every brief. Full: `references/boot-and-resume.md` §2.
+- The sentinel is armed at boot and re-armed after EVERY wake, as a background task, one per board, with the same `--baseline` file. Never a homemade monitor, never a scheduled pass when background tasks exist, never mailbox polling.
+- Every watch pass records each decision with `bun run board arrival <KEY> launched|held|skipped "<why>"`, so a missed pass costs nothing. The deploy check is never skipped: a tracker status is a hint, the deployed build is the truth. Fixture gaps are asked at triage, before launch. The cap counts every live worker, an ad-hoc retest included, and a collision is checked against the LIVE workers, not the round plan.
+- A finished worker's final ticket status is read back by the CONDUCTOR itself, with a bounded poll for the expected value; a worker's or a subagent's "verified" is never the proof (Critical Rule #16). The round close is ONE subagent that verifies the artifacts, never the report.
+- A redeploy while workers are live: fetch only (never fast-forward a sibling repo while a worker is live), then tell EVERY live worker once, with the repo, the old and new build and whether its own change's files moved.
+- Never message a developer without the owner's explicit order for that message, never commit, never print a credential. Reports to the owner are counts and tables that name who must answer, never a narrative.
+- Resume after a reboot or a session resume: find the workers by title (handles change), restart the board, re-arm the sentinel with the same baseline, replay the owner's actions with `listen --since`, read the mailbox, send ONE resume message per live worker, and launch nothing until every live worker confirmed. Full: `references/boot-and-resume.md` §4.
+- On any subagent failure: STOP, report which pass or ticket failed with full context, offer retry / skip / abort, never auto-fix. A skill that itself broke is reported upstream per `agentic-qa-core/references/upstream-feedback.md`.
+
+**Read full SKILL.md when**: booting a conductor cold, resuming one after a reboot, or deciding whether a
+
+> Source: `.agents/skills/sprint-conductor/SKILL.md` · phase: `unknown` · kind: `workflow` · stage owner · source: frontmatter `compact_rules` (verbatim)
 
 ---
 

@@ -286,6 +286,7 @@ const ANTI_LEAK_SKILLS = [
   'shift-left-testing',
   'sprint-testing',
   'exploratory-testing',
+  'sprint-conductor',
   'test-automation',
   'regression-testing',
   'test-documentation',
@@ -340,6 +341,7 @@ const SESSION_RETROFITTED_SKILLS: Record<string, RegExp | null> = {
   'test-documentation': /^([A-Z]+-\d+|[a-z0-9][a-z0-9-]*)$/,
   'shift-left-testing': /^\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*$/,
   'exploratory-testing': /^\d{4}-\d{2}-\d{2}-[a-z0-9][a-z0-9-]*$/,
+  'sprint-conductor': /^sprint-\d+$/,
 };
 
 /**
