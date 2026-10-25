@@ -69,6 +69,10 @@ below names which one it applies to:
   naming the script and the file, instead of a script that fails the first time someone runs it.
 - **`.claude/settings.json` allows `Skill(sprint-conductor)` and `Skill(exploratory-testing)`**;
   the permission merge appends both to existing projects.
+- **The evidence builder's Pillow hint is per platform**, the same one `bun setup` and
+  `setup:doctor` print: `py -m pip install pillow` on Windows; elsewhere
+  `python3 -m pip install pillow`, or `brew install pillow` / the distro package / a venv where
+  the system Python refuses `pip install` (`evidence-artifact` `build.py` and its skill).
 - **Upgrade step for a project that kept its own `repo:check`** (the parity row "project value
   kept"): take upstream's value, or append `&& bun run shared:check && bun run board:check` to
   yours; both scripts arrive with the sync, but nothing runs them until `repo:check` does.

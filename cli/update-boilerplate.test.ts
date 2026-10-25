@@ -153,6 +153,13 @@ describe('component registry', () => {
     }
   });
 
+  test('no component delivers the boilerplate\'s own ADRs: the scaffold prunes them and no sync brings them back', () => {
+    const owned = COMPONENTS.flatMap(c => componentOwnedPaths(c));
+    for (const adr of ['.context/ADR/ADR-0001-example.md', '.context/ADR/README.md', '.context/ADR/ADR-NNNN-template.md']) {
+      expect(isRepoOnlyPath(adr, owned)).toBe(false);
+    }
+  });
+
   test('docs syncs only its shipped half; every other path under docs/ is project-owned', () => {
     const docs = COMPONENTS.find(c => c.name === 'docs');
     expect(docs?.paths).not.toContain('docs');

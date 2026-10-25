@@ -78,7 +78,8 @@ bun run evidence attach --pack <bug pack.json> [--test <TC> --exec <ATR>]    # t
 bun run evidence demo                                                       # synthetic story, bug and review pages
 ```
 
-The builder is `scripts/build.py` (Python 3.9+ and Pillow: `python3 -m pip install pillow`); the
+The builder is `scripts/build.py` (Python 3.9+ and Pillow: `python3 -m pip install pillow`; a Homebrew
+Python: `brew install pillow` or a venv; Windows: `py -m pip install pillow`); the
 `bun run evidence` commands pass it the project's ticket key pattern and check both are installed.
 It runs locally and makes no network call. `attach` and `link` are the only commands that reach the
 tracker (the modality from `board.source`, else `testing.tms_cli`; `--source` overrides): every write

@@ -2296,7 +2296,11 @@ async function main(): Promise<void> {
     // first install and this keeps `bun sync` from putting them back.
     //
     // `.context/ADR/` needs no entry here: `.context` is not a synced component,
-    // so ADRs only ever travel through the scaffold tarball, which prunes them.
+    // so ADRs only ever travel through the scaffold tarball, which prunes the
+    // recorded ones (`ADR-<digits>-*`) and keeps the template and the README. A
+    // prefix entry would drop those two as well, and this list has no pattern
+    // form; the component-registry test holds the invariant instead. The synced
+    // linters skip a cite of a pruned ADR outside the boilerplate.
     repoOnlyPaths: [
       'docs/reports',
       // The files of a harness this project does not use (ADR-0012): it

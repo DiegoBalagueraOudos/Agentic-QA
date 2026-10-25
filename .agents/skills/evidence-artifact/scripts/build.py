@@ -25,15 +25,25 @@ as history (`round` < `currentRound`) and fills the BEFORE FIX / AFTER FIX compa
 secret-named keys or SQL columns); and stops when the page would pass --max-mb (default 14, under the
 16 MB artifact limit).
 
-Dependency: Pillow (`python3 -m pip install pillow`); Python 3.9+. Nothing leaves the
+Dependency: Pillow (`python3 -m pip install pillow`; a Homebrew Python: `brew install pillow` or a
+venv; Windows: `py -m pip install pillow`); Python 3.9+. Nothing leaves the
 machine: no network call, no external service.
 """
 import argparse, base64, copy, html as htmllib, io, json, os, re, subprocess, sys
 
+# Same hint per platform as cli/lib/evidence-page/python.ts: a Homebrew or distro Python
+# refuses a bare `pip install` outside a venv (PEP 668).
+if sys.platform == "win32":
+    PILLOW_INSTALL = "py -m pip install pillow"
+elif sys.platform == "darwin":
+    PILLOW_INSTALL = "python3 -m pip install pillow (Homebrew Python: brew install pillow, or a venv)"
+else:
+    PILLOW_INSTALL = "python3 -m pip install pillow (a distro Python: your package manager's python3-pil, or a venv)"
+
 try:
     from PIL import Image, ImageDraw, ImageFont
 except ImportError:  # pragma: no cover
-    sys.exit("build.py needs Pillow: python3 -m pip install pillow")
+    sys.exit("build.py needs Pillow: " + PILLOW_INSTALL)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES = os.path.join(HERE, "..", "templates")
