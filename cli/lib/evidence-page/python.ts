@@ -12,14 +12,34 @@ import { resolve } from 'node:path';
 /** The copied builder, resolved from this module so the CLI runs from any working directory. */
 export const BUILD_PY = resolve(import.meta.dir, '..', '..', '..', '.agents', 'skills', 'evidence-artifact', 'scripts', 'build.py');
 
-export const PYTHON = 'python3';
-export const PILLOW_INSTALL = 'python3 -m pip install pillow';
+/**
+ * The interpreters tried, in order. Windows usually exposes the `py` launcher
+ * (or `python`) and no `python3`; elsewhere `python3` is the name, `python` the
+ * fallback. Each entry is the argv prefix that starts it.
+ */
+export function pythonCandidates(platform: string = process.platform): string[][] {
+  const unix = [['python3'], ['python']];
+  return platform === 'win32' ? [['py', '-3'], ...unix] : unix;
+}
+
+/**
+ * How to install Pillow, per platform. A Homebrew or distro Python refuses
+ * `pip install` outside a virtual environment (PEP 668, `externally-managed-environment`),
+ * so the plain pip line alone failed exactly where most people have Python.
+ */
+export function pillowInstall(platform: string = process.platform): string {
+  if (platform === 'win32') { return 'py -m pip install pillow'; }
+  if (platform === 'darwin') { return 'python3 -m pip install pillow (Homebrew Python: brew install pillow, or a venv)'; }
+  return 'python3 -m pip install pillow (a distro Python: your package manager\'s python3-pil, or a venv)';
+}
+
+export const PILLOW_INSTALL = pillowInstall();
 
 export interface PythonRun { code: number, stdout: string, stderr: string }
 
-function run(args: string[], cwd?: string): PythonRun {
+function spawn(argv: string[], cwd?: string): PythonRun {
   try {
-    const result = Bun.spawnSync([PYTHON, ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+    const result = Bun.spawnSync(argv, { cwd, stdout: 'pipe', stderr: 'pipe' });
     return { code: result.exitCode ?? 1, stdout: result.stdout.toString(), stderr: result.stderr.toString() };
   }
   catch (err) {
@@ -27,16 +47,33 @@ function run(args: string[], cwd?: string): PythonRun {
   }
 }
 
+let resolved: string[] | null | undefined;
+
+/** The first candidate that starts and reports its version, cached; null when none does. */
+export function resolvePython(): string[] | null {
+  if (resolved === undefined) {
+    resolved = pythonCandidates().find(argv => spawn([...argv, '-c', 'import sys; print(sys.version_info[0])']).code === 0) ?? null;
+  }
+  return resolved;
+}
+
+function run(args: string[], cwd?: string): PythonRun {
+  const python = resolvePython();
+  if (python === null) { return { code: 127, stdout: '', stderr: 'no Python interpreter on the PATH' }; }
+  return spawn([...python, ...args], cwd);
+}
+
 /** `null` when Python 3.9+ and Pillow are installed, else ONE line naming what to install. */
 export function pythonPreflight(): string | null {
+  const names = pythonCandidates().map(argv => argv.join(' ')).join(' or ');
   const probe = run(['-c', 'import sys; print("%d.%d" % sys.version_info[:2]); import PIL']);
   const version = probe.stdout.trim().split('\n')[0] ?? '';
   if (probe.code === 127 || !/^\d+\.\d+$/.test(version)) {
-    return `the evidence builder needs Python 3.9+ as ${PYTHON} on the PATH, then Pillow: ${PILLOW_INSTALL}`;
+    return `the evidence builder needs Python 3.9+ on the PATH (${names}), then Pillow: ${PILLOW_INSTALL}`;
   }
   const [major, minor] = version.split('.').map(Number);
   if (major < 3 || (major === 3 && minor < 9)) {
-    return `the evidence builder needs Python 3.9+ (${PYTHON} is ${version})`;
+    return `the evidence builder needs Python 3.9+ (${resolvePython()!.join(' ')} is ${version})`;
   }
   if (probe.code !== 0) {
     return `the evidence builder needs Pillow: ${PILLOW_INSTALL}`;

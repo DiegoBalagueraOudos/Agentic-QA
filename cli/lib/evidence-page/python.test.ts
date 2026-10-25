@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'bun:test';
 
 import { DEMO_REDACT, writeDemo } from './demo.ts';
-import { BUILD_PY, buildError, buildWarnings, PILLOW_INSTALL, pythonPreflight, runBuildPy } from './python.ts';
+import { BUILD_PY, buildError, buildWarnings, PILLOW_INSTALL, pillowInstall, pythonCandidates, pythonPreflight, resolvePython, runBuildPy } from './python.ts';
 
 const missing = pythonPreflight();
 // Without Python 3.9+ and Pillow these tests cannot run the builder: skipped, and the reason is printed once
@@ -22,6 +22,19 @@ describe('the build.py seam', () => {
     expect(missing === null || missing.includes('python3') || missing.includes(PILLOW_INSTALL)).toBe(true);
   });
 
+  it('tries the py launcher first on Windows, python3 then python elsewhere', () => {
+    expect(pythonCandidates('win32')).toEqual([['py', '-3'], ['python3'], ['python']]);
+    expect(pythonCandidates('darwin')).toEqual([['python3'], ['python']]);
+    expect(pythonCandidates('linux')).toEqual([['python3'], ['python']]);
+  });
+
+  // A Homebrew or distro Python refuses a bare pip install (PEP 668).
+  it('names the PEP 668 way to get Pillow on each platform', () => {
+    expect(pillowInstall('darwin')).toContain('brew install pillow');
+    expect(pillowInstall('linux')).toContain('python3-pil');
+    expect(pillowInstall('win32')).toBe('py -m pip install pillow');
+  });
+
   it('reads the builder error line and its warnings apart', () => {
     const result = { code: 1, stdout: '', stderr: 'warning: p.json: pack.summary shows the address a@b.test.\nbuild.py: p.json: ticket{} is required\n' };
     expect(buildError(result)).toBe('p.json: ticket{} is required');
@@ -31,7 +44,7 @@ describe('the build.py seam', () => {
 
 describe.skipIf(missing !== null)('build.py (Python 3.9+ and Pillow present)', () => {
   it('passes its own regression suite', () => {
-    const result = Bun.spawnSync(['python3', '-m', 'unittest', 'discover', '-s', dirname(BUILD_PY)], { stdout: 'pipe', stderr: 'pipe' });
+    const result = Bun.spawnSync([...resolvePython()!, '-m', 'unittest', 'discover', '-s', dirname(BUILD_PY)], { stdout: 'pipe', stderr: 'pipe' });
     const output = result.stderr.toString();
     expect(output).toMatch(/\nOK\b/);
     expect(result.exitCode).toBe(0);

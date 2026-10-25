@@ -53,6 +53,7 @@ import { CORE_SCHEMA_FILE, neutralizeRetiredKeys, PROJECT_SCHEMA_FILE, removeRet
 // Canonical variable manifest (source of truth — D1). Imports only `node:fs`,
 // so it is safe to load statically here without breaking the dependency-free
 // `--preflight` contract (no third-party deps pulled in).
+import { PILLOW_INSTALL, pythonPreflight } from './lib/evidence-page/python.ts';
 import {
   check as checkHarnessEnv,
   CLAUDE_LOCAL_SETTINGS,
@@ -359,6 +360,17 @@ interface DoctorReport {
    * writes no file), never a failure. Reporting only.
    */
   harness_level_mcps: { verdicts: HarnessLevelVerdict[], sources: string[] }
+  /**
+   * Python 3.9+ with Pillow, which only the evidence pages (`/evidence-artifact`)
+   * need. Reporting only: a missing one is an Optional warning, never `status`.
+   */
+  evidence_builder: { ready: boolean, detail: string | null }
+  /**
+   * The orchestrator `/sprint-conductor` requires (every other skill treats it as
+   * optional): the CLI named in `orchestration.orchestrator_cli`, and whether its
+   * runtime answers. Information only, never a warning and never `status`.
+   */
+  orchestrator: { cli: string | null, state: OrchestratorState }
   pending_actions: PendingAction[]
   /**
    * OPTIONAL items, reported and never blocking: they do not turn `status` to
@@ -734,6 +746,34 @@ async function runPreflight(): Promise<never> {
  * network inside a command people run to diagnose a broken setup. Cap it, and
  * treat every failure as `unknown`.
  */
+export type OrchestratorState = 'not-configured' | 'not-installed' | 'unreachable' | 'ready';
+
+/**
+ * The orchestrator CLI the project names (`orchestration.orchestrator_cli`), or
+ * null when it names none. On Linux outside an Orca terminal a bare `orca` is the
+ * GNOME screen reader, so the Orca CLI is probed as `orca-ide` there (the same
+ * rule as the orca-orchestration gate).
+ */
+export function orchestratorCli(yamlText: string, platform: string, env: Record<string, string | undefined>): string | null {
+  const m = yamlText.match(/^[ \t]+orchestrator_cli:[ \t]*['"]?([^\s'"#]*)/m);
+  const cli = m?.[1] ?? '';
+  if (cli === '') { return null; }
+  if (cli === 'orca' && platform === 'linux' && !env.ORCA_TERMINAL_HANDLE && !env.ORCA_APP_VERSION) { return 'orca-ide'; }
+  return cli;
+}
+
+/** The orca-orchestration gate: the binary, then `status --json` with the NESTED `result.runtime.reachable`. */
+export function orchestratorState(cli: string | null, spawn: typeof spawnSync = spawnSync): OrchestratorState {
+  if (cli === null) { return 'not-configured'; }
+  const r = spawn(cli, ['status', '--json'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] });
+  if ((r.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') { return 'not-installed'; }
+  try {
+    const parsed = JSON.parse(String(r.stdout ?? '')) as { result?: { runtime?: { reachable?: unknown } } };
+    return parsed.result?.runtime?.reachable === true ? 'ready' : 'unreachable';
+  }
+  catch { return 'unreachable'; }
+}
+
 function tryRunWithTimeout(binary: string, args: string[], timeoutMs: number): { ok: boolean, stdout: string } {
   try {
     const stdout = execFileSync(binary, args, {
@@ -825,6 +865,15 @@ export async function runDoctor(): Promise<DoctorReport> {
     project_schema: projectSchemaDiagnostic(),
     env_schema: envSchemaDiagnostic(),
     harness_level_mcps: harnessLevelMcpReport(),
+    evidence_builder: ((): { ready: boolean, detail: string | null } => {
+      const detail = pythonPreflight();
+      return { ready: detail === null, detail };
+    })(),
+    orchestrator: ((): { cli: string | null, state: OrchestratorState } => {
+      const yamlPath = join(REPO_ROOT, '.agents', 'project.yaml');
+      const cli = orchestratorCli(existsSync(yamlPath) ? readFileSync(yamlPath, 'utf8') : '', process.platform, process.env);
+      return { cli, state: orchestratorState(cli) };
+    })(),
     pending_actions: [],
     warnings: [],
   };
@@ -1022,6 +1071,15 @@ export async function runDoctor(): Promise<DoctorReport> {
     });
   }
 
+  // The evidence builder's interpreter: optional, only /evidence-artifact uses it.
+  if (!report.evidence_builder.ready) {
+    report.warnings.push({
+      type: 'shell_command',
+      target: PILLOW_INSTALL,
+      hint: `Only for the evidence pages (/evidence-artifact): ${report.evidence_builder.detail}.`,
+    });
+  }
+
   // .mcp.json / opencode.jsonc presence, only for a harness in use: a project
   // that dropped one deleted its config on purpose (ADR-0012).
   const harnessInUse = (harness: Harness): boolean => agentCompatibility.harnesses.includes(harness);
@@ -1149,6 +1207,15 @@ function printHuman(report: DoctorReport): void {
     return `${icon} ${host.value}${note}`;
   })();
   checks.push(['Atlassian host (.agents/project.yaml)', hostRow]);
+  checks.push(['Evidence builder (Python 3.9+ and Pillow)', report.evidence_builder.ready ? tui.statusIcon('ok') : `${tui.statusIcon('warn')} optional, see below`]);
+  const orca = report.orchestrator;
+  const orcaText: Record<OrchestratorState, string> = {
+    'not-configured': 'no orchestration.orchestrator_cli in .agents/project.yaml',
+    'not-installed': `${orca.cli} not installed`,
+    'unreachable': `${orca.cli} installed, runtime not reachable (open the app)`,
+    'ready': `${orca.cli} ready`,
+  };
+  checks.push(['Orca (only for /sprint-conductor)', `${tui.statusIcon(orca.state === 'ready' ? 'ok' : 'info')} ${orcaText[orca.state]}`]);
   if (report.worktree_of !== null) {
     checks.push(['Linked worktree of', `${tui.statusIcon('info')} ${report.worktree_of}`]);
   }

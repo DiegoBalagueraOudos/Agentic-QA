@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
-import { checkoutSetupActions, envVarVerdict, probeOpenApiSpec } from './doctor.ts';
+import { checkoutSetupActions, envVarVerdict, orchestratorCli, orchestratorState, probeOpenApiSpec } from './doctor.ts';
 import { VAR_MANIFEST, varsFor } from './lib/variables-manifest.ts';
 
 function spec(overrides: Partial<VarSpec> & { name: string }): VarSpec {
@@ -131,5 +131,28 @@ describe('checkoutSetupActions', () => {
   test('a primary checkout with dependencies but no hook shims is told to reinstall', () => {
     const { actions } = checkoutSetupActions({ ...ready, gitHooks: false });
     expect(actions.map(a => a.target)).toEqual(['bun install']);
+  });
+});
+
+describe('the Orca row (info only, /sprint-conductor needs it)', () => {
+  const yaml = 'orchestration:\n  orchestrator_cli: orca # the binary on PATH\n';
+
+  test('the CLI comes from orchestration.orchestrator_cli; orca-ide on Linux outside an Orca terminal', () => {
+    expect(orchestratorCli(yaml, 'darwin', {})).toBe('orca');
+    expect(orchestratorCli(yaml, 'linux', {})).toBe('orca-ide');
+    expect(orchestratorCli(yaml, 'linux', { ORCA_TERMINAL_HANDLE: 'term_x' })).toBe('orca');
+    expect(orchestratorCli('orchestration:\n  orchestrator_cli: \'\'\n', 'darwin', {})).toBeNull();
+    expect(orchestratorCli('project:\n  project_name: x\n', 'darwin', {})).toBeNull();
+  });
+
+  const fake = (r: { error?: { code: string }, stdout?: string }) => (() => r) as unknown as Parameters<typeof orchestratorState>[1];
+
+  test('the gate reads the NESTED reachable flag, and tells a missing binary from a closed app', () => {
+    expect(orchestratorState(null)).toBe('not-configured');
+    expect(orchestratorState('orca', fake({ error: { code: 'ENOENT' } }))).toBe('not-installed');
+    expect(orchestratorState('orca', fake({ stdout: '{"result":{"runtime":{"reachable":true}}}' }))).toBe('ready');
+    expect(orchestratorState('orca', fake({ stdout: '{"result":{"runtime":{"reachable":false}}}' }))).toBe('unreachable');
+    expect(orchestratorState('orca', fake({ stdout: '{"reachable":true}' }))).toBe('unreachable');
+    expect(orchestratorState('orca', fake({ stdout: 'not json' }))).toBe('unreachable');
   });
 });

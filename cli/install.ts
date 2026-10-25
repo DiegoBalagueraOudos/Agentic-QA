@@ -277,7 +277,7 @@ const CANONICAL_MCPS = [
 // the user's OS and we refuse to guess. We only verify presence, surface the
 // purpose, and point users to the official docs. `install` is OPTIONAL and only
 // set for genuinely cross-platform commands.
-const EXTERNAL_CLIS: ReadonlyArray<{ name: string, install?: string, docs: string, purpose: string, required?: boolean }> = [
+const EXTERNAL_CLIS: ReadonlyArray<{ name: string, install?: string, docs: string, purpose: string, required?: boolean, alternatives?: ReadonlyArray<string> }> = [
   {
     name: 'bun',
     docs: 'https://bun.com/',
@@ -348,14 +348,31 @@ const EXTERNAL_CLIS: ReadonlyArray<{ name: string, install?: string, docs: strin
     purpose: 'env schema validation + secret injection (optional standalone; the devDependency covers the gates)',
   },
   {
-    // Desktop app (Orca ADE) that also ships a scriptable `orca` CLI. Fully
-    // optional: enables `/orca-orchestration` multi-session coordination.
-    // The boilerplate works identically without it — one-shot subagents
-    // (AGENTS.md §3) remain the default executor.
+    // Desktop app (Orca ADE) that also ships a scriptable `orca` CLI. REQUIRED
+    // by `/sprint-conductor`, which runs only on it and stops with one line
+    // when the gate (binary + reachable runtime) fails. Optional for everything
+    // else: `/orca-orchestration` falls back to one-shot subagents (AGENTS.md §3,
+    // the default executor) and pasted launch lines. `setup:doctor` reports
+    // the gate.
     name: 'orca',
     install: 'brew install --cask stablyai/orca/orca   # macOS. Windows/Linux: download from https://www.onorca.dev/docs/install',
     docs: 'https://www.onorca.dev/docs/cli/overview',
-    purpose: 'multi-session agent orchestration (optional) — used by /orca-orchestration',
+    purpose: 'required by /sprint-conductor; optional for /orca-orchestration (subagents stay the default executor)',
+  },
+  {
+    // The evidence pages (`/evidence-artifact`, `bun run evidence`) run the
+    // skill's `build.py`: Python 3.9+ with Pillow. Nothing else needs it.
+    // Windows usually exposes `py` or `python` and no `python3`, hence the
+    // alternatives; `setup:doctor` checks the version and Pillow.
+    name: 'python3',
+    alternatives: process.platform === 'win32' ? ['py', 'python'] : ['python'],
+    install: process.platform === 'win32'
+      ? 'winget install Python.Python.3.12, then: py -m pip install pillow'
+      : process.platform === 'darwin'
+        ? 'brew install python pillow   # Homebrew Python refuses a bare pip install (PEP 668)'
+        : 'apt install python3 python3-pil   # or a venv: python3 -m venv .venv && .venv/bin/pip install pillow',
+    docs: 'https://www.python.org/downloads/',
+    purpose: 'evidence pages (/evidence-artifact): Python 3.9+ with Pillow; nothing else needs it',
   },
 ];
 
@@ -2044,7 +2061,7 @@ function installHintForOS(cli: { name: string, install?: string }): string {
 function verifyExternalClis(state: InstallState): CliResult[] {
   const step = UI!.step({ phase: 'verify', title: tr('Herramientas de línea de comandos', 'Command-line tools') });
   const results: CliResult[] = EXTERNAL_CLIS.map((cli) => {
-    const found = which(cli.name) !== null;
+    const found = [cli.name, ...(cli.alternatives ?? [])].some(name => which(name) !== null);
     const status: CliStatus = found ? 'found' : 'missing';
     state.externalClis[cli.name] = status;
     return { name: cli.name, status, purpose: cli.purpose, install: cli.install, docs: cli.docs };

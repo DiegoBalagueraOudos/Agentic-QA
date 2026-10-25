@@ -269,6 +269,14 @@ function prerequisites(mcpsWithKeys: string[]): PrerequisiteSpec[] {
       preflight: ['op'],
     },
     {
+      // Reported by `pythonCheck` (cli/preflight.ts) as information, never a block.
+      name: 'Python 3.9+ with Pillow',
+      required: false,
+      purpose: 'Only for the evidence pages (/evidence-artifact, bun run evidence); nothing in the install needs it.',
+      installHint: 'https://www.python.org/downloads/ then Pillow (Homebrew Python: brew install pillow; Windows: py -m pip install pillow)',
+      binaryName: 'python3',
+    },
+    {
       name: 'API keys (.env)',
       required: false,
       purpose: `The project MCP servers that read keys (${mcpsWithKeys.join(', ')}) connect once their values are in .env; web search and similar servers run at harness level and keep their keys outside .env.`,
