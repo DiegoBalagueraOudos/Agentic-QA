@@ -31,6 +31,11 @@ below names which one it applies to:
   kept `.github/workflows/regression.yml` as BLOCKING and stamped its marker, and run 2 printed
   nothing while `grep -q 'xray:payload'` still failed. A project whose marker is already stamped
   gets the row back on its next sync.
+  Consequence: `bun sync --strict` now exits 1 on EVERY run while such a gate fails (before, only the
+  first run did), and there is no accepted-divergence key for a prerequisite yet, so a project that
+  keeps its own `regression.yml` without the Xray write-back stays red under `--strict`. The fix branch
+  also moves the `.github/workflows/build.yml` and `unit-tests.yml` PR triggers to every base branch,
+  so PRs into an integration trunk or stacked on another PR get checks.
 - **The last maintainer-only tests skip downstream.** The cases in `cli/lib/agents-schema.test.ts`
   built on `generateSchema` of the real `.agents/project.yaml`, the exact MCP variable set in
   `cli/agent-lifecycle.test.ts`, the exact hook layout in `cli/lib/updater-settings.test.ts` and
