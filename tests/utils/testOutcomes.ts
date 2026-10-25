@@ -161,6 +161,8 @@ export interface RunInfo {
 export interface OutcomesDocument {
   schema: typeof OUTCOMES_SCHEMA
   generatedAt: string
+  /** The run id KataReporter also stamps on reports/atc_results.json, so a reader can tell a stale pair. */
+  runId?: string
   run: RunInfo
   summary: OutcomeSummary
   records: OutcomeRecord[]

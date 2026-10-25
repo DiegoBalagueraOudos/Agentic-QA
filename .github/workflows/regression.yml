@@ -160,15 +160,18 @@ jobs:
           path: test-results/
           retention-days: 10
 
-      # The per-ATC verdicts the XrayImport job imports. A separate artifact on
-      # purpose: adding the file to the test-results upload would move
-      # junit.xml one level down inside that artifact.
+      # The per-ATC verdicts the XrayImport job imports, with the outcome
+      # records that name an ATC whose test failed before it could record a
+      # result. A separate artifact on purpose: adding these files to the
+      # test-results upload would move junit.xml one level down inside it.
       - name: Upload Integration ATC Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: integration-atc-results
-          path: reports/atc_results.json
+          path: |
+            reports/atc_results.json
+            reports/test-outcomes.json
           if-no-files-found: ignore
           retention-days: 10
 
@@ -243,15 +246,18 @@ jobs:
           path: test-results/
           retention-days: 10
 
-      # The per-ATC verdicts the XrayImport job imports. A separate artifact on
-      # purpose: adding the file to the test-results upload would move
-      # junit.xml one level down inside that artifact.
+      # The per-ATC verdicts the XrayImport job imports, with the outcome
+      # records that name an ATC whose test failed before it could record a
+      # result. A separate artifact on purpose: adding these files to the
+      # test-results upload would move junit.xml one level down inside it.
       - name: Upload E2E ATC Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-atc-results
-          path: reports/atc_results.json
+          path: |
+            reports/atc_results.json
+            reports/test-outcomes.json
           if-no-files-found: ignore
           retention-days: 10
 
@@ -428,8 +434,9 @@ jobs:
   # instead of failing, and the import step is continue-on-error so an Xray
   # outage never turns a green suite red. A repo without Xray sees a skip note.
   # One exception, on purpose: once the import is enabled, a result whose id is
-  # not a Test key fails this job with one line naming it, before anything is
-  # sent. That is a defect in the suite, not an outage.
+  # not a Test key, or a report that cannot be read or belongs to another run,
+  # fails this job with one line naming it, before anything is sent. That is a
+  # defect in the suite, not an outage.
   #
   # The modality gate is different in kind: it is not "Xray is misconfigured"
   # but "this project has no Xray", so it skips the whole job SILENTLY. A
@@ -498,6 +505,13 @@ jobs:
           # to the "QA Test Artifacts" epic afterwards. Skipping beats orphaning.
           if [ -z "${STP_EXECUTION_KEY:-}" ]; then
             echo "::warning title=Xray import skipped::No execution key, so results were NOT imported. Set execution_key (the RTR key) when dispatching, or the STP_EXECUTION_KEY secret for scheduled runs; never the RTP/STP key. The target is a Test Execution under the 'QA Test Artifacts' epic."
+            exit 0
+          fi
+
+          # A typo in the key is a configuration slip, not a suite defect: skip
+          # with a warning naming it, never turn a green suite red.
+          if ! [[ "${STP_EXECUTION_KEY}" =~ ^[A-Z][A-Z0-9_]+-[0-9]+$ ]]; then
+            echo "::warning title=Xray import skipped::The execution key '${STP_EXECUTION_KEY}' is not a Test Execution key (PROJECT-123 shape), so results were NOT imported. Fix execution_key or the STP_EXECUTION_KEY secret."
             exit 0
           fi
 

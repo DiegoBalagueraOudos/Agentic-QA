@@ -21,6 +21,7 @@ import type {
 import type { AtcResult } from '@utils/decorators';
 import type { OutcomeAnnotation, OutcomeInput, OutcomeRecord, OutcomesDocument } from '@utils/testOutcomes';
 
+import { randomUUID } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative } from 'node:path';
 
@@ -65,6 +66,8 @@ class KataReporter implements Reporter {
   private totalTests: number;
   private rootSuite: Suite | undefined;
   private listOnly = false;
+  /** Stamped on both reports/atc_results.json and reports/test-outcomes.json, so a reader can tell a stale pair. */
+  private readonly runId = randomUUID();
   private fullConfig: FullConfig | undefined;
 
   constructor() {
@@ -284,8 +287,9 @@ class KataReporter implements Reporter {
   }
 
   onEnd(result: FullResult) {
-    this.generateAtcReport();
+    // Outcomes first: they decide `listOnly`, which the ATC report reads.
     const outcomes = this.generateOutcomesReport(result);
+    this.generateAtcReport();
     const classOf = new Map(outcomes?.records.map(r => [r.id, r]) ?? []);
 
     this.endTime = Date.now();
@@ -421,13 +425,14 @@ class KataReporter implements Reporter {
     const runUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
       ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
       : null;
-    const document = buildOutcomesDocument(records, {
+    const built = buildOutcomesDocument(records, {
       status: result.status,
       environment: env.current,
       baseUrl: testConfig.baseUrl,
       ci: runUrl ? { runUrl, sha: process.env.GITHUB_SHA ?? null } : null,
       playwright: this.fullConfig.version,
     });
+    const document = { ...built, runId: this.runId };
 
     mkdirSync(dirname(OUTCOMES_PATH), { recursive: true });
     writeFileSync(OUTCOMES_PATH, `${JSON.stringify(document, null, 2)}\n`);
@@ -484,6 +489,12 @@ class KataReporter implements Reporter {
    */
   private generateAtcReport(outputPath = 'reports/atc_results.json') {
     if (!existsSync(ATC_PARTIAL_PATH)) {
+      // No ATC ran: a report left by an earlier run must not survive as this
+      // run's results (a later write-back would import it). `--list` ran
+      // nothing at all, so it leaves the last real run's report alone.
+      if (!this.listOnly && existsSync(outputPath)) {
+        unlinkSync(outputPath);
+      }
       return;
     }
 
@@ -529,6 +540,7 @@ class KataReporter implements Reporter {
     const total = testIds.length;
 
     const report = {
+      runId: this.runId,
       generatedAt: new Date().toISOString(),
       summary: { total, passed, failed, skipped, executions, testIds },
       results,

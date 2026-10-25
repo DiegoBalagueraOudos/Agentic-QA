@@ -27,8 +27,16 @@ below names which one it applies to:
   that is not a Test key, before anything is sent; the import step stays `continue-on-error`.
   `bun run test:sync` builds its Xray body through the same code (`tests/utils/xrayResults.ts`).
 - **`bun xray import junit` and `import xray` refuse a Test-creating input.** A JUnit testcase without
-  `test_key` / `test_id` (or with two keys), or an Xray JSON entry with `testInfo` or without
-  `testKey`, stops the command with one message naming each one.
+  `test_key` / `test_id` inside its own `<properties>` (or with two keys, a malformed key, or
+  `test_summary` / `test_description` / `tags`, which rewrite the Test), or an Xray JSON entry with
+  `testInfo` or a missing, malformed or repeated `testKey`, stops the command with one message
+  naming each one; a body the guard cannot read is refused too.
+- **The write-back reports what ran, and only this run.** A runtime `test.skip()` inside an ATC is
+  recorded `SKIP` and left out (NOT RUN), never sent as FAILED. An ATC whose test failed before it
+  could record a result (a timeout on a non-Playwright await) is sent as FAILED from the outcome
+  records. `atc_results.json` and `test-outcomes.json` carry one run id, a report from another run
+  is refused, and a run with no ATC deletes the previous run's `atc_results.json`. `bun run
+  test:sync` checks the keys before it authenticates.
 - **No separate "automated test" issue.** `test-automation` step 6 no longer links an
   `{AUTOMATED_TEST_KEY}` to the TC: the `@atc` id is the TC's key and the run result lands on the TC.
 - Before a project's first import, every `@atc` id must be the key of an existing Test (template

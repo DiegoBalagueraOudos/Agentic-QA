@@ -15,9 +15,9 @@
  */
 
 import type { AtcResult } from '@utils/decorators';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { buildXrayTests } from '@utils/xrayResults';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { buildXrayTests, findKeyProblems, keyProblemLine, readRunReport } from '@utils/xrayResults';
 import { config, env } from '@variables';
 
 // ============================================
@@ -83,9 +83,16 @@ export async function syncResults(reportPath = 'reports/atc_results.json'): Prom
   let results: Record<string, AtcResult[]>;
 
   const reportFile = Bun.file(reportPath);
-  if (await reportFile.exists()) {
-    const reportData = (await reportFile.json()) as { results?: Record<string, AtcResult[]> };
-    results = reportData.results ?? {};
+  // The sibling test-outcomes.json alone is enough: when every ATC of the run
+  // hung, it is the only record that they ran (tests/utils/xrayResults.ts).
+  if (await reportFile.exists() || existsSync(join(dirname(reportPath), 'test-outcomes.json'))) {
+    const read = readRunReport(reportPath);
+    if (read.problems.length > 0) {
+      const message = read.problems.join('; ');
+      console.error(`[ERROR] Nothing was written back: ${message}.`);
+      return { provider: config.tms.provider, success: false, message };
+    }
+    results = read.results;
   }
   else {
     // A missing report in CI means the pipeline is wired wrong: this command
@@ -168,6 +175,19 @@ async function readIssueType(issueKey: string): Promise<string | null> {
 }
 
 async function syncToXray(results: Record<string, AtcResult[]>): Promise<SyncResult> {
+  // Same rule as the CI payload step: an id that is not a Test key stops the
+  // write-back before any network call.
+  const keyProblems = findKeyProblems(results);
+  if (keyProblems.length > 0) {
+    console.error(`[ERROR] ${keyProblemLine(keyProblems)}`);
+    return { provider: 'xray', success: false, message: 'Not a Test key' };
+  }
+  // Every ATC skipped at runtime: Xray's schema needs at least one entry.
+  if (buildXrayTests(results).length === 0) {
+    console.log('[WARN] No ATC result left to sync (every ATC was skipped)');
+    return { provider: 'xray', success: true, message: 'No results to sync' };
+  }
+
   const { clientId, clientSecret, projectKey } = config.tms.xray;
   const stpExecutionKey = config.tms.stpExecutionKey;
 
@@ -381,7 +401,11 @@ async function syncToJiraDirect(results: Record<string, AtcResult[]>): Promise<S
   let failCount = 0;
 
   for (const [testId, executions] of Object.entries(results)) {
-    const finalStatus = executions.every(e => e.status === 'PASS') ? 'PASS' : 'FAIL';
+    // Every execution skipped at runtime = NOT RUN (ADR-0020): nothing to write.
+    if (executions.every(e => e.status === 'SKIP')) {
+      continue;
+    }
+    const finalStatus = executions.some(e => e.status === 'FAIL') ? 'FAIL' : 'PASS';
     const lastExecution = executions[executions.length - 1];
 
     try {

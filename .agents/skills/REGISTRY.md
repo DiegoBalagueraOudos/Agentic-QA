@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-25T01:27:52.041Z`
+> Generated: `2026-10-25T01:52:34.252Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -721,7 +721,7 @@ Skills indexed: 28
 - DO: treat Xray run statuses as PER-INSTANCE vocabulary. `TODO` / `EXECUTING` / `PASSED` / `FAILED` are the safe floor; `ABORTED` and `BLOCKED` are Xray defaults a project may not define, and the mutation is rejected when it does not. Record a blocked case in a status the project DOES define and explain it in the run comment — never leave the run `TODO`, which reads as never executed.
 - WHEN a Jira-fallback path created the container without authenticated Xray: the Xray layer never registered the tests and runs come back empty. Reconcile with the per-entity sync (or the bulk repair scan) before importing results.
 - DO: import results onto an existing Execution key, never scoped to a project — the import API cannot set a parent, so a project-scoped import mints a fresh unparented Execution on every run, outside the artifact ladder.
-- DO NOT: import results that could create a Test. `import junit` refuses any testcase without a `test_key` / `test_id` property (or with two keys) and `import xray` refuses an entry with `testInfo` or without `testKey`, naming each one. A KATA run is imported per ATC with explicit keys (`bun run xray:payload`, then `import xray`), never as its `junit.xml`; a missing Test is created by `/test-documentation` behind a signed ROI verdict, never by an import.
+- DO NOT: import results that could create or rewrite a Test. `import junit` refuses any testcase without a `test_key` / `test_id` inside its own `<properties>` (or with two keys, or with `test_summary` / `test_description` / `tags`) and `import xray` refuses `testInfo` or a missing, malformed or repeated `testKey`, naming each one. A KATA run is imported per ATC with explicit keys (`bun run xray:payload`, then `import xray`), never as its `junit.xml`; a missing Test is created by `/test-documentation` behind a signed ROI verdict, never by an import.
 - DO NOT: hand-craft Xray JSON payloads outside this CLI, or reuse a bearer token past its 24h TTL. A stale token produces silent 401s mid-import that read like network blips.
 - DO: dry-run any import or backup restore before applying. Both write irreversibly across hundreds of tests and runs.
 - WHEN moving between sites: restore in sync-by-key mode (GraphQL ids are re-assigned per site, keys are not), re-authenticate between export and restore because auth holds ONE site at a time, and finish with the Jira instance-migration flow — field ids are reassigned and an old id silently resolves to a different field.
