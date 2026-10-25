@@ -5,13 +5,21 @@
  * `@playwright/test`, and `cli/lib/ui/` must load with node built-ins only.
  *
  * Skips (with a message) when Chromium is not installed: `bun run pw:install`.
+ *
+ * The browser tests run in a CHILD `bun test` process (this file again, with
+ * UI_PAGE_BROWSER_CHILD=1); the shared run only spawns it and checks its result. Chromium
+ * launched through Playwright's pipe transport under Bun leaves a stale handle that closes
+ * the same fd numbers again later, at a random moment; in the shared process one of those
+ * numbers was by then the snapshot file `bun test` keeps open between two snapshot test files,
+ * and `cli/lib/ui/installer-run.test.ts` failed with FailedToWriteSnapshotFile. In a child of
+ * its own, the stale handle dies with the child.
  */
 
 import type { Browser, Page } from '@playwright/test';
 import type { BrowserSink } from '../cli/lib/ui/browser-sink.ts';
 import type { Lang } from '../cli/lib/ui/events.ts';
 
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -32,12 +40,29 @@ if (!HAVE_CHROMIUM) { process.stderr.write('ui-page.test.ts: Chromium not instal
 
 setDefaultTimeout(30_000);
 
+/** Set in the child this file spawns: only there does Chromium start. */
+const CHILD = process.env.UI_PAGE_BROWSER_CHILD === '1';
+/** The browser tests below, counted from this file, so the parent can tell the child ran every one. */
+const BROWSER_TESTS = (readFileSync(import.meta.path, 'utf8').match(/^ {2}test\(/gm) ?? []).length;
+
+if (!CHILD) {
+  test.skipIf(!HAVE_CHROMIUM)('the browser tests run in their own process and all pass', async () => {
+    const child = Bun.spawn(['bun', 'test', import.meta.path], { env: { ...process.env, UI_PAGE_BROWSER_CHILD: '1' }, stdout: 'pipe', stderr: 'pipe' });
+    const [out, err, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+    const count = (word: string): number => Number(new RegExp(`^\\s*(\\d+) ${word}$`, 'm').exec(err)?.[1] ?? 0);
+    if (code !== 0 || count('fail') > 0 || count('pass') !== BROWSER_TESTS) { throw new Error(`browser child: exit ${code}, ${count('pass')} of ${BROWSER_TESTS} passed\n${out}${err}`); }
+    process.stderr.write(`ui-page.test.ts: ${count('pass')} of ${BROWSER_TESTS} browser tests passed in the child process\n`);
+    expect(count('pass')).toBe(BROWSER_TESTS);
+    expect(count('skip')).toBe(0);
+  }, 300_000);
+}
+
 let browser: Browser;
 const sinks: BrowserSink[] = [];
 const dirs: string[] = [];
 
 beforeAll(async () => {
-  if (HAVE_CHROMIUM) { browser = await chromium.launch(); }
+  if (HAVE_CHROMIUM && CHILD) { browser = await chromium.launch(); }
 });
 afterAll(async () => {
   await browser?.close();
@@ -67,7 +92,7 @@ async function open(url: string, viewport = { width: 1200, height: 900 }): Promi
 
 const card = (page: Page, id: string) => page.locator(`[data-ask="${id}"]`);
 
-describe.skipIf(!HAVE_CHROMIUM)('installer page in a browser', () => {
+describe.skipIf(!HAVE_CHROMIUM || !CHILD)('installer page in a browser', () => {
   test('every ask kind is answered from the page and resolves the core promise', async () => {
     const { r, sink } = await fakeRun();
     const { page, errors } = await open(sink.url);
