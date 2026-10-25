@@ -141,7 +141,7 @@ XRAY JSON  (POST /api/v2/import/execution)
           |
           v
 XRAY API PROCESSING
-   MATCH testKey "PROJ-101" to the existing Test issue (unknown key = import rejected)
+   MATCH testKey "PROJ-101" to the existing Test issue (unknown key = Xray error)
    UPDATE Test Runs with statuses in the existing Test Execution PROJ-400
           |
           v

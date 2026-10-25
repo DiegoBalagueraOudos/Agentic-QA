@@ -145,7 +145,7 @@ bun run test:sync (tests/utils/jiraSync.ts, paso aparte cuando Playwright ya sal
         { testExecutionKey | info:{...}, tests:[{ testKey:'PROJ-101', status:'PASSED', comment }] }
         → con STP_EXECUTION_KEY escribe sobre esa Test Execution; sin ella, Xray crea una nueva
    └─ (alternativa jira-native) syncToJiraDirect(): PUT al issue + comentario
-   (en regression.yml con Xray, CI importa el junit.xml en un job aparte en lugar de test:sync)
+   (en regression.yml con Xray, CI importa estos mismos resultados por ATC en un job aparte, nunca el junit.xml)
 ```
 
 Trazabilidad (modelo tres letras): Historia (US) ↔ ATP (plan) ↔ ATR

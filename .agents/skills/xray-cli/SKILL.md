@@ -592,7 +592,7 @@ bun xray import xray --file xray-results.json
 > JUnit XML reports", "Using Xray JSON format to import execution results"). So `import junit`
 > refuses a file with any testcase lacking a key, or holding two, and `import xray` refuses
 > `testInfo` or a missing `testKey`; the error names every offending testcase or entry and
-> nothing is sent. A key that does not exist makes Xray reject the import. Cucumber imports are
+> nothing is sent. A key that does not exist makes Xray return an error. Cucumber imports are
 > not guarded: they create Cucumber Tests from untagged scenarios by design.
 >
 > A KATA run is NOT imported as its `junit.xml`: one Playwright testcase holds zero, one or

@@ -32,7 +32,7 @@ below names which one it applies to:
 - **No separate "automated test" issue.** `test-automation` step 6 no longer links an
   `{AUTOMATED_TEST_KEY}` to the TC: the `@atc` id is the TC's key and the run result lands on the TC.
 - Before a project's first import, every `@atc` id must be the key of an existing Test (template
-  placeholder ids included): Xray rejects the whole import on an unknown key. The docs that described
+  placeholder ids included): Xray returns an error for an unknown key. The docs that described
   the JUnit import (`xray-platform.md` §6 matching rules, the regression and xray-cli references, the
   Xray setup page and the regression decks) now say what the import does and does not do.
 
