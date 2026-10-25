@@ -188,7 +188,7 @@ These provide business flows, journeys and feature inventory, API contracts + au
 
 The context hierarchy is: Project (system-wide) -> Epic/Module (feature area like Orders, Dashboard — module = Epic, 1:1) -> Story (individual ticket).
 
-Derive `<EPIC_KEY>` from the ticket's parent epic and `<EPIC_SLUG>` from the epic/module field — kebab-case (e.g. "Monthly Statement Improvements" -> `monthly-statement`). The module folder is `epics/EPIC-<EPIC_KEY>-<EPIC_SLUG>/`.
+Derive `<EPIC_KEY>` from the ticket's parent epic and `<EPIC_SLUG>` from the epic/module field — kebab-case (e.g. "Checkout Improvements" -> `checkout`). The module folder is `epics/EPIC-<EPIC_KEY>-<EPIC_SLUG>/`.
 
 **Jira owns the module context.** It lives in the Epic `description`, under a `## Module Context (QA)` heading, and `bun run jira:sync-issues` splits that section out into `module-context.md`. There is no dedicated custom field on purpose: `description` exists on every Jira instance, so this works on a project that never provisions a single custom field.
 

@@ -2,7 +2,7 @@
   "evals": [
     {
       "name": "should-trigger-fresh-onboarding",
-      "prompt": "I need to set up this boilerplate for the Curacity project. Backend is Node.js + Express, frontend is React. Start by discovering the architecture.",
+      "prompt": "I need to set up this boilerplate for the Acme project. Backend is Node.js + Express, frontend is React. Start by discovering the architecture.",
       "expected_behavior": "Activates project-discovery. Confirms scope (Fresh onboarding). Begins Phase 1: Constitution -- asks for repo paths/access, detects stack, writes `.context/project-config.md`, records the project assessment, then writes the business model and glossary as sections of the `business-domain-context` map (read back with `bun run context:map business-domain-context`). Phases 2-3 write the `infra-context` map; Phase 4 is a backlog connection check that writes no file. Does not produce PRD/SRS markdown, `risk-assessment.md` or `ACCESS.md`. Waits for confirmation between phases before advancing.",
       "category": "positive"
     },
