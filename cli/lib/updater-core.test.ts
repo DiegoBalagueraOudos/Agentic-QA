@@ -11,6 +11,7 @@ import {
   classifyFile,
   collectContextMapBootstrap,
   componentOwnedPaths,
+  componentsWithoutDelta,
   computeComponentAdvancement,
   computeDelta,
   detectLocalEdits,
@@ -250,6 +251,71 @@ describe('advanceSyncStateV7 with a retired component', () => {
     const next = advanceSyncStateV7(prior, { applied: [], skipped: [], failed: [], newHeadSha: 'new', componentsAdvanced: ['cli', 'docs'], componentsHeldBack: [] } as never, current, 'new', '8.5');
     expect(next.templateCommit).toBe('new');
     expect(next.perComponentCommit).toMatchObject({ cli: 'new', docs: 'new', commands: 'old' });
+  });
+});
+
+describe('templateCommit after a partial-delta sync (componentsWithoutDelta)', () => {
+  // Live finding: a sync to a new upstream advanced the 13 components that had
+  // a delta and never touched the 9 that had none, so `templateCommit` (which
+  // moves only when EVERY component sits at the new head) stayed at a SHA
+  // releases old, and every parity prompt printed that stale "project lock".
+  const components: Component[] = [
+    { name: 'cli', type: 'directory', paths: ['cli'] },
+    { name: 'docs', type: 'directory', paths: ['docs/core'] },
+    { name: 'husky', type: 'directory', paths: ['.husky'] },
+  ];
+  const prior: SyncStateV7 = {
+    schemaVersion: 7,
+    templateRepo: 'upex-galaxy/agentic-qa-boilerplate',
+    templateCommit: 'old',
+    perComponentCommit: { cli: 'old', docs: 'old', husky: 'old' },
+    syncedComponents: ['cli', 'docs', 'husky'],
+    ignoreFileSync: {},
+    packageJsonSync: {},
+    cliVersion: '8.4',
+    lastSyncedAt: '2026-10-01T10:00:00.000Z',
+    variableSystemVersion: 1,
+  };
+  const entry = (component: string): never => ({ component, path: `${component}/a.md`, status: 'M', fromSha: '', toSha: 'x', added: 1, removed: 0, isBinary: false, templateOldSha: 'y', templateNewSha: 'x', classification: 'clean-fastforward' }) as never;
+  const advance = (applied: string[], settled: string[]): SyncStateV7 => {
+    const advancement = computeComponentAdvancement({ applied: applied.map(c => ({ entry: entry(c), resolution: 'theirs' as const })), skipped: [], failed: [] }, [], settled);
+    return advanceSyncStateV7(prior, { applied: [], skipped: [], failed: [], newHeadSha: 'new', ...advancement } as never, components, 'new', '8.5');
+  };
+
+  test('the stuck-SHA repro: without settling the no-delta component, templateCommit never moves', () => {
+    expect(advance(['cli', 'docs'], []).templateCommit).toBe('old');
+  });
+
+  test('a component with no delta at the new head is settled, so templateCommit reaches the head', () => {
+    const visible = [entry('cli'), entry('docs')];
+    const settled = componentsWithoutDelta(components, visible, prior.perComponentCommit, 'new');
+    expect(settled).toEqual(['husky']);
+    const next = advance(['cli', 'docs'], settled);
+    expect(next.perComponentCommit).toEqual({ cli: 'new', docs: 'new', husky: 'new' });
+    expect(next.templateCommit).toBe('new');
+  });
+
+  test('a re-run at the same head with zero file delta heals a lock a partial sync left behind', () => {
+    const behind = { cli: 'new', docs: 'new', husky: 'old' };
+    expect(componentsWithoutDelta(components, [], behind, 'new')).toEqual(['husky']);
+  });
+
+  test('every cursor already at the head: nothing to settle, so a true no-op still exits untouched', () => {
+    expect(componentsWithoutDelta(components, [], { cli: 'new', docs: 'new', husky: 'new' }, 'new')).toEqual([]);
+  });
+
+  test('a component with a visible entry is never settled (a deselected scope keeps its pending delta)', () => {
+    // `docs` has a delta the operator did not pick: it reached neither applied nor skipped.
+    const settled = componentsWithoutDelta(components, [entry('cli'), entry('docs')], prior.perComponentCommit, 'new');
+    expect(settled).not.toContain('docs');
+    const next = advance(['cli'], settled);
+    expect(next.perComponentCommit.docs).toBe('old');
+    expect(next.templateCommit).toBe('old');
+  });
+
+  test('a component with no cursor yet is never listed: the bootstrap path owns it', () => {
+    // Only `cli` has a cursor; `docs` and `husky` would be bootstrapped, not settled here.
+    expect(componentsWithoutDelta(components, [], { cli: 'old' }, 'new')).toEqual(['cli']);
   });
 });
 

@@ -16,6 +16,15 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Fixed (a re-run of `bun sync` keeps the lock and the blocking rows honest)
+- **The lock's `templateCommit` reaches the upstream head after a partial-delta sync.** A
+  component with no delta at the new head now has its cursor moved too (`componentsWithoutDelta`),
+  so the top-level SHA advances once nothing is pending. Before, a sync that advanced 13
+  components left the 9 with nothing to sync at the old cursor, and `templateCommit` (and the
+  "project lock" line of every parity prompt) stayed releases behind. A re-run at the same head
+  repairs a lock left that way; a component with a pending delta, deselected or skipped, still
+  holds its cursor.
+
 ### Fixed (a new project commits, pushes and sees its prerequisites on day one)
 - **The hooks of a scaffolded project pass**: `vars:check` reads the `{}` placeholder catalogs as not
   synced yet (one `CATALOG_NOT_SYNCED` warning instead of an UNKNOWN option error per shipped

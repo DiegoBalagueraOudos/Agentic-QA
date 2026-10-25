@@ -1889,6 +1889,34 @@ export function computeComponentAdvancement(
   };
 }
 
+/**
+ * Components whose lock cursor is behind `newHeadSha` but that have nothing to
+ * deliver at it: no entry of theirs in `visible` (the run's user-facing delta,
+ * `unchanged` / `binary-skip` already filtered out). The content reconcile walks
+ * the full upstream tree, so "no visible entry" means the project already holds
+ * this head's copy; the cursor moves without an entry, like a settled bootstrap.
+ *
+ * Live finding: a sync that advanced 13 components left the other 9 (no delta)
+ * at the old cursor, so the top-level `templateCommit`, which advances only when
+ * EVERY component sits at the new head, stayed releases behind forever. A
+ * component with a visible entry is never listed here, whatever happens to it
+ * (a deselected scope, a skipped file): its delta is still pending.
+ */
+export function componentsWithoutDelta(
+  components: readonly Component[],
+  visible: readonly DeltaEntry[],
+  perComponentCommit: Readonly<Record<string, string>>,
+  newHeadSha: string,
+): string[] {
+  const withDelta = new Set(visible.map(e => e.component));
+  return components
+    .filter((c) => {
+      const cursor = perComponentCommit[c.name];
+      return cursor !== undefined && cursor !== newHeadSha && !withDelta.has(c.name);
+    })
+    .map(c => c.name);
+}
+
 // ============================================================================
 // SYNC-STATE WRITEBACK (pure)
 // ============================================================================
@@ -1910,6 +1938,10 @@ export function suggestCommitMessage(summary: RunSummary): string {
  *     - Else → advance to newHeadSha
  *   - Components untouched this run → prior value preserved
  *   - Top-level templateCommit advances to newHeadSha ONLY if ALL components advanced
+ *
+ * A component with no delta at the new head is not "untouched": the caller
+ * lists it in `componentsAdvanced` (`componentsWithoutDelta`, passed as a
+ * settled component), or `templateCommit` could never reach the head.
  */
 export function advanceSyncState(
   prior: SyncStateV6,
@@ -2057,7 +2089,8 @@ export function syncStateWriteNeeded(existing: string | null, next: SyncStateV7)
 
 /**
  * Advance perComponentCommit SHAs for a v7 state — mirror of `advanceSyncState`
- * but preserves the v7-only `ignoreFileSync` block.
+ * (same rules, including the no-delta components the caller settles) but
+ * preserves the v7-only `ignoreFileSync` block.
  */
 export function advanceSyncStateV7(
   prior: SyncStateV7,
@@ -2996,9 +3029,15 @@ export async function runUpdate(
       ? settledSelfUpdateSignal
       : selfUpdateComponentByContent(cfg, templateDir, repoRoot, newHeadSha, priorSelfUpdateCursor)
   ).filter(name => !entries.some(e => e.component === name));
+  // A component already synced before, behind this head, with no delta at it:
+  // its cursor moves too, so `templateCommit` can reach the head (see
+  // componentsWithoutDelta). Listed before the no-op exit below, so a re-run
+  // at the same head also heals a lock a partial-delta sync left behind.
+  const settledNoDelta = componentsWithoutDelta(cfg.components, visible, v7State?.perComponentCommit ?? {}, newHeadSha);
   const settledBootstrap = [...new Set([
     ...bootstrapComponents.filter(c => !entries.some(e => e.component === c.name)).map(c => c.name),
     ...settledSelfUpdate,
+    ...settledNoDelta,
   ])];
   // The afterApply hooks still run on a no-op: they are idempotent (alias,
   // registry) and they own the parity report, which is the run's
@@ -3522,9 +3561,10 @@ export async function runUpdate(
     // Deferred-deletes are already represented in `skipped`, so no separate
     // deferred list is passed (the old `bootstrapMode ? [] : []` was a no-op).
     [],
-    // Settled without an entry: bootstrapped with nothing to deliver, or
-    // refreshed by the parent's self-update (see `settledBootstrap`).
-    [...new Set([...bootstrapComponents.map(c => c.name), ...settledSelfUpdate])],
+    // Settled without an entry: bootstrapped with nothing to deliver,
+    // refreshed by the parent's self-update, or already at this head's
+    // content with a cursor behind it (see `settledBootstrap`).
+    [...new Set([...bootstrapComponents.map(c => c.name), ...settledSelfUpdate, ...settledNoDelta])],
   );
 
   const summary: RunSummary = {
