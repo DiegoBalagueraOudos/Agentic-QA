@@ -1,6 +1,6 @@
 {
   "blocking": {
-    "id": "10010",
+    "id": "10012",
     "name": "Blocking",
     "outward": "blocks",
     "inward": "is blocked by",
@@ -28,7 +28,7 @@
     "exists_in_workspace": true
   },
   "dependencies": {
-    "id": "10014",
+    "id": "10010",
     "name": "Dependencies",
     "outward": "depends on",
     "inward": "is dependency for",
@@ -42,7 +42,7 @@
     "exists_in_workspace": true
   },
   "problem_incident": {
-    "id": "10013",
+    "id": "10009",
     "name": "Problem/Incident",
     "outward": "causes",
     "inward": "is caused by",
@@ -63,28 +63,28 @@
     "exists_in_workspace": true
   },
   "test_automation": {
-    "id": "10011",
+    "id": "10014",
     "name": "Test Automation",
     "outward": "automation test for",
     "inward": "is automated by",
     "exists_in_workspace": true
   },
   "test_design": {
-    "id": "10009",
+    "id": "10008",
     "name": "Test Design",
     "outward": "designs",
     "inward": "is designed by",
     "exists_in_workspace": true
   },
   "test_execute": {
-    "id": "10008",
+    "id": "10011",
     "name": "Test Execute",
     "outward": "executes",
     "inward": "is executed by",
     "exists_in_workspace": true
   },
   "xray_defect": {
-    "id": "10012",
+    "id": "10013",
     "name": "Xray Defect",
     "outward": "created",
     "inward": "created by",

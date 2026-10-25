@@ -40,7 +40,7 @@ issue_tracker:
   # .agents/*.json catalogs with another site's content. ATLASSIAN_URL is NOT a .env
   # variable (.agents/instructions/agent-project-variables.md): if a stale copy is loose in the environment, the yaml wins
   # and the scripts print a warning naming both values.
-  atlassian_url: https://upexgalaxy72.atlassian.net # Atlassian site base URL (e.g. https://company.atlassian.net)
+  atlassian_url: https://upexgalaxy74.atlassian.net # Atlassian site base URL (e.g. https://company.atlassian.net)
 
 testing:
   default_env: staging # Default testing environment — must match a key under `environments:` (e.g. staging)
