@@ -32,6 +32,10 @@ below names which one it applies to:
 - **Sprint Board: automated outcomes in the ticket drawer.** Each TC that `reports/test-outcomes.json`
   names gets an `automated` chip beside its own status, for a run in the board's environment only;
   lanes, metrics, counts and the share and report snapshots are unchanged (ADR-0023 amendment).
+- **Round closes of the same Epic run one after another.** Two workers of one Epic that finish in the
+  same pass get their round-close subagents in sequence, so only one of them publishes the Epic's
+  `## Module Context (QA)` section at a time (`round-close.md` §2, the skill's compact rule and its
+  dispatch table).
 
 ### Fixed (the CI import to Xray can no longer create a Test)
 - **The regression workflow's Xray write-back imports explicit Test keys.** The `XrayImport` job

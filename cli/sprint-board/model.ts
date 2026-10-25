@@ -1336,7 +1336,8 @@ const AUTOMATED_FILE = 'reports/test-outcomes.json';
  * for a run in the board's own environment. Nothing else changes: the TC's status,
  * the lanes, the counts and the metrics stay what the tracker and the board say,
  * and the share and report snapshots copy TCs field by field, so the chip never
- * leaves the owner's page. `doc` is what `readAutomatedFile` returned.
+ * reaches a share or report snapshot (a full snapshot freezes the owner's state
+ * and carries it). `doc` is what `readAutomatedFile` returned.
  */
 export function applyAutomated(state: BoardState, doc: unknown): BoardState {
   if (doc == null) { return state; }

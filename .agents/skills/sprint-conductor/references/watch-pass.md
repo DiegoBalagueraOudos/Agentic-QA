@@ -44,6 +44,9 @@ that is not on the board):
 - Another QA owns it: skip it and mention it once in the pass line.
 - `UNCLASSIFIED <KEY> <status>`: a status no bucket lists; tell the owner in one line to add it to
   `board.statuses` (`bun run board:check` names it). Never count it.
+- `untracked: not checked`: the untracked search did not run, so its silence proves nothing. Query the
+  tracker for the sprint's tickets in the test environment (`[ISSUE_TRACKER_TOOL]`, the `board.jql`
+  scope) before concluding nothing arrived.
 
 Nothing NEW or RECHECK: go straight to §5.
 
@@ -58,6 +61,8 @@ Nothing NEW or RECHECK: go straight to §5.
      worker deployed by hand, a scheduled sync) is not proven by a green deployment: prove it from that
      part's own output, or hold. Measured on the source fleet: three of four arrivals had their change in the
      environment's build while the background part was not deployed.
+   - **A part deployed on a schedule** proves itself only after its next run: the deploy AND a run
+     after it. Hold until both, and recheck after the scheduled run.
    - **Name the FEATURE gate, not a page flag.** A flag that only shows a page proves nothing about the
      behaviour behind it; the brief names the setting that actually turns the behaviour on, and the data
      that puts it in scope.
@@ -72,7 +77,8 @@ Nothing NEW or RECHECK: go straight to §5.
 6. **Cap**: at most `<cap>` live workers, counting every one (an ad-hoc retest included). Full:
    `arrival <KEY> held "fleet full"`; it returns as RECHECK on the next pass.
 7. **Collision with a LIVE worker**: the same `entity:id` with `write` on either side
-   (`fleet-conductor.md` §8, triage half) holds the ticket the same way. Compare against the claims ledger
+   (`fleet-conductor.md` §8, runtime half: `write` conflicts with everything on the same `entity:id`)
+   holds the ticket the same way. Compare against the claims ledger
    and the live briefs, not against the round plan.
 
 ## 4. Prepare and launch (the generate path with N=1)

@@ -115,7 +115,7 @@ The reachability flag is NESTED (`.result.runtime.reachable`). A gate that looks
 | State | In a workflow skill (`sprint-testing`, `test-automation`, …) | In this skill |
 |---|---|---|
 | **A · no binary** | **total silence**. Not named, not recommended, not a prerequisite, not in the ATR, not in the blocked-token sweep. The flow writes its launch file and the human pastes the lines. The one exception is `/sprint-conductor`, which runs only on Orca: one line, then it stops | **one line**, and only because the user ASKED for orchestration (see the exact text below), then continue on the fallback |
-| **B · binary, runtime unreachable** | silence (same fallback) | `orca open --json` once, re-check once; still unreachable → treat as state A |
+| **B · binary, runtime unreachable** | silence (same fallback). `/sprint-conductor` opens the app once and re-checks once, as this skill does; still unreachable → its state-A line | `orca open --json` once, re-check once; still unreachable → treat as state A |
 | **C · ready** | the reinforcement activates without announcing itself: the runtime launches the workers and delivers the identical prompt, and they report to the mailbox IN ADDITION to the file tokens | full mode: conductor / worker / automation |
 
 **The exact recommendation (state A or B, this skill only)**, adapted to the user's language:
