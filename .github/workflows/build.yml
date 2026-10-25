@@ -8,9 +8,9 @@ name: TestBuild Checks
 run-name: ${{ github.actor }} triggered TestBuild Checks on ${{ github.ref_name }}
 
 on:
+  # Every PR, whatever its base: an integration trunk (sdet) or a stacked PR
+  # targets another branch and would otherwise merge with no checks at all.
   pull_request:
-    branches:
-      - main
 
 concurrency:
   # One build per PR branch: a force-push supersedes the run already in flight.

@@ -16,9 +16,8 @@ on:
     # a commit whose branch push already ran.
     branches:
       - '**'
+  # Every PR, whatever its base (an integration trunk or a stacked PR), like build.yml.
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
