@@ -224,6 +224,8 @@ bun run jira:sync-issues get <EPIC_KEY>          # read the synced epic.md
 bun run jira:sync-issues get <EPIC_KEY>
 ```
 
+**A fleet worker does not publish.** In fleet mode (`fleet-conductor.md` §3) the worker keeps the drafted body, or what it learned about an existing one, under a `## Module Learnings (candidate)` heading in its own `test-session-memory.md`, and the conductor publishes it at the issue close (`fleet-conductor.md` §10 "Module learnings"): several workers replacing one Epic section race, and the last writer erases the others.
+
 If a `## Module Context (QA)` section already exists in the description, REPLACE that section only and leave the rest untouched. Module context is REUSABLE — the next ticket in the same module reads it from Jira and skips exploration, on any machine, not just the one that explored.
 
 Document story-specific code that is NOT in module context (ticket-level only).

@@ -1,6 +1,6 @@
 # Skill Registry (auto-generated)
 
-> Generated: `2026-10-24T21:37:56.131Z`
+> Generated: `2026-10-25T01:41:55.505Z`
 > Generator: `bun scripts/build-skill-registry.ts`
 > Protocol: `.agents/skills/agentic-qa-core/references/skill-resolver.md`
 
@@ -8,7 +8,7 @@ This file is the per-session compact-rules cache for the Skill Resolver protocol
 The orchestrator copies one or more `## Skill: <slug>` blocks below into every subagent briefing under `## Project Standards (auto-resolved)`.
 Subagents trust those compact rules and only read the full SKILL.md when explicitly instructed.
 
-Skills indexed: 28
+Skills indexed: 29
 
 ---
 ## Skill: acli
@@ -397,7 +397,7 @@ Skills indexed: 28
 **Purpose**: Multi-session agent orchestration for this repo: one conductor session coordinating a fleet of persistent worker sessions (one per story,...
 
 **Compact Rules**:
-- DO gate on the BINARY plus a reachable RUNTIME, never on "is a vendor skill installed". Three states: A no binary, B binary with unreachable runtime, C ready. In a workflow skill, states A and B are TOTAL SILENCE: never name the orchestrator, never list it as a prerequisite, never mention it in an ATR or a blocked-token sweep. The one-line install recommendation belongs to THIS skill and fires only because the user asked for orchestration.
+- DO gate on the BINARY plus a reachable RUNTIME, never on "is a vendor skill installed". Three states: A no binary, B binary with unreachable runtime, C ready. In a workflow skill, states A and B are TOTAL SILENCE: never name the orchestrator, never list it as a prerequisite, never mention it in an ATR or a blocked-token sweep. The one-line install recommendation belongs to THIS skill and fires only because the user asked for orchestration. One workflow skill is the declared exception: `/sprint-conductor` exists to run on Orca, so when the gate fails it stops with one line naming it (owner decision); every other workflow skill keeps the silence.
 - DO write the launch file ALWAYS, with or without a runtime, and keep the PROMPT identical on both paths, byte for byte, opening with `/<workflow-skill> <KEY> fleet worker` and carrying the no-stopping sentence. The launch line itself is for a human to paste or for a deliberately unsupervised terminal; the prompt is the payload both paths share, and a paraphrased prompt is the exact failure this rule exists to prevent.
 - DO NOT copy the vendor command grammar into this repo. LOAD the stubs listed in `orchestration.orchestrator_skills` (`.agents/project.yaml`) alongside this skill — conductor AND worker, they are small — and ask the binary only for the DEEP topics a stub points at. A copied grammar goes stale in silence on the next release; a grammar nobody loaded produces invented flags.
 - DO treat one-shot subagents as the DEFAULT executor (AGENTS.md §3, unchanged) and a supervised worker as the declared exception: persistent, addressable, owns a scope end to end. The conductor still uses subagents for its OWN reads.
@@ -584,6 +584,30 @@ Skills indexed: 28
 
 ---
 
+## Skill: sprint-conductor
+
+**Purpose**: Boot, run and resume the sprint QA conductor: one session that conducts a fleet of sprint-testing workers (one per ticket) on Orca and wa...
+
+**Compact Rules**:
+- Orca is REQUIRED (owner decision, the one exception to the orchestrator-silence rule): run the gate of `orca-orchestration` (binary + reachable runtime) before anything else. It fails → say ONE line and stop, writing nothing: "/sprint-conductor runs on Orca and no reachable Orca runtime is on this machine; run the sprint with /sprint-testing sprint-wide and N executors, which writes paste-ready launch lines." Every other workflow skill keeps its silence unchanged.
+- Split of duties: this skill owns the MANEUVER (boot, watch pass, round close, resume); `sprint-testing/references/fleet-conductor.md` owns the fleet WHAT (briefs, launch.txt, rounds, claims, the sprint record); `sprint-testing/references/sprint-board.md` owns the board (commands per stage, the worker block, the four channels, the sentinel wake table); `orca-orchestration` owns the transport HOW. Cite them, never restate them.
+- Ask the owner only what the board, the tracker and the files cannot decide: the sprint when the CURRENT board and the tracker disagree or no board exists, and the worker cap when the ticket count exceeds it and the owner named none (held for this session, never persisted as a new default). Everything else is decided and reported.
+- The conductor never tests and never investigates a ticket. The line is fixture versus finding: seeding data, verifying with ONE query that a fixture exists and belongs to whom the brief says, and creating an owner-approved fixture user are conductor work; what a case asserts, the code behind it and any id the test needs are the worker's.
+- Conductor-owned pre-flight, before EVERY launch (a watch-pass launch included): tokens and browser states minted by the conductor only, refreshed when stale; a credential proven with the cheap API login before any browser login, stopping after 3 failed attempts; the sibling-repo fetch is a GATE (non-zero exit stops and escalates, never falls through to the counts) and its two drift counts go into every brief; the schema sync runs from a current checkout or is skipped with the skip written into every brief. Full: `references/boot-and-resume.md` §2.
+- The sentinel is armed at boot and re-armed after EVERY wake, as a background task, one per board, with the same `--baseline` file. Never a homemade monitor, never a scheduled pass when background tasks exist, never mailbox polling.
+- Every watch pass records each decision with `bun run board arrival <KEY> launched|held|skipped "<why>"`, so a missed pass costs nothing. The deploy check is never skipped: a tracker status is a hint, the deployed build is the truth. Fixture gaps are asked at triage, before launch. The cap counts every live worker, an ad-hoc retest included, and a collision is checked against the LIVE workers, not the round plan.
+- A finished worker's final ticket status is read back by the CONDUCTOR itself, with a bounded poll for the expected value; a worker's or a subagent's "verified" is never the proof (Critical Rule #16). The round close is ONE subagent that verifies the artifacts, never the report.
+- A redeploy while workers are live: fetch only (never fast-forward a sibling repo while a worker is live), then tell EVERY live worker once, with the repo, the old and new build and whether its own change's files moved.
+- Never message a developer without the owner's explicit order for that message, never commit, never print a credential. Reports to the owner are counts and tables that name who must answer, never a narrative.
+- Resume after a reboot or a session resume: find the workers by title (handles change), restart the board, re-arm the sentinel with the same baseline, replay the owner's actions with `listen --since`, read the mailbox, send ONE resume message per live worker, and launch nothing until every live worker confirmed. Full: `references/boot-and-resume.md` §4.
+- On any subagent failure: STOP, report which pass or ticket failed with full context, offer retry / skip / abort, never auto-fix. A skill that itself broke is reported upstream per `agentic-qa-core/references/upstream-feedback.md`.
+
+**Read full SKILL.md when**: booting a conductor cold, resuming one after a reboot, or deciding whether a
+
+> Source: `.agents/skills/sprint-conductor/SKILL.md` · phase: `unknown` · kind: `workflow` · stage owner · source: frontmatter `compact_rules` (verbatim)
+
+---
+
 ## Skill: sprint-testing
 
 **Purpose**: Orchestrates in-sprint manual QA per issue across Stages 1 (Planning), 2 (Execution) and 3 (Reporting).
@@ -618,7 +642,7 @@ Skills indexed: 28
 - STP find-or-create fires on the sprint's FIRST ticket: `STP: Sprint#{N}: {objective}` (Test Plan item, parent: QA Master Test Plan; a LIVING planner — append each tested ticket, keep progress current). The sprint recap Execution `STR: Sprint#{N}: Regression Testing` (parent: QA Test Artifacts) is created at sprint close. RTRs recorded during the sprint (`RTR: {scope-id}: Regression Testing`, one per regression verdict) belong to `/regression-testing`; the STR remains the sprint-close run and links to both the STP and the RTP (dual `testPlan` membership).
 - Two modes, ASKED at Session Start, never inferred: **sprint-wide** (the whole sprint's QA backlog) or **single-issue** (one issue from it). Only `sprint-wide` creates/updates the STP and the sprint session pair; `single-issue` creates neither.
 - Mode is a SCOPE, and scope is only one axis: **scope** (single-issue | sprint-wide) × **executors** (1 | N). One executor is the default and is unchanged in every detail. N>1 ("fleet mode") is sprint-wide ONLY, fires when the user answers the executors question with N (`orchestration.max_workers` in `.agents/project.yaml` is a round cap, never a switch); the orchestration gate then decides only who opens the sessions (pass → Orca launches/supervises; fail → the human pastes the same launch lines), and never changes what an issue's pipeline does — only who runs it. Canon: `sprint-testing/references/fleet-conductor.md`.
-- Fleet mode invariants: the launch file is written ALWAYS (gate or no gate — without the gate the human pastes its N lines) and when the gate fails the orchestration tool is NEVER named to the user; a worker = single-issue mode, detected from the prompt token `fleet worker` plus its brief (env vars are an optional extra signal on the human-paste path only), no checkpoints, preflight MCP probes NOT skippable, zero sprint-altitude writes, runs to `worker_done` without returning to its prompt; **rounds** (concurrency groups) are NOT **waves** (Jira-status buckets).
+- Fleet mode invariants: the launch file is written ALWAYS (gate or no gate — without the gate the human pastes its N lines) and when the gate fails the orchestration tool is NEVER named to the user; a worker = single-issue mode, detected from the prompt token `fleet worker` plus its brief (env vars are an optional extra signal on the human-paste path only), no checkpoints, preflight MCP probes NOT skippable, zero sprint-altitude writes, no write to its Epic's `## Module Context (QA)` section (it stages `## Module Learnings (candidate)` in its `test-session-memory.md`; the conductor publishes once per module), runs to `worker_done` without returning to its prompt; **rounds** (concurrency groups) are NOT **waves** (Jira-status buckets).
 - `sprint-wide` is a REAL session scope, not a folder: `.session/sprint-testing/sprint-<N>/{plan.md, progress.md}` per `agentic-qa-core/references/session-management.md` §6/§7, holding one nested `<JIRA-KEY>/` sub-scope per issue. `plan.md` is the local STP (queue + waves + assignment); `progress.md` is the append-only sprint log, one entry per issue close. There is NO local sprint tracker file — anything the team needs lives in the STP in Jira.
 - Sprint scope is a JQL QUERY, never a hardcoded issue-type list: take the work types declared `coverable: true` in `.agents/jira-required.yaml`, resolve each one's `jira_issue_type` (`A | B | C` = ordered alternatives, first the instance has wins), intersect with `.agents/jira-workflows.json`. A declared type the instance lacks is SKIPPED WITH A NOTE, never a blocker.
 - STP maintenance parity (concurrent testers): `plan.md` ↔ the STP issue DESCRIPTION — rewritten wholesale, so ONE writer (whoever plans the sprint), read-first before writing. `progress.md` ↔ the STP issue COMMENTS — append-only on both sides, one comment per issue close, so two testers never clobber each other. Where the comment log and a Story's ATR disagree, the **ATR wins** — it is the artifact of record.

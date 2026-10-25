@@ -12,7 +12,7 @@ paths: []
 
 ## 3. ORCHESTRATION MODE: DETAIL
 
-**TWO EXECUTORS.** One-shot subagents are the DEFAULT executor and nothing below changes that. A second, OPTIONAL executor exists: the **supervised worker** — a persistent agent session coordinated through `/orca-orchestration` (conductor ↔ worker mailbox). It is gated on the orchestration binary AND a reachable runtime; when either is missing the repo is SILENT about it and the work runs on subagents plus the `launch.txt` lines a human pastes. Never name it to the user from a workflow skill when the gate fails.
+**TWO EXECUTORS.** One-shot subagents are the DEFAULT executor and nothing below changes that. A second, OPTIONAL executor exists: the **supervised worker** — a persistent agent session coordinated through `/orca-orchestration` (conductor ↔ worker mailbox). It is gated on the orchestration binary AND a reachable runtime; when either is missing the repo is SILENT about it and the work runs on subagents plus the `launch.txt` lines a human pastes. Never name it to the user from a workflow skill when the gate fails; the one exception is `/sprint-conductor`, which exists to run on it and stops with one line when the gate fails.
 
 | | One-shot subagent (default) | Supervised worker (optional) |
 |---|---|---|

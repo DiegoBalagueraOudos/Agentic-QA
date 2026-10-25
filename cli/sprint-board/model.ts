@@ -11,6 +11,7 @@
  */
 import type { BugBucket, SourceKind, TicketBucket } from '../lib/sprint-source/types.ts';
 import { CASE_STATUSES, VERDICTS as EVIDENCE_VERDICTS } from '../lib/evidence-page/statuses.ts';
+import { countedOutcome } from '../lib/sprint-source/types.ts';
 
 export const SCHEMA = 1;
 
@@ -212,7 +213,9 @@ export interface LiveTicket {
 // Output
 // ---------------------------------------------------------------------------
 
-export interface TcView { id: string, name?: string, status: TcStatus, approval?: string, reason?: string, source: 'board' | 'tracker', at?: string, history: { status: TcStatus, at: string }[] }
+/** A TC's automated result from `reports/test-outcomes.json` (ADR-0020): shown BESIDE its status, never counted. */
+export interface AutomatedTc { status: TcStatus, records: number, at: string, env: string }
+export interface TcView { id: string, name?: string, status: TcStatus, approval?: string, reason?: string, source: 'board' | 'tracker', at?: string, history: { status: TcStatus, at: string }[], automated?: AutomatedTc }
 /** One option of a decision card: `a: <action> | cost: <time/risk/who acts>`. */
 export interface NeedOption { key: string, action: string, cost?: string }
 /**
@@ -1318,6 +1321,54 @@ export function metrics(s: BoardState): Metrics {
 // ---------------------------------------------------------------------------
 
 const SHARE_KINDS = new Set<TimelineItem['kind']>(['verdict', 'bug.link', 'release', 'tracker']);
+
+// ---------------------------------------------------------------------------
+// Automated outcomes (ADR-0020; ADR-0023 amendment)
+// ---------------------------------------------------------------------------
+
+/** The only outcomes schema the board reads; any other is refused with a warning. */
+export const AUTOMATED_SCHEMA = 'test-outcomes/1.0';
+const AUTOMATED_FILE = 'reports/test-outcomes.json';
+
+/**
+ * Put each TC's automated status beside its own: the worst of the records whose
+ * `atcIds` name it (a FAILED one wins, then a not-run reason, then PASSED), only
+ * for a run in the board's own environment. Nothing else changes: the TC's status,
+ * the lanes, the counts and the metrics stay what the tracker and the board say,
+ * and the share and report snapshots copy TCs field by field, so the chip never
+ * leaves the owner's page. `doc` is what `readAutomatedFile` returned.
+ */
+export function applyAutomated(state: BoardState, doc: unknown): BoardState {
+  if (doc == null) { return state; }
+  const refuse = (why: string): BoardState => ({ ...state, warnings: [...state.warnings, `${AUTOMATED_FILE} ignored: ${why}`] });
+  const d = doc as { unreadable?: boolean, schema?: unknown, generatedAt?: unknown, run?: { environment?: unknown }, records?: unknown };
+  if (d.unreadable) { return refuse('not valid JSON'); }
+  if (d.schema !== AUTOMATED_SCHEMA) { return refuse(`schema ${String(d.schema)}, the board reads ${AUTOMATED_SCHEMA}`); }
+  if (!Array.isArray(d.records) || typeof d.run?.environment !== 'string') { return refuse('no records or no run environment'); }
+  const records = d.records as { testStatus?: unknown, atcIds?: unknown }[];
+  const valid = (r: { testStatus?: unknown, atcIds?: unknown }) => (TC_STATUSES as readonly unknown[]).includes(r.testStatus)
+    && Array.isArray(r.atcIds) && r.atcIds.every(x => typeof x === 'string');
+  if (!records.every(valid)) { return refuse('a record with an unknown testStatus or atcIds'); }
+  const env = d.run.environment;
+  if (!state.sprint.env || env !== state.sprint.env) { return state; }
+  const at = typeof d.generatedAt === 'string' ? d.generatedAt : state.generatedAt;
+  const rank = (st: TcStatus) => (countedOutcome(st) === 'FAILED' ? 2 : countedOutcome(st) === 'NOT RUN' ? 1 : 0);
+  const byTc = new Map<string, AutomatedTc>();
+  for (const r of records) {
+    const st = r.testStatus as TcStatus;
+    for (const id of new Set(r.atcIds as string[])) {
+      const prev = byTc.get(id);
+      byTc.set(id, { status: prev && rank(prev.status) >= rank(st) ? prev.status : st, records: (prev?.records ?? 0) + 1, at, env });
+    }
+  }
+  if (!byTc.size) { return state; }
+  return {
+    ...state,
+    tickets: state.tickets.map(t => (t.tcs.some(x => byTc.has(x.id))
+      ? { ...t, tcs: t.tcs.map(x => (byTc.has(x.id) ? { ...x, automated: byTc.get(x.id) } : x)) }
+      : t)),
+  };
+}
 
 export function toShareState(s: BoardState): BoardState {
   return {

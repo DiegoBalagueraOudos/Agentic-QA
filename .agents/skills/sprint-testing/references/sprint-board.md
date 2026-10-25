@@ -39,7 +39,7 @@ ticket must already be on the board, or the command stops and says why. `answer`
 | 3 run | `evidence-artifact <KEY> <url> [--bug <BUG>] --by conductor` when the worker could not publish or record it (§6) | conductor |
 | 3 run | `inbox` (what the owner wrote that Claude owes), `listen --since <last id seen>` under Monitor (§3), `say`, `say --reply <msg-id>`, `answer <KEY> "<text>" --id <need-id> --by conductor`, `resolve <KEY> --id <need-id>`, `unhold`, `unwait <KEY> --on <person>` | conductor |
 | 3 run | `ask --to <person> --ticket <KEY> --kind blocker\|bug\|decision --file <draft.txt>` (a Slack draft the owner sends); the owner marks it with `ask-state <ask-id> sent\|answered\|dropped` or from the page | conductor, owner |
-| 4 wave close | `verdict` reconciled with the tracker, `worker <KEY> --state done`, `snapshot --mode share` when the team should see it (allowlist copy: no drafts, waits, questions, inbox or evidence) | conductor |
+| 4 wave close | `verdict` reconciled with the tracker, `worker <KEY> --state done`, `snapshot --mode share` when the team should see it (allowlist copy: no drafts, waits, questions, inbox or evidence); the full close of a worker and a round: `sprint-conductor/references/round-close.md` | conductor |
 | sprint close | `snapshot --mode report --fragment --stp-url <test plan url>` (the sprint QA report: allowlist state, counted by bucket) → publish the fragment as a **private** claude.ai artifact → link it from the sprint test plan. Then `archive` (freezes the board) | conductor |
 | any | `sentinel --baseline .session/sprint-board/sprints/<slug>/sentinel-baseline.json` as a background task, armed at session start and after every wake (§7) | conductor |
 | any | `arrivals [--sync] [--json]`: tickets in the `in_test` bucket still needing a conductor decision, with denominators, plus `UNTRACKED` sprint tickets in test that are not on the board; `--sync` waits for the server's sync lock; `watch-pass ["note"]` for a pass that did not sync | conductor |
@@ -209,6 +209,8 @@ die with the session, so a resumed or handed-off conductor re-arms it
 (`orca-orchestration/references/coordinator-playbook.md`). One sentinel per board: before arming,
 make sure this session has none running. The `--baseline` file is what lets a re-arm skip what the
 last wake already reported while still catching what arrived during the pass.
+
+**What a pass does** after a wake (guard, detect, triage with the deploy check, launch, the every-pass reads, one report line): `sprint-conductor/references/watch-pass.md`.
 
 **What wakes it** (first line `SENTINEL WAKE <reason>`, then one JSON line with the details and a
 `rearm` command), and what the conductor does:

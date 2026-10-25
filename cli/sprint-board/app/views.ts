@@ -725,6 +725,8 @@ const pickValues = (n: Need): string[] => (isDecisionCard(n) && n.choices?.lengt
 
 export function drawer(t: TicketView, c: Ctx): string {
   const c2 = tcCounts(t.tcs);
+  // The automated chip (ADR-0020): beside each TC's own pill, never counted.
+  const autoRun = t.tcs.find(x => x.automated)?.automated;
   const needs = t.needs.filter(n => !n.answer);
   const answered = t.needs.filter(n => n.answer);
   const drafts = c.state.asks.filter(a => a.tickets.includes(t.id));
@@ -746,8 +748,8 @@ export function drawer(t: TicketView, c: Ctx): string {
   ${t.hold ? `<section><span class="lbl">Held</span><div>${esc(t.hold.reason)}: ${esc(t.hold.note)}${t.hold.on ? ` (${esc(t.hold.on)})` : ''}</div></section>` : ''}
   ${t.waits.length ? `<section><span class="lbl">${tr('Waiting on', 'Esperando a')}</span>${t.waits.map(w => `<div class="progress-line">${esc(w.person)}: ${esc(w.what)} · ${ago(w.since, nowMs(c))}</div>`).join('')}</section>` : ''}
   ${answered.length ? `<section><span class="lbl">${tr('Your answers', 'Tus respuestas')}</span>${answered.map(n => `<div class="progress-line m-COMPLETE">${esc(n.question)}<br><b>→ ${esc(n.answer)}</b></div>`).join('')}</section>` : ''}
-  <section><span class="lbl">Test cases · ${c2.PASSED} PASSED · ${c2.FAILED} FAILED · ${c2.DEFERRED} DEFERRED · ${c2['NOT RUN']} NOT RUN</span>
-    ${t.tcs.length ? `<table class="grid">${t.tcs.map(x => `<tr><td class="id">${esc(x.id)}</td><td>${esc(x.name ?? '')}${x.reason ? `<br><span class="hint">${esc(x.reason)}</span>` : ''}${x.approval ? `<br><span class="hint">${tr('approved by', 'aprobado por')} ${esc(x.approval)}</span>` : ''}${x.history.length > 1 ? `<br><span class="hint">${x.history.map(h => esc(h.status)).join(' → ')}</span>` : ''}</td><td><span class="pill ${pillClass(x.status)}">${esc(x.status)}</span></td></tr>`).join('')}</table>` : `<p class="hint">${tr('No test cases on record yet.', 'Todavía no hay casos registrados.')}</p>`}
+  <section><span class="lbl">Test cases · ${c2.PASSED} PASSED · ${c2.FAILED} FAILED · ${c2.DEFERRED} DEFERRED · ${c2['NOT RUN']} NOT RUN</span>${autoRun ? `<br><span class="hint">${tr('Automated run', 'Corrida automatizada')} ${esc(day(autoRun.at))} ${hhmm(autoRun.at)} · ${esc(autoRun.env)}</span>` : ''}
+    ${t.tcs.length ? `<table class="grid">${t.tcs.map(x => `<tr><td class="id">${esc(x.id)}</td><td>${esc(x.name ?? '')}${x.reason ? `<br><span class="hint">${esc(x.reason)}</span>` : ''}${x.approval ? `<br><span class="hint">${tr('approved by', 'aprobado por')} ${esc(x.approval)}</span>` : ''}${x.history.length > 1 ? `<br><span class="hint">${x.history.map(h => esc(h.status)).join(' → ')}</span>` : ''}</td><td><span class="pill ${pillClass(x.status)}">${esc(x.status)}</span>${x.automated ? ` <span class="pill source" title="${esc(tr(`Automated result, ${x.automated.records} test(s); the case's status stays the one on its left`, `Resultado automatizado, ${x.automated.records} test(s); el estado del caso sigue siendo el de su izquierda`))}">automated</span> <span class="pill ${pillClass(x.automated.status)}">${esc(x.automated.status)}</span>` : ''}</td></tr>`).join('')}</table>` : `<p class="hint">${tr('No test cases on record yet.', 'Todavía no hay casos registrados.')}</p>`}
   </section>
   ${t.bugs.length ? `<section><span class="lbl">Bugs</span><table class="grid">${t.bugs.map(b => `<tr><td class="id">${b.link ? `<a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.id)}</a>` : esc(b.id)}</td><td>${esc(b.title ?? '')}</td><td>${esc(b.severity ?? '')}</td><td><span class="pill source">${esc(b.status ?? '?')}</span></td><td>${pageLink(b.page, 'ev-page small', tr('Evidence', 'Evidencia'))}</td></tr>`).join('')}</table></section>` : ''}
   ${t.evidence.some(e => c.img(e.path)) ? `<section class="evidence"><span class="lbl">Evidence</span>${evidenceSections(t.evidence, c, false)}</section>` : ''}

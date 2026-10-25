@@ -1,0 +1,76 @@
+{
+  "evals": [
+    {
+      "name": "should-trigger-boot",
+      "prompt": "/sprint-conductor 7 --cap 3",
+      "expected_behavior": "Activates sprint-conductor. Runs the Orca gate first (binary plus reachable runtime); it passes. Phase 0 checks .session/sprint-conductor/sprint-7/kickoff.md for a previous session. Boot: loads sprint-testing with fleet-conductor.md and sprint-board.md, then orca-orchestration and the orchestrator stubs; resolves board sprint-7 (bun run board sprints, use or new), sync --discover; runs the conductor-owned pre-flight (tokens and browser states fresh, credential proven by the API login, sibling-repo fetch as a gate with both drift counts, schema sync or a logged skip, deployed build per repo); binds or creates the Run and probes the reply direction once; arms the sentinel as a background task with its baseline file; reads the mailbox, the board inbox and the listen --since replay; prints one status screen of counts. Cap 3 is used without asking.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-spanish-phrasing",
+      "prompt": "Arranca el conductor del sprint 7 y deja vigilando el entorno de pruebas, quiero ver todo desde el board.",
+      "expected_behavior": "Activates sprint-conductor in Spanish phrasing: same boot as /sprint-conductor 7, with the sentinel armed (watch on). Replies to the owner in Spanish; every file it writes stays English.",
+      "category": "positive"
+    },
+    {
+      "name": "no-orca-one-line-stop",
+      "prompt": "/sprint-conductor 7 (on a machine where the orca binary is not installed)",
+      "expected_behavior": "The gate fails in state A. The skill says exactly one line (sprint-conductor runs on Orca, no reachable runtime here, run the sprint with /sprint-testing sprint-wide and N executors, which writes paste-ready launch lines) and stops. It writes no file, starts no board, gives no install walkthrough.",
+      "category": "positive"
+    },
+    {
+      "name": "watch-pass-on-wake",
+      "prompt": "SENTINEL WAKE change (arrivals)\n{\"reason\":\"change\",\"parts\":[\"arrivals\"],\"arrivals\":[{\"ticket\":\"PROJ-7311\",\"state\":\"NEW\"}],\"rearm\":\"bun run board sentinel --baseline .session/sprint-board/sprints/sprint-7/sentinel-baseline.json\"}",
+      "expected_behavior": "Runs one watch pass per references/watch-pass.md: guard, arrivals --sync, triage PROJ-7311 (scope in the sprint test plan, the deploy check from session-entry-points Step 1c with the change's files read, fixture gaps asked now, the cap counting every live worker, collisions against live workers), then either holds it (arrival held plus hold --reason deploy) or runs the pre-flight, seeds the brief with the deploy-state line and recorded fixtures, regenerates launch.txt, launches natively, records board start and arrival launched. Then the every-pass reads, one report line appended to passes.md, and the sentinel re-armed with the same baseline in the same turn.",
+      "category": "positive"
+    },
+    {
+      "name": "finished-worker-read-back",
+      "prompt": "Worker PROJ-7311 sent worker_done: all 6 TCs passed and it moved the story to QA Approved. Close it out.",
+      "expected_behavior": "Follows references/round-close.md: the conductor reads back the ticket status itself with a bounded poll instead of trusting the report, dispatches ONE round-close subagent that verifies the artifacts (TC statuses, ATR, traceability, evidence page on the board, bug images, module learnings staged), merges module learnings into the Epic's Module Context (QA) once, writes the sprint record, reconciles the board verdict and worker state, then reads the cost footer and closes the worker.",
+      "category": "positive"
+    },
+    {
+      "name": "resume-after-reboot",
+      "prompt": "The laptop rebooted in the middle of the sprint with three workers running. /sprint-conductor --resume",
+      "expected_behavior": "Takes the resume path of references/boot-and-resume.md §4 instead of boot Steps 2-6: finds the workers by title (old handles are dead), updates the roster and the board worker names and re-binds the dispatches, restarts the board server, re-arms the sentinel with the SAME baseline file, replays owner actions with listen --since, reads the mailbox, sends one resume message per live worker, and launches nothing until every live worker answered.",
+      "category": "positive"
+    },
+    {
+      "name": "conductor-does-not-investigate",
+      "prompt": "While PROJ-7311's worker is running, can you check the controller code and the database yourself to see why its case 4 is failing?",
+      "expected_behavior": "Declines to investigate the ticket itself: the investigation is the worker's (fixture versus finding). It relays the question to the worker through the mailbox, offers to seed or verify a fixture with one query if that is what blocks the case, and says so in one line.",
+      "category": "positive"
+    },
+    {
+      "name": "no-message-to-developer",
+      "prompt": "The checkout story is held on a deploy; ping the developer on Slack and tell them to redeploy staging.",
+      "expected_behavior": "Does not send it on its own: it drafts the message on the board (bun run board ask ... --kind blocker) and shows it to the owner, who sends it; or sends only after the owner's explicit order for that exact message. The hold stays recorded with --on <developer>.",
+      "category": "positive"
+    },
+    {
+      "name": "should-not-trigger-single-ticket",
+      "prompt": "Test PROJ-7311 against its acceptance criteria on staging.",
+      "expected_behavior": "Does NOT activate sprint-conductor. Routes to sprint-testing single-issue mode.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-sprint-queue-one-session",
+      "prompt": "Process the sprint backlog in this session, one ticket after another.",
+      "expected_behavior": "Does NOT activate sprint-conductor. Routes to sprint-testing sprint-wide with one executor.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-generic-fleet",
+      "prompt": "Launch three workers to refactor the cli modules in parallel worktrees.",
+      "expected_behavior": "Does NOT activate sprint-conductor: this is multi-session orchestration that is not sprint QA. Routes to orca-orchestration (with framework-development for the code).",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-board-command",
+      "prompt": "Mark TC PROJ-7320 as PASSED on the sprint board.",
+      "expected_behavior": "Does NOT activate sprint-conductor: one board command (bun run board tc PROJ-7311 PROJ-7320 PASSED), per cli/sprint-board/README.md.",
+      "category": "negative"
+    }
+  ]
+}
