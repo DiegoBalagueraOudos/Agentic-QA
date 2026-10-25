@@ -71,6 +71,13 @@
       "binaryName": "op"
     },
     {
+      "name": "Python 3.9+ with Pillow",
+      "required": false,
+      "purpose": "Only for the evidence pages (/evidence-artifact, bun run evidence); nothing in the install needs it.",
+      "installHint": "https://www.python.org/downloads/ then Pillow (Homebrew Python: brew install pillow; Windows: py -m pip install pillow)",
+      "binaryName": "python3"
+    },
+    {
       "name": "API keys (.env)",
       "required": false,
       "purpose": "The project MCP servers that read keys (slack-aurora, dbhub, openapi) connect once their values are in .env; web search and similar servers run at harness level and keep their keys outside .env.",
@@ -326,9 +333,9 @@
         },
         {
           "step": "MCP variables",
-          "what": "Checks the variables each project MCP server reads and asks for the ones the installer manages.",
+          "what": "Checks the variables each project MCP server reads and asks for the ones the installer manages. A value already set in your shell is copied into .env only when you say yes; an unattended run copies none and lists the names.",
           "interactive": true,
-          "prompts": ["var-*"]
+          "prompts": ["var-*", "mcp-shell-*"]
         },
         {
           "step": "Day-0 credentials",
@@ -360,6 +367,12 @@
           "what": "Custom fields, workflows and link types, from your own Jira (workflow pickers through jira:sync-workflows --plan-json / --answers) or from the UPEX reference catalog; writes .agents/jira-*.json.",
           "interactive": true,
           "prompts": ["jira-catalogs", "wf-*"]
+        },
+        {
+          "step": "Sprint Board statuses",
+          "what": "Right after the catalogs: offers the suggested board.statuses buckets once, then board.jql (default from the project key); written only when bun run board:check would accept the block.",
+          "interactive": true,
+          "prompts": ["board-statuses", "board-jql"]
         },
         {
           "step": "Jira check",
@@ -429,6 +442,7 @@
     "secrets-provider",
     "op-vault",
     "op-auth",
+    "mcp-shell-*",
     "day0",
     "api-login",
     "gh-create",
@@ -442,6 +456,8 @@
     "token-retry-*",
     "wf-*",
     "jira-catalogs",
+    "board-statuses",
+    "board-jql",
     "engram-incompatible",
     "engram-plugin"
   ],
@@ -544,6 +560,11 @@
       "name": "orca",
       "reason": "Must be installed manually. Run: brew install --cask stablyai/orca/orca   # macOS. Windows/Linux: download from https://www.onorca.dev/docs/install",
       "installHint": "https://www.onorca.dev/docs/cli/overview"
+    },
+    {
+      "name": "python3",
+      "reason": "Must be installed manually using your OS package manager.",
+      "installHint": "https://www.python.org/downloads/"
     }
   ]
 }

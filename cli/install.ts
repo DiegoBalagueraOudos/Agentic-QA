@@ -85,6 +85,7 @@ import {
   toSiteSlug,
   writeAtlassianUrlToYaml,
 } from './lib/atlassian-instance.ts';
+import { boardStatusPlan, defaultBoardJql, fillBoardIfValid, loadSyncedCatalogs } from './lib/board-setup.ts';
 import { removeRetiredEnvLines, retiredEnvKeysIn } from './lib/env-schema.ts';
 import { CLI_LOGINS, HARNESS_LEVEL_MCPS } from './lib/harness-level-mcps.ts';
 import {
@@ -277,7 +278,7 @@ const CANONICAL_MCPS = [
 // the user's OS and we refuse to guess. We only verify presence, surface the
 // purpose, and point users to the official docs. `install` is OPTIONAL and only
 // set for genuinely cross-platform commands.
-const EXTERNAL_CLIS: ReadonlyArray<{ name: string, install?: string, docs: string, purpose: string, required?: boolean }> = [
+const EXTERNAL_CLIS: ReadonlyArray<{ name: string, install?: string, docs: string, purpose: string, required?: boolean, alternatives?: ReadonlyArray<string> }> = [
   {
     name: 'bun',
     docs: 'https://bun.com/',
@@ -348,14 +349,31 @@ const EXTERNAL_CLIS: ReadonlyArray<{ name: string, install?: string, docs: strin
     purpose: 'env schema validation + secret injection (optional standalone; the devDependency covers the gates)',
   },
   {
-    // Desktop app (Orca ADE) that also ships a scriptable `orca` CLI. Fully
-    // optional: enables `/orca-orchestration` multi-session coordination.
-    // The boilerplate works identically without it — one-shot subagents
-    // (AGENTS.md §3) remain the default executor.
+    // Desktop app (Orca ADE) that also ships a scriptable `orca` CLI. REQUIRED
+    // by `/sprint-conductor`, which runs only on it and stops with one line
+    // when the gate (binary + reachable runtime) fails. Optional for everything
+    // else: `/orca-orchestration` falls back to one-shot subagents (AGENTS.md §3,
+    // the default executor) and pasted launch lines. `setup:doctor` reports
+    // the gate.
     name: 'orca',
     install: 'brew install --cask stablyai/orca/orca   # macOS. Windows/Linux: download from https://www.onorca.dev/docs/install',
     docs: 'https://www.onorca.dev/docs/cli/overview',
-    purpose: 'multi-session agent orchestration (optional) — used by /orca-orchestration',
+    purpose: 'required by /sprint-conductor; optional for /orca-orchestration (subagents stay the default executor)',
+  },
+  {
+    // The evidence pages (`/evidence-artifact`, `bun run evidence`) run the
+    // skill's `build.py`: Python 3.9+ with Pillow. Nothing else needs it.
+    // Windows usually exposes `py` or `python` and no `python3`, hence the
+    // alternatives; `setup:doctor` checks the version and Pillow.
+    name: 'python3',
+    alternatives: process.platform === 'win32' ? ['py', 'python'] : ['python'],
+    install: process.platform === 'win32'
+      ? 'winget install Python.Python.3.12, then: py -m pip install pillow'
+      : process.platform === 'darwin'
+        ? 'brew install python pillow   # Homebrew Python refuses a bare pip install (PEP 668)'
+        : 'apt install python3 python3-pil   # or a venv: python3 -m venv .venv && .venv/bin/pip install pillow',
+    docs: 'https://www.python.org/downloads/',
+    purpose: 'evidence pages (/evidence-artifact): Python 3.9+ with Pillow; nothing else needs it',
   },
 ];
 
@@ -1624,11 +1642,12 @@ async function configureMcps(agents: AgentId[], state: InstallState): Promise<vo
   const newValues: Record<string, string> = {};
   const stillPending: string[] = [];
   const toAsk: string[] = [];
+  const inShell: string[] = [];
 
   for (const name of required) {
     if ((envValues[name] ?? '').trim().length > 0) { continue; }
     const fromProcessEnv = process.env[name];
-    if (fromProcessEnv && fromProcessEnv.trim().length > 0) { newValues[name] = fromProcessEnv.trim(); continue; }
+    if (fromProcessEnv && fromProcessEnv.trim().length > 0) { inShell.push(name); continue; }
     // OFFERED credentials are owned by the day-0 step, which asks the whole set
     // with the right context; NOT pending (day-0 offers it).
     if (CRITICAL_VAR_NAMES.has(name)) { continue; }
@@ -1641,9 +1660,36 @@ async function configureMcps(agents: AgentId[], state: InstallState): Promise<vo
     else { newValues[name] = value; }
   }
 
+  // A value set in the shell that launched setup is never copied into `.env` by
+  // itself: it may be another project's token, exported for something else.
+  // Interactive: one question per variable, naming where the value is. An
+  // unattended run copies nothing and reports the names (never the values).
+  const notCopied: string[] = [];
+  for (const name of inShell) {
+    const copy = NON_INTERACTIVE
+      ? false
+      : await ask<boolean>({
+          id: `mcp-shell-${name}`,
+          kind: 'confirm',
+          kicker: 'MCP',
+          title: tr(`<code>${name}</code> ya está en tu terminal. La copiamos a <code>.env</code>?`, `<code>${name}</code> is already set in your shell. Copy it into <code>.env</code>?`),
+          why: tr('El valor viene de la terminal que abrió <code>bun setup</code>, no de este proyecto. Los servidores MCP leen solo <code>.env</code>. No se muestra.', 'The value comes from the shell that started <code>bun setup</code>, not from this project. The MCP servers read only <code>.env</code>. It is not shown.'),
+          spec: { yes: tr('Sí, copiarla', 'Yes, copy it'), no: tr('No, la escribo yo', 'No, I will type it') },
+          default: false,
+        });
+    if (copy) { newValues[name] = (process.env[name] ?? '').trim(); }
+    else {
+      notCopied.push(name);
+      stillPending.push(name);
+    }
+  }
+
   const step = UI!.step({ phase: 'creds', why: 'mcp', title });
   const out = stepOut(step);
   await ensureEnvFileExists(out);
+  if (notCopied.length > 0) {
+    out.dim(tr(`En tu terminal, no copiadas a .env: ${notCopied.join(', ')}. Escríbelas en .env si son de este proyecto.`, `Set in your shell, not copied into .env: ${notCopied.join(', ')}. Write them in .env if they belong to this project.`));
+  }
   if (Object.keys(newValues).length > 0) {
     await appendVarsToEnv(newValues);
     out.success(`${tr('Escritas en .env', 'Written to .env')}: ${Object.keys(newValues).join(', ')}`);
@@ -2044,7 +2090,7 @@ function installHintForOS(cli: { name: string, install?: string }): string {
 function verifyExternalClis(state: InstallState): CliResult[] {
   const step = UI!.step({ phase: 'verify', title: tr('Herramientas de línea de comandos', 'Command-line tools') });
   const results: CliResult[] = EXTERNAL_CLIS.map((cli) => {
-    const found = which(cli.name) !== null;
+    const found = [cli.name, ...(cli.alternatives ?? [])].some(name => which(name) !== null);
     const status: CliStatus = found ? 'found' : 'missing';
     state.externalClis[cli.name] = status;
     return { name: cli.name, status, purpose: cli.purpose, install: cli.install, docs: cli.docs };
@@ -2847,6 +2893,67 @@ async function jiraCatalogsStep(state: InstallState): Promise<void> {
   saveState(state);
 }
 
+/**
+ * The Sprint Board's status buckets, offered right after the catalogs are
+ * synced: before that no workflow is known, and the Project phase (which runs
+ * earlier) could never suggest one. One confirmation for every suggested
+ * bucket, then the ticket query. Written only when `board:check` accepts the
+ * result (`fillBoardIfValid`), so a missing key or host leaves the yaml alone.
+ */
+async function boardStatusesStep(): Promise<void> {
+  const title = tr('Estados del Sprint Board', 'Sprint Board statuses');
+  const catalogs = loadSyncedCatalogs(REPO_ROOT);
+  const text = existsSync(PROJECT_YAML_FILE) ? readFileSync(PROJECT_YAML_FILE, 'utf8') : '';
+  const plan = boardStatusPlan(text, catalogs.workflows);
+  if (plan.suggestions.length === 0) {
+    UI!.step({ phase: 'jira', title }).end('skipped', plan.note ?? tr('cada estado ya está en una columna', 'every status already has a bucket'));
+    return;
+  }
+  const byBucket = new Map<string, string[]>();
+  for (const sg of plan.suggestions) { byBucket.set(`${sg.domain}.${sg.bucket}`, [...(byBucket.get(`${sg.domain}.${sg.bucket}`) ?? []), sg.slug]); }
+  const listing = [...byBucket].map(([bucket, slugs]) => `<code>${bucket}</code>: ${slugs.join(', ')}`).join('<br>');
+  const go = await ask<boolean>({
+    id: 'board-statuses',
+    kind: 'confirm',
+    kicker: tr('Opcional', 'Optional'),
+    title: tr(`Ordenamos los ${plan.suggestions.length} estados de tu Jira en las columnas del Sprint Board?`, `Sort your Jira's ${plan.suggestions.length} statuses into the Sprint Board buckets?`),
+    g: 'jira',
+    why: tr(`Sugerido por la categoría y el nombre de cada estado. Las columnas que queden vacías se escriben como <code>[]</code>.<br>${listing}`, `Suggested from each status's category and name. Buckets left empty are written as <code>[]</code>.<br>${listing}`),
+    spec: { yes: tr('Sí, ordenarlos', 'Yes, sort them'), no: tr('Después', 'Later') },
+    default: false,
+  });
+  if (!go) {
+    UI!.step({ phase: 'jira', title }).end('skipped', tr('Después: <code>bun run agents:setup</code>', 'Later: <code>bun run agents:setup</code>'));
+    return;
+  }
+  let jql: string | null = null;
+  if (plan.needsJql) {
+    let key = '';
+    try { key = readProjectValues().key; }
+    catch { key = ''; }
+    const fallback = defaultBoardJql(key) ?? '';
+    const values = await ask<string[]>({
+      id: 'board-jql',
+      kind: 'text',
+      kicker: tr('Sprint Board', 'Sprint Board'),
+      title: tr('Qué tickets muestra el Sprint Board?', 'Which tickets does the Sprint Board show?'),
+      g: 'jira',
+      why: tr('Una consulta JQL: por defecto, las historias del sprint abierto de tu proyecto.', 'A JQL query: by default, the stories of your project\'s open sprint.'),
+      spec: { fields: [{ id: 'jql', label: 'board.jql', short: 'JQL', placeholder: 'project = PROJ AND sprint in openSprints() AND issuetype = Story' }], cta: tr('Guardar', 'Save') },
+      default: [fallback],
+    });
+    jql = (values[0] ?? '').trim() || null;
+  }
+  const step = UI!.step({ phase: 'jira', title });
+  const result = fillBoardIfValid(text, { suggestions: plan.suggestions, jql }, catalogs);
+  if (!result.ok) {
+    step.end('warn', `${tr('Sin escribir: <code>bun run board:check</code> lo rechazaría', 'Not written: <code>bun run board:check</code> would refuse it')} (${result.errors[0]}). ${tr('Completa eso y corre <code>bun run agents:setup</code>.', 'Fill that in, then run <code>bun run agents:setup</code>.')}`);
+    return;
+  }
+  writeFileSync(PROJECT_YAML_FILE, result.text, 'utf8');
+  step.end('ok', tr(`${plan.suggestions.length} estados en sus columnas${jql ? ', board.jql escrito' : ''} · <code>bun run board:check</code>`, `${plan.suggestions.length} statuses bucketed${jql ? ', board.jql written' : ''} · <code>bun run board:check</code>`));
+}
+
 async function jiraCheckStep(state: InstallState): Promise<void> {
   const title = tr('Manifiesto de Jira', 'Jira manifest');
   if (state.postInstall.jiraCheck === 'completed') { UI!.step({ phase: 'jira', title }).end('skipped', tr('ya validado', 'already validated')); return; }
@@ -2892,6 +2999,7 @@ async function jiraPhase(state: InstallState): Promise<void> {
   }
   await acliAuthStep(state);
   await jiraCatalogsStep(state);
+  await boardStatusesStep();
   // Safety net (anti STALE-PATH): every Jira catalog the skills reference exists.
   const written = await ensureJiraCatalogPlaceholders();
   if (written.length > 0) {
@@ -2974,7 +3082,7 @@ function buildReport(state: InstallState, ui: InstallerUi): { title: string, ton
     next.push({ title: tr('Inicia sesión en acli', 'Sign in to acli'), text: tr('La skill /acli la necesita. La sesión queda en <code>~/.config/acli/</code>.', 'The /acli skill needs it. The session lives in <code>~/.config/acli/</code>.'), cmd: MANUAL_ACLI_LOGIN });
   }
   if (!SKIP_JIRA && (state.postInstall.jiraSyncFields !== 'completed' || state.postInstall.jiraSyncWorkflows !== 'completed')) {
-    next.push({ title: tr('Sincroniza los catálogos de Jira', 'Sync the Jira catalogs'), text: tr('Agrega <code>--upex</code> a cada uno para el estándar de UPEX si no eres administrador.', 'Add <code>--upex</code> to each for the UPEX standard if you are not an administrator.'), cmd: 'bun run jira:sync-fields && bun run jira:sync-workflows' });
+    next.push({ title: tr('Sincroniza los catálogos de Jira', 'Sync the Jira catalogs'), text: tr('Agrega <code>--upex</code> a cada uno para el estándar de UPEX si no eres administrador. Después corre <code>bun run agents:setup</code>: ordena los estados del Sprint Board en sus columnas.', 'Add <code>--upex</code> to each for the UPEX standard if you are not an administrator. Then run <code>bun run agents:setup</code>: it sorts the Sprint Board statuses into their buckets.'), cmd: 'bun run jira:sync-fields && bun run jira:sync-workflows' });
   }
   else if (!SKIP_JIRA && state.postInstall.jiraCheck !== 'completed') {
     next.push({ title: tr('Valida el manifiesto de Jira', 'Validate the Jira manifest'), cmd: 'bun run jira:check' });

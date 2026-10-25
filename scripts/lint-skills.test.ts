@@ -371,10 +371,33 @@ describe('lint-skills STALE-PATH on `.context/` (kind-scoped)', () => {
   });
 
   test('a committed `.context/` path no generator owns must exist for every skill', () => {
-    const { exitCode, output } = runLint(fixture({ listCommunityInAgentsMd: true, extraSkills: [{ slug: 'acme-flow', kind: 'workflow', body: committedDead }] }));
+    const { exitCode, output } = runLint(fixture({ listCommunityInAgentsMd: true, extraSkills: [{ slug: 'acme-flow', kind: 'workflow', body: 'See `.context/guidelines/nope.md` for the rule.' }] }));
+
+    expect(output).toContain('[acme-flow] STALE-PATH: `.context/guidelines/nope.md`');
+    expect(exitCode).toBe(1);
+  });
+
+  // The scaffolder prunes every recorded ADR from a new project while the shipped
+  // skills keep citing them: downstream the cite is exempt, in the boilerplate it
+  // must resolve.
+  test('in the boilerplate checkout a recorded ADR cite must resolve', () => {
+    const root = fixture({ listCommunityInAgentsMd: true, extraSkills: [{ slug: 'acme-flow', kind: 'workflow', body: committedDead }] });
+    write(root, 'package.json', JSON.stringify({ name: 'agentic-qa-boilerplate' }));
+    write(root, '.agents/project.yaml', '# MAINTAINER COPY: fixture\nproject:\n  project_name: x\n');
+    const { exitCode, output } = runLint(root);
 
     expect(output).toContain('[acme-flow] STALE-PATH: `.context/ADR/ADR-9999-nope.md`');
     expect(exitCode).toBe(1);
+  });
+
+  test('in a scaffolded project a pruned recorded ADR cite is exempt, the template still resolves', () => {
+    const body = `${committedDead}\nCopy \`.context/ADR/ADR-NNNN-template.md\` to start one.`;
+    const root = fixture({ listCommunityInAgentsMd: true, extraSkills: [{ slug: 'acme-flow', kind: 'workflow', body }] });
+    write(root, '.context/ADR/ADR-NNNN-template.md', '# Template\n');
+    const { exitCode, output } = runLint(root);
+
+    expect(output).not.toContain('STALE-PATH:');
+    expect(exitCode).toBe(0);
   });
 });
 

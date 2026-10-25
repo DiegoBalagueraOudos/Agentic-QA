@@ -455,6 +455,11 @@ export function lintContracts(root: string): DocFinding[] {
   return scanContracts(root).findings.map(f => ({ file: f.file, line: f.line, kind: 'contract' as const, target: f.detail }));
 }
 
+/** A recorded boilerplate ADR (`ADR-<digits>-<slug>.md`); the digit keeps `ADR-NNNN-template.md` out. */
+export function isBoilerplateAdr(repoRelative: string): boolean {
+  return /^\.context\/ADR\/ADR-\d+-/.test(repoRelative);
+}
+
 export function lintDocs(root: string): { files: number, findings: DocFinding[] } {
   const files = collectDocFiles(root);
   const linkOnly = collectLinkOnlyFiles(root, files);
@@ -465,7 +470,12 @@ export function lintDocs(root: string): { files: number, findings: DocFinding[] 
     ? stripSuffix(f.target).replace(/:\d+(?:-\d+)?$/, '')
     : relativePosix(root, resolve(root, dirname(f.file), decodeURIComponent(stripSuffix(f.target))));
   const ignored = gitIgnored(root, [...new Set(refs.map(resolvedOf))]);
-  const findings = raw.filter(f => !isRef(f) || !ignored.has(resolvedOf(f)));
+  // Outside the boilerplate's checkout the recorded ADRs are pruned by the
+  // scaffolder while `.context/ADR/README.md` and the docs still link them: a
+  // link to one is not dead there, it is upstream history the project never got.
+  // Left in, every push of a scaffolded project was refused by its own hook.
+  const prunedAdrs = !contractsEnforced(root);
+  const findings = raw.filter(f => !isRef(f) || !(ignored.has(resolvedOf(f)) || (prunedAdrs && isBoilerplateAdr(resolvedOf(f)))));
   const agentsFile = join(root, 'AGENTS.md');
   const instructionFiles = listSections(root).map(s => join(root, s.rel));
   findings.push(...lintRoster(root));

@@ -207,7 +207,9 @@ describe('the gate end to end', () => {
 });
 
 describe('this repo', () => {
-  test('the seeded regions are well-formed', () => {
+  // The regions target pages only the boilerplate has (packages/ is pruned from a
+  // scaffolded project), which is why the gate itself is maintainers-only there.
+  test.skipIf(!contractsEnforced(REPO_ROOT))('the seeded regions are well-formed', () => {
     const { regions, findings } = scanContracts(REPO_ROOT);
     expect(findings).toEqual([]);
     expect(regions.length).toBeGreaterThan(0);

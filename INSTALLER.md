@@ -42,7 +42,7 @@ Fills `.agents/project.yaml`: project identity, the Jira site, the environments 
 ### Credentials
 
 - Where secret values live: `.env` is the default and comes first. The step also offers a secret manager as the ADVANCED option (adapters live in `cli/lib/secret-providers.ts`). Choosing it records `secrets:` in `.agents/project.yaml` and writes `.env.provider.schema` once (references only, committed; never overwritten), then shows the one-time setup. See "Secret manager (advanced)" below.
-- `.env` population: discovers the variables each MCP server needs from the MCP config of every selected harness (the `.env` loader's `--filter` list, the same in `.mcp.json`, `opencode.jsonc` and `.codex/config.toml`; a legacy `${VAR}` / `{file:}` / `env_vars` / `bearer_token_env_var` reference is still read), then asks for the values not already set. A secret is a masked field; its value goes to `.env` (created with mode 600) and never into the page, the log or the saved summary. "Later" is a valid answer for every one of them.
+- `.env` population: discovers the variables each MCP server needs from the MCP config of every selected harness (the `.env` loader's `--filter` list, the same in `.mcp.json`, `opencode.jsonc` and `.codex/config.toml`; a legacy `${VAR}` / `{file:}` / `env_vars` / `bearer_token_env_var` reference is still read), then asks for the values not already set. A value already set in the shell that runs `bun setup` is never copied into `.env` by itself: an interactive run asks per variable, naming where it comes from, and an unattended one copies nothing and lists the names. A secret is a masked field; its value goes to `.env` (created with mode 600) and never into the page, the log or the saved summary. "Later" is a valid answer for every one of them.
 - Day-0 Atlassian credentials (`ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`), and the API login only when its credentials exist and the API answers.
 
 After filling `.env`, restart the agent session (MCP servers read `.env` through the `.env` loader when the harness spawns them).
@@ -55,10 +55,15 @@ After filling `.env`, restart the agent session (MCP servers read `.env` through
   - **UPEX-Galaxy standard**: `jira:sync-fields --upex --force` + `jira:sync-workflows --upex --force` + `jira:sync-link-types --upex`, downloading the reference catalogs from `upex-galaxy/agentic-qa-boilerplate@main` (no admin, no Jira API, just GitHub raw). It is the recommended option when the Atlassian site, email or token is missing.
   - **Skip**: leaves the catalogs unconfigured.
 
-  Whatever the choice, the installer then writes an empty `{}` placeholder for any of `.agents/jira-fields.json` / `jira-workflows.json` / `jira-link-types.json` still missing on disk. This guarantees the SKILL.md-referenced paths exist, so the `lint-skills` STALE-PATH check never fails `repo:check` / the pre-push hook on a freshly bootstrapped project. The `{}` form is treated as "unpopulated", so a later `bun run jira:sync-*` fills it without `--force`.
+  Whatever the choice, the installer then writes an empty `{}` placeholder for any of `.agents/jira-fields.json` / `jira-workflows.json` / `jira-link-types.json` still missing on disk. This guarantees the SKILL.md-referenced paths exist, so the `lint-skills` STALE-PATH check never fails `repo:check` / the pre-push hook on a freshly bootstrapped project. The `{}` form is treated as "unpopulated": a later `bun run jira:sync-*` fills it without `--force`, and `bun run vars:check` reads it as not synced yet (one warning, no error), so the first commit's hook passes.
+- **Sprint Board statuses**: right after the catalogs, when a workflow catalog was synced, one question offers the suggested `board.statuses` buckets for every status no bucket lists yet, then `board.jql` (by default the project key's open-sprint stories). Buckets left empty are written as `[]`. The block is written only when `bun run board:check` would accept it, so a missing key or Atlassian site leaves the yaml as it was. Declined or skipped: `bun run agents:setup` asks the same later.
 - `jira:check`: validates `.agents/jira-required.yaml` against the workspace. Skipped when the sync was no-admin / skipped (the comparison would be against the UPEX catalog or empty placeholders, not the user's workspace).
 
 Set `INSTALL_SKIP_JIRA=1` to skip the whole phase (use only for non-Jira projects). The Jira steps record their outcome under `state.postInstall`; a re-run of `bun setup` asks again for whatever is not `completed`.
+
+### Sprint Board (optional)
+
+The Sprint Board (`bun run board:up`) reads the `board:` block of `.agents/project.yaml`. Untouched (every status bucket `null`), `bun run board:check` prints one INFO line and passes. Once a bucket is filled it validates the whole block and names each key still to fill: `board.jql` for a Jira source, a ticket key (`project.project_key`, or `board.ticket_key_pattern`), `issue_tracker.atlassian_url`, and every workflow status in exactly one bucket. `bug_jql`, `people`, `timezone` and `brand` are optional. `bun setup` (after the catalog sync) and `bun run agents:setup` fill the buckets and the query for you; the comments beside each key in the yaml say the rest.
 
 > **Link types**: `jira:sync-link-types` is auto-invoked only when you pick the **UPEX-Galaxy standard** source above (it downloads `.agents/jira-link-types.json --upex`). For the **own-workspace** source, refresh it by hand: `bun run jira:sync-link-types` (or `--upex` for the UPEX standard). USER-OK (no admin needed for either path).
 
@@ -72,13 +77,13 @@ The external CLI table (information only, see [External CLIs](#external-clis-ver
 
 The run ends with **one report**: what was done, skipped or failed, and the next steps (open your agent, `/agentic-qa-onboard`, `/project-discovery`, and whatever is still pending, each with its command).
 
-### Git strategy setup (agent-driven, mandatory before your first push)
+### Git strategy setup (agent-driven, before you rely on a push policy)
 
 The scaffold ships a **default** git strategy (`solo-main`) with `strategy_source: inherited` in `.agents/project.yaml` — a placeholder nobody chose for YOUR project. Defining it is an explicit step, not an inherited fact: once your project identity is filled in, ask your AI agent:
 
 > **"set up our git strategy"**
 
-That runs git-flow-master's Strategy Setup: it resolves your branching flow (solo-main / main-integration / sdet / others), asks the merge + hotfix + protection-policy questions, materializes any long-lived branches, and writes the `git_strategy:` block with `strategy_source: chosen`. Until you do this, the agent will offer it on your first git intent, and the synced `pre-push` hook (`bun run git:policy verify`) fails with a message pointing you here — that failure is the signal that this setup is pending, not a bug.
+That runs git-flow-master's Strategy Setup: it resolves your branching flow (solo-main / main-integration / sdet / others), asks the merge + hotfix + protection-policy questions, materializes any long-lived branches, and writes the `git_strategy:` block with `strategy_source: chosen`. Until you do this, the agent offers it on your first git intent, and the synced `pre-push` hook (`bun run git:policy verify`) prints any difference between the inherited policy and the host as warnings that point here, and lets the push through. No origin yet, or one that is not GitHub, is a warning too. Once the strategy is `chosen`, unaccepted drift blocks the push.
 
 ### Where the run is shown
 
@@ -140,7 +145,7 @@ The rows, their thresholds and their messages live in `runSetupPreflight` in `cl
 | Free disk below the block threshold | free disk below the warning threshold |
 | A download host that does not answer while its download is still pending (`registry.npmjs.org`, `github.com`, `cdn.playwright.dev`) | the Atlassian site of `.agents/project.yaml` does not answer; on Linux, the one `sudo bunx playwright install-deps chromium` command the Chromium system libraries need (the installer never asks for sudo mid-run) |
 
-Two more rows are information only: a `.agents/project.yaml` that is still the boilerplate's own copy (it is reseeded from the template before anything writes to it), and a `.env` readable by others (its mode is fixed to 600 on the spot).
+Three more rows are information only: Python 3.9+ with Pillow (only the evidence pages need it; the row names the Pillow command for your platform), a `.agents/project.yaml` that is still the boilerplate's own copy (it is reseeded from the template before anything writes to it), and a `.env` readable by others (its mode is fixed to 600 on the spot).
 
 The agent row is the gotcha that bites first-timers most often: a missing `gh` or `acli` only warns, but zero detected agents blocks. Install at least one of Claude Code, OpenCode, or Codex first, then run `bun setup`.
 
@@ -185,6 +190,8 @@ resend           missing     Email testing flows (`/resend-cli` skill)
 jq               missing     JSON parsing in `acli` Jira pipelines (`acli ... --json | jq ...`)
                             docs:  https://jqlang.github.io/jq/download
 ```
+
+Orca (`orca`) is the one entry a skill cannot run without: `/sprint-conductor` runs only on it and stops with one line when the binary or its runtime is missing; `/orca-orchestration` and every other skill work without it (one-shot subagents stay the default executor). `bun run setup:doctor` reports its gate. `python3` (or `py` / `python` on Windows) serves only the evidence pages; `setup:doctor` checks its version and Pillow.
 
 Missing per-skill CLIs do not exit the installer. Install them lazily when the owning skill surfaces a missing-binary error, or eagerly if you already know which workflow you want.
 

@@ -28,7 +28,7 @@ import type { AcceptedDivergence, Finding, GitStrategy, Rule } from './git-polic
 
 import { describe, expect, test } from 'bun:test';
 
-import { acceptedFields, assessBypass, buildRules, classifyAccepted } from './git-policy.ts';
+import { acceptedFields, assessBypass, buildRules, classifyAccepted, slugFromRemote, verifyExitCode } from './git-policy.ts';
 
 const ACCEPTED_DIRECT_PUSH: AcceptedDivergence = {
   field: 'main.direct_push_to_protected',
@@ -221,6 +221,39 @@ describe('assessBypass — the reader, not the ruleset', () => {
     expect(r.known).toBe(false);
     if (r.known) { return; }
     expect(r.currentUserCanBypass).toBeNull();
+  });
+});
+
+describe('slugFromRemote: only a GitHub origin has host rules to read', () => {
+  test('https and ssh GitHub remotes resolve to owner/repo', () => {
+    expect(slugFromRemote('https://github.com/acme/qa.git')).toBe('acme/qa');
+    expect(slugFromRemote('git@github.com:acme/qa.git')).toBe('acme/qa');
+  });
+
+  test('a local bare repo or another host resolves to nothing (verify then warns and exits 0)', () => {
+    expect(slugFromRemote('/tmp/origin.git')).toBeNull();
+    expect(slugFromRemote('https://gitlab.com/acme/qa.git')).toBeNull();
+  });
+});
+
+describe('verifyExitCode: drift blocks only a chosen policy', () => {
+  test('a chosen strategy with drift blocks', () => {
+    expect(verifyExitCode(2, 'chosen')).toBe(1);
+  });
+
+  // A new project ships the inherited default and a repo with no ruleset yet:
+  // blocking there refused its first push.
+  test('an inherited strategy with drift warns and passes', () => {
+    expect(verifyExitCode(2, 'inherited')).toBe(0);
+  });
+
+  test('no drift passes whatever the source', () => {
+    expect(verifyExitCode(0, 'chosen')).toBe(0);
+    expect(verifyExitCode(0, undefined)).toBe(0);
+  });
+
+  test('a missing source is not inherited: it keeps blocking', () => {
+    expect(verifyExitCode(1, undefined)).toBe(1);
   });
 });
 

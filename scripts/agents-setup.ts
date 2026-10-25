@@ -96,7 +96,6 @@
  * ============================================================================
  */
 
-import type { WorkflowCatalog } from '../cli/lib/sprint-source/config.ts';
 import type { StatusSuggestion } from '../cli/lib/sprint-source/suggest-statuses.ts';
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -106,8 +105,8 @@ import { confirm, input, select } from '@inquirer/prompts';
 import { parse as parseYaml } from 'yaml';
 
 import { classifyProjectYaml, SCHEMA_FILE, seedFromSchema } from '../cli/lib/agents-schema.ts';
-import { WORKFLOWS_CATALOG } from '../cli/lib/sprint-source/config.ts';
-import { applyStatusSuggestions, currentBuckets, suggestStatusBuckets } from '../cli/lib/sprint-source/suggest-statuses.ts';
+import { boardStatusPlan, defaultBoardJql, fillBoardIfValid, loadSyncedCatalogs } from '../cli/lib/board-setup.ts';
+import { currentBuckets } from '../cli/lib/sprint-source/suggest-statuses.ts';
 
 // ============================================================================
 // CONSTANTS
@@ -1144,8 +1143,8 @@ async function runInteractive(loaded: LoadedConfig, dryRun: boolean): Promise<vo
     }
   }
 
-  // Step 5: workflow statuses no board bucket lists yet.
-  const statusPlan = await promptStatusSuggestions(loaded.rawText);
+  // Step 5: workflow statuses no board bucket lists yet, and the board's ticket query.
+  const boardChoice = await promptBoard(loaded.rawText, newFlat.project_key ?? null);
 
   printSummary(newFlat, desiredEnvs, newEnvValues);
 
@@ -1160,7 +1159,7 @@ async function runInteractive(loaded: LoadedConfig, dryRun: boolean): Promise<vo
   }
 
   const updates = buildUpdateMap(newFlat, newEnvValues);
-  const updated = withStatusSuggestions(renderUpdatedYaml(loaded.rawText, desiredEnvs, updates), statusPlan);
+  const updated = withBoard(renderUpdatedYaml(loaded.rawText, desiredEnvs, updates), boardChoice);
   if (dryRun) {
     out(updated);
     log.success('Dry run complete — file NOT written.');
@@ -1174,27 +1173,6 @@ async function runInteractive(loaded: LoadedConfig, dryRun: boolean): Promise<vo
 // BOARD STATUSES — suggested buckets for the workflow statuses no bucket lists
 // ============================================================================
 
-/**
- * The statuses `board:check` would warn about, each with a suggested bucket, or the
- * one line that says why there is nothing to suggest. A `none` source buckets the
- * strings of its own tickets file, so it gets no suggestion.
- */
-function statusSuggestions(rawText: string): { suggestions: StatusSuggestion[], note: string | null } {
-  let root: unknown;
-  try { root = parseYaml(rawText); }
-  catch { return { suggestions: [], note: null }; }
-  const board = (root as { board?: { source?: unknown } } | null)?.board;
-  if (board === undefined || board === null || board.source === 'none') { return { suggestions: [], note: null }; }
-  const catalogPath = join(REPO_ROOT, WORKFLOWS_CATALOG);
-  if (!existsSync(catalogPath)) {
-    return { suggestions: [], note: `board.statuses: ${WORKFLOWS_CATALOG} is not there yet, so no bucket can be suggested. Run \`bun run jira:sync-workflows\`, then \`bun run agents:setup\` again.` };
-  }
-  let catalog: WorkflowCatalog;
-  try { catalog = JSON.parse(readFileSync(catalogPath, 'utf8')) as WorkflowCatalog; }
-  catch (e) { return { suggestions: [], note: `board.statuses: ${WORKFLOWS_CATALOG} does not parse (${(e as Error).message}); run \`bun run jira:sync-workflows\` again.` }; }
-  return { suggestions: suggestStatusBuckets(catalog, currentBuckets(root)), note: null };
-}
-
 function printStatusSuggestions(suggestions: readonly StatusSuggestion[]): void {
   log.header('[board.statuses]');
   log.info(`${suggestions.length} workflow status(es) are in no bucket yet; a ticket or bug in one fails the board snapshot. Suggested from the status category and its name:`);
@@ -1203,25 +1181,59 @@ function printStatusSuggestions(suggestions: readonly StatusSuggestion[]): void 
   }
 }
 
-/** Interactive: show the suggestions and ask once; returns the ones to write. */
-async function promptStatusSuggestions(rawText: string): Promise<StatusSuggestion[]> {
-  const { suggestions, note } = statusSuggestions(rawText);
-  if (note !== null) { log.warn(note); }
-  if (suggestions.length === 0) { return []; }
-  printStatusSuggestions(suggestions);
-  const accept = await confirm({ message: 'Add these statuses to their suggested buckets? (bun run board:check validates the result)', default: true });
-  return accept ? suggestions : [];
+/** What the interactive run decided for the `board:` block; `write: false` leaves it untouched. */
+interface BoardChoice { suggestions: StatusSuggestion[], jql: string | null, write: boolean }
+
+const NO_BOARD_CHANGE: BoardChoice = { suggestions: [], jql: null, write: false };
+
+/** Whether any ticket or bug bucket is already filled (the board is adopted). */
+function boardAdopted(rawText: string): boolean {
+  try {
+    const buckets = currentBuckets(parseYaml(rawText));
+    return [...Object.values(buckets.tickets), ...Object.values(buckets.bugs)].some(ids => ids !== null);
+  }
+  catch { return false; }
 }
 
-/** Write the accepted suggestions into the bucket lines; a line it cannot rewrite leaves the file as it was. */
-function withStatusSuggestions(text: string, accepted: readonly StatusSuggestion[]): string {
-  if (accepted.length === 0) { return text; }
-  const result = applyStatusSuggestions(text, accepted);
+/**
+ * Interactive: show the suggested buckets and ask once; then, for a Jira source
+ * whose `board.jql` is still null, ask the ticket query (default built from the
+ * project key typed in this run). Also asked when the board is already adopted
+ * and only the query is missing.
+ */
+async function promptBoard(rawText: string, projectKey: string | null): Promise<BoardChoice> {
+  const plan = boardStatusPlan(rawText, loadSyncedCatalogs(REPO_ROOT).workflows);
+  if (plan.note !== null) { log.warn(plan.note); }
+  let suggestions: StatusSuggestion[] = [];
+  if (plan.suggestions.length > 0) {
+    printStatusSuggestions(plan.suggestions);
+    const accept = await confirm({ message: 'Add these statuses to their suggested buckets? (empty buckets become [], bun run board:check validates the result)', default: true });
+    if (!accept) { return NO_BOARD_CHANGE; }
+    suggestions = plan.suggestions;
+  }
+  else if (!boardAdopted(rawText)) {
+    return NO_BOARD_CHANGE;
+  }
+  let jql: string | null = null;
+  if (plan.needsJql) {
+    const fallback = defaultBoardJql(projectKey);
+    const answer = await input({ message: 'Sprint Board ticket query (board.jql):', ...(fallback !== null ? { default: fallback } : {}) });
+    jql = answer.trim() === '' ? null : answer.trim();
+  }
+  return { suggestions, jql, write: true };
+}
+
+/** Write the board choice, only if `board:check` would accept the result; otherwise the text stays as it was. */
+function withBoard(text: string, choice: BoardChoice): string {
+  if (!choice.write) { return text; }
+  const result = fillBoardIfValid(text, choice, loadSyncedCatalogs(REPO_ROOT));
   if (!result.ok) {
-    log.warn(`board.statuses not written: ${result.error}`);
+    log.warn('board: not written, because bun run board:check would refuse the result:');
+    for (const e of result.errors) { log.dim(`  ${e}`); }
+    log.dim('Fill what it names, then run bun run agents:setup again.');
     return text;
   }
-  log.success(`board.statuses: ${result.applied} status(es) added to their buckets.`);
+  log.success(`board: ${choice.suggestions.length} status(es) bucketed, empty buckets set to []${choice.jql !== null ? ', board.jql set' : ''}. Check it with bun run board:check.`);
   return result.text;
 }
 
@@ -1232,7 +1244,7 @@ function withStatusSuggestions(text: string, accepted: readonly StatusSuggestion
 function runNonInteractive(loaded: LoadedConfig, dryRun: boolean): void {
   log.header('agents-setup — non-interactive mode');
   // Suggested board buckets are printed, never written without a person confirming them.
-  const { suggestions, note } = statusSuggestions(loaded.rawText);
+  const { suggestions, note } = boardStatusPlan(loaded.rawText, loadSyncedCatalogs(REPO_ROOT).workflows);
   if (note !== null) { log.warn(note); }
   if (suggestions.length > 0) {
     printStatusSuggestions(suggestions);

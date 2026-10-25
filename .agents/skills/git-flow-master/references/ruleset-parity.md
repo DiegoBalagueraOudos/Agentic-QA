@@ -11,7 +11,7 @@
 | Command | Reads host | Writes host | Writes yaml | Exit |
 | --- | --- | --- | --- | --- |
 | `bun run git:policy plan` | no | no | no | 0 |
-| `bun run git:policy verify` | yes | no | no | **1 on unaccepted drift**; 0 in parity, when every drift is ACCEPTED (§2b), or when the host is unreachable (warned, not verified) |
+| `bun run git:policy verify` | yes | no | no | **1 on unaccepted drift**; 0 in parity, when every drift is ACCEPTED (§2b), when the host is unreachable or there is no GitHub origin (warned, not verified), or while `meta.strategy_source` is `inherited` (drift printed as warnings) |
 | `bun run git:policy verify --stamp` | yes | no | `meta.policy_verified` + `policy_source` (`verified`, or `accepted` when accepted divergences exist) when clean | same |
 | `bun run git:policy apply` | yes | no (dry run) | no | 0 / 1 (unreachable host is fatal — an empty reading would derive a payload that drops every host rule) |
 | `bun run git:policy apply --yes` | yes | **yes** | no | 0 / 1 |

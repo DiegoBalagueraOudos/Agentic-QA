@@ -24,6 +24,8 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
+import { isMaintainerCopy, SCHEMA_FILE, seedFromSchema } from '../cli/lib/agents-schema.ts';
+
 const REPO = resolve(import.meta.dir, '..');
 
 function git(cwd: string, ...args: string[]): string {
@@ -50,6 +52,14 @@ export function buildSetupFixture(root: string): SetupFixture {
     mkdirSync(dirname(to), { recursive: true });
     try { copyFileSync(from, to); }
     catch { /* a tracked file deleted in the working tree */ }
+  }
+  // In the boilerplate the copied yaml is the maintainer copy, which is exactly
+  // the "Use this template" route the run must reseed. Anywhere else it is that
+  // project's own, already set up (its harnesses, its key), so the fixture
+  // starts from the blank template, as the scaffolder does.
+  const yamlPath = join(project, '.agents', 'project.yaml');
+  if (!isMaintainerCopy(readFileSync(yamlPath, 'utf8'))) {
+    writeFileSync(yamlPath, seedFromSchema(readFileSync(join(project, SCHEMA_FILE), 'utf8')) ?? '');
   }
   const pkgPath = join(project, 'package.json');
   writeFileSync(pkgPath, readFileSync(pkgPath, 'utf8').replace(/"name": "[^"]+"/, '"name": "acme-qa"'));

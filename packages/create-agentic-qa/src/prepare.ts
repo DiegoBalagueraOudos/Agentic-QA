@@ -386,6 +386,10 @@ const TEMPLATE_EXCLUDES = [
   // "already populated" on first install).
   '.agents/jira-fields.json',
   '.agents/jira-workflows.json',
+  // Same reason: the link-type ids are the source site's (`exists_in_workspace`
+  // is THAT workspace's answer). The installer writes the `{}` placeholder and
+  // `jira:sync-link-types` fills it from the project's own site.
+  '.agents/jira-link-types.json',
   // The boilerplate's own worker and audit reports. Framework documentation
   // travels; our working notes about evolving the framework do not. Mirrored in
   // `repoOnlyPaths` (cli/update-boilerplate.ts) so `bun sync` cannot
@@ -408,6 +412,32 @@ const TEMPLATE_EXCLUDE_MATCHES: Array<{ dir: string, match: RegExp, why: string 
     why: 'boilerplate-owned architecture decisions',
   },
 ];
+
+/** One Index row of `.context/ADR/README.md`: `| [ADR-0001](./ADR-0001-slug.md) | ...`. */
+const ADR_INDEX_ROW = /^\|\s*\[ADR-\d+\]\(\.\/(ADR-\d+-[^)\s]+\.md)\)/;
+
+/**
+ * The ADR README with every Index row whose decision file is gone removed. The
+ * prune above drops our recorded ADRs but the README's Index still linked each
+ * one, and `docs:check` on the project's first push reported every row as a
+ * dead link. The table header stays; when no row is left, one placeholder row
+ * says how the first one gets there. Text without a pruned row is returned as is.
+ */
+export function pruneAdrIndex(text: string, exists: (file: string) => boolean): string {
+  const lines = text.split('\n');
+  const kept = lines.filter((line) => {
+    const m = line.match(ADR_INDEX_ROW);
+    return m === null || exists(m[1]);
+  });
+  if (kept.length === lines.length) { return text; }
+  if (!kept.some(line => ADR_INDEX_ROW.test(line))) {
+    const header = kept.findIndex(line => /^\|\s*ADR\s*\|/.test(line));
+    if (header >= 0 && /^\|\s*-{3,}/.test(kept[header + 1] ?? '')) {
+      kept.splice(header + 2, 0, '| — | No decision recorded yet: copy the template above to record the first one | — | — | — |');
+    }
+  }
+  return kept.join('\n');
+}
 
 /**
  * Delete every path in TEMPLATE_EXCLUDES from the freshly extracted project.
@@ -433,6 +463,15 @@ export async function pruneBootstrapExcludes(projectDir: string): Promise<void> 
       await rm(join(abs, name), { recursive: true, force: true });
       pruned++;
     }
+  }
+
+  // The ADR index must not link the decisions just pruned.
+  const adrDir = join(projectDir, '.context', 'ADR');
+  const adrIndex = join(adrDir, 'README.md');
+  if (existsSync(adrIndex)) {
+    const text = await readFile(adrIndex, 'utf8');
+    const next = pruneAdrIndex(text, file => existsSync(join(adrDir, file)));
+    if (next !== text) { await writeFile(adrIndex, next, 'utf8'); }
   }
 
   log.dim(`  Pruned ${pruned} template artifact path(s).`);

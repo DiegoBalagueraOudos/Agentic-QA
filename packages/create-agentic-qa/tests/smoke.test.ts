@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { parseArgs } from '../src/args.ts';
 import { buildTarArgs } from '../src/download.ts';
 import { CliError } from '../src/errors.ts';
-import { pruneBootstrapExcludes, resetGitStrategyMeta, rewriteProjectYaml, sanitizeProjectName, seedProjectInstructionsFromTemplate, seedProjectYamlFromSchema } from '../src/prepare.ts';
+import { pruneAdrIndex, pruneBootstrapExcludes, resetGitStrategyMeta, rewriteProjectYaml, sanitizeProjectName, seedProjectInstructionsFromTemplate, seedProjectYamlFromSchema } from '../src/prepare.ts';
 
 describe('parseArgs', () => {
   test('accepts a project name as positional', () => {
@@ -342,6 +342,51 @@ describe('pruneBootstrapExcludes', () => {
     expect(existsSync(join(dir, '.context', 'ADR', 'ADR-NNNN-template.md'))).toBe(true);
     expect(existsSync(join(dir, '.context', 'ADR', 'ADR-0001-pbi-is-a-cache.md'))).toBe(false);
     expect(existsSync(join(dir, '.context', 'ADR', 'ADR-0002-one-atp.md'))).toBe(false);
+  });
+
+  // The site-specific link-type ids travel no more than the field and workflow catalogs.
+  test('removes the source site\'s Jira link-type catalog', async () => {
+    mkdirSync(join(dir, '.agents'), { recursive: true });
+    writeFileSync(join(dir, '.agents', 'jira-link-types.json'), '{"blocks":{"id":"1"}}');
+
+    await pruneBootstrapExcludes(dir);
+
+    expect(existsSync(join(dir, '.agents', 'jira-link-types.json'))).toBe(false);
+  });
+
+  // The Index linked every pruned decision, and docs:check refused the first push.
+  test('drops the ADR Index rows of the pruned decisions, keeping the rest of the README', async () => {
+    mkdirSync(join(dir, '.context', 'ADR'), { recursive: true });
+    writeFileSync(join(dir, '.context', 'ADR', 'README.md'), [
+      '# ADRs',
+      '',
+      'Copy [`ADR-NNNN-template.md`](./ADR-NNNN-template.md).',
+      '',
+      '## Index',
+      '',
+      '| ADR | Title | Status | Supersedes | Superseded by |',
+      '| --- | ----- | ------ | ---------- | ------------- |',
+      '| [ADR-0001](./ADR-0001-pbi-is-a-cache.md) | A | Accepted | — | — |',
+      '| [ADR-0002](./ADR-0002-one-atp.md) | B | Accepted | — | — |',
+      '',
+    ].join('\n'));
+    writeFileSync(join(dir, '.context', 'ADR', 'ADR-NNNN-template.md'), '# Template');
+    writeFileSync(join(dir, '.context', 'ADR', 'ADR-0001-pbi-is-a-cache.md'), '# Decision');
+    writeFileSync(join(dir, '.context', 'ADR', 'ADR-0002-one-atp.md'), '# Decision');
+
+    await pruneBootstrapExcludes(dir);
+
+    const readme = readFileSync(join(dir, '.context', 'ADR', 'README.md'), 'utf8');
+    expect(readme).not.toContain('ADR-0001');
+    expect(readme).not.toContain('ADR-0002');
+    expect(readme).toContain('./ADR-NNNN-template.md');
+    expect(readme).toContain('| ADR | Title | Status | Supersedes | Superseded by |\n| --- | ----- | ------ | ---------- | ------------- |\n| — | No decision recorded yet');
+  });
+
+  test('pruneAdrIndex keeps a row whose decision file still exists, and leaves other text untouched', () => {
+    const text = '| ADR | T |\n| --- | - |\n| [ADR-0003](./ADR-0003-own.md) | mine |\n| [ADR-0001](./ADR-0001-gone.md) | ours |';
+    expect(pruneAdrIndex(text, f => f === 'ADR-0003-own.md')).toBe('| ADR | T |\n| --- | - |\n| [ADR-0003](./ADR-0003-own.md) | mine |');
+    expect(pruneAdrIndex('# When to write an ADR', () => false)).toBe('# When to write an ADR');
   });
 
   test('leaves the ADR directory alone when it holds no recorded decisions', async () => {

@@ -110,7 +110,7 @@ Run this ONCE per session, at the first push / PR / merge intent (not on read-on
 **Run the tool; do not perform the queries by hand:**
 
 ```bash
-bun run git:policy verify          # read-only; exit 1 on drift
+bun run git:policy verify          # read-only; exit 1 on drift of a chosen strategy (inherited: warnings)
 bun run git:policy verify --stamp  # same, and records the reconciliation when clean
 ```
 

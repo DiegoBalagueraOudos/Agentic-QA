@@ -141,13 +141,14 @@ export const PHASE_STEPS: Record<string, StepSpec[]> = {
   creds: [
     { step: 'Retired keys', what: 'Offers to remove the .env keys this version no longer reads.', probes: ['cleanRetiredEnvKeys('], prompts: ['retired-keys'] },
     { step: 'Secrets provider', what: 'Where secret values live: .env (default) or 1Password, which writes the committed .env.provider.schema with references only.', probes: ['secretsProviderStep('], prompts: ['secrets-provider', 'op-vault', 'op-auth'] },
-    { step: 'MCP variables', what: 'Checks the variables each project MCP server reads and asks for the ones the installer manages.', probes: ['configureMcps('], prompts: ['var-*'] },
+    { step: 'MCP variables', what: 'Checks the variables each project MCP server reads and asks for the ones the installer manages. A value already set in your shell is copied into .env only when you say yes; an unattended run copies none and lists the names.', probes: ['configureMcps('], prompts: ['var-*', 'mcp-shell-*'] },
     { step: 'Day-0 credentials', what: 'The Atlassian email and API token (and the other core variables) the skills use today; the rest is added when needed.', probes: ['configureDayZeroCredentials('], prompts: ['day0'] },
     { step: 'API login', what: 'Optional bun run api:login, offered only when the test user and API_BASE_URL exist and the API answers.', probes: ['optionalApiBootstrap(', '\'api:login\''], prompts: ['api-login'] },
   ],
   jira: [
     { step: 'acli session', what: 'Signs the Atlassian CLI in with the .env email and token; a rejected token is asked again.', probes: ['acliAuthStep('], prompts: ['token-retry-*'] },
     { step: 'Jira catalogs', what: 'Custom fields, workflows and link types, from your own Jira (workflow pickers through jira:sync-workflows --plan-json / --answers) or from the UPEX reference catalog; writes .agents/jira-*.json.', probes: ['jiraCatalogsStep(', '\'jira:sync-fields\'', '\'jira:sync-workflows\'', '\'jira:sync-link-types\'', '\'--plan-json\'', '\'--answers\''], prompts: ['jira-catalogs', 'wf-*'] },
+    { step: 'Sprint Board statuses', what: 'Right after the catalogs: offers the suggested board.statuses buckets once, then board.jql (default from the project key); written only when bun run board:check would accept the block.', probes: ['boardStatusesStep('], prompts: ['board-statuses', 'board-jql'] },
     { step: 'Jira check', what: 'bun run jira:check validates the Jira setup manifest against the synced catalogs.', probes: ['jiraCheckStep(', '\'jira:check\''] },
   ],
   github: [
@@ -267,6 +268,14 @@ function prerequisites(mcpsWithKeys: string[]): PrerequisiteSpec[] {
       installHint: 'https://developer.1password.com/docs/cli/get-started/',
       binaryName: 'op',
       preflight: ['op'],
+    },
+    {
+      // Reported by `pythonCheck` (cli/preflight.ts) as information, never a block.
+      name: 'Python 3.9+ with Pillow',
+      required: false,
+      purpose: 'Only for the evidence pages (/evidence-artifact, bun run evidence); nothing in the install needs it.',
+      installHint: 'https://www.python.org/downloads/ then Pillow (Homebrew Python: brew install pillow; Windows: py -m pip install pillow)',
+      binaryName: 'python3',
     },
     {
       name: 'API keys (.env)',

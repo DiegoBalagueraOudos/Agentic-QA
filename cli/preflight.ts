@@ -282,6 +282,9 @@ const S = {
     free: 'libres',
     sudoMsg: 'En Linux, Chromium necesita paquetes del sistema. Corre una vez: <code>sudo bunx playwright install-deps chromium</code>. El navegador en sí se instala sin sudo.',
     envPerms: 'permisos corregidos a 600',
+    pythonMissing: (fix: string): string => `Solo para las páginas de evidencia (<code>/evidence-artifact</code>): Python 3.9 o más nuevo, y después Pillow: <code>${fix}</code>. La instalación no lo necesita.`,
+    pythonOld: (v: string): string => `Tu Python es ${v} y las páginas de evidencia necesitan 3.9 o más nuevo. La instalación no lo necesita.`,
+    pillowMissing: (fix: string): string => `Las páginas de evidencia (<code>/evidence-artifact</code>) necesitan Pillow: <code>${fix}</code>. La instalación no lo necesita.`,
     clear: (n: number, s: string): string => `Todo listo: ${n} comprobaciones en ${s} s.`,
     warn: (n: number): string => `Nada bloquea. ${n} aviso(s): revisa las filas marcadas; el paso que afectan se salta o queda pendiente.`,
     block: (n: number): string => `${n} cosa(s) impiden empezar. Arréglalas y vuelve a comprobar; no se cambió nada.`,
@@ -320,6 +323,9 @@ const S = {
     free: 'free',
     sudoMsg: 'On Linux Chromium needs system packages. Run once: <code>sudo bunx playwright install-deps chromium</code>. The browser itself installs without sudo.',
     envPerms: 'permissions fixed to 600',
+    pythonMissing: (fix: string): string => `Only for the evidence pages (<code>/evidence-artifact</code>): Python 3.9 or newer, then Pillow: <code>${fix}</code>. The install does not need it.`,
+    pythonOld: (v: string): string => `Your Python is ${v} and the evidence pages need 3.9 or newer. The install does not need it.`,
+    pillowMissing: (fix: string): string => `The evidence pages (<code>/evidence-artifact</code>) need Pillow: <code>${fix}</code>. The install does not need it.`,
     clear: (n: number, s: string): string => `All set: ${n} checks in ${s} s.`,
     warn: (n: number): string => `Nothing blocks. ${n} warning(s): see the marked rows; the step each one affects is skipped or left pending.`,
     block: (n: number): string => `${n} thing(s) stop the start. Fix them and check again; nothing was changed.`,
@@ -347,6 +353,37 @@ export function readYamlScalars(text: string): { atlassianUrl: string | null, se
 
 function truthyEnv(v: string | undefined): boolean {
   return v === '1';
+}
+
+/**
+ * Python 3.9+ with Pillow, the evidence builder's interpreter. Twin of
+ * `pythonCandidates` / `pillowInstall` in `cli/lib/evidence-page/python.ts`,
+ * which this file cannot import: its graph is `node:*` only, and the sibling
+ * boilerplate has no evidence pages (`BRAND.prereqs` leaves the row out there).
+ * Information only: nothing in the install needs it.
+ */
+export function pythonCheck(run: typeof runCmd, platform: string, lang: Lang): PreflightCheck {
+  const L = S[lang];
+  const candidates = platform === 'win32' ? [['py', '-3'], ['python3'], ['python']] : [['python3'], ['python']];
+  const fix = platform === 'win32' ? 'py -m pip install pillow' : 'python3 -m pip install pillow';
+  // Same words as `pillowInstall`: a Homebrew or distro Python refuses a bare pip install (PEP 668).
+  const hint = platform === 'win32'
+    ? fix
+    : platform === 'darwin'
+      ? `${fix} (Homebrew Python: brew install pillow, or a venv)`
+      : `${fix} (a distro Python: your package manager's python3-pil, or a venv)`;
+  const row = { id: 'python', group: L.tools, label: 'Python + Pillow', neededBy: 'evidence' };
+  for (const argv of candidates) {
+    const probe = run(argv[0], [...argv.slice(1), '-c', 'import sys; print("%d.%d" % sys.version_info[:2]); import PIL'], { timeoutMs: 5000 });
+    const v = parseVersion(probe.stdout.split('\n')[0] ?? '');
+    if (v === null) { continue; }
+    const version = `${v[0]}.${v[1]}`;
+    if (!versionAtLeast(v, [3, 9, 0])) { return { ...row, value: version, state: 'info', msg: L.pythonOld(version) }; }
+    return probe.ok
+      ? { ...row, value: version, state: 'ok' }
+      : { ...row, value: `${version}, no Pillow`, state: 'info', msg: L.pillowMissing(hint), fix };
+  }
+  return { ...row, value: '-', state: 'info', msg: L.pythonMissing(hint), fix };
 }
 
 function onPath(run: typeof runCmd, bin: string): boolean {
@@ -443,6 +480,8 @@ export async function runSetupPreflight(o: SetupPreflightOptions): Promise<Prefl
       ? { id: 'op', group: L.tools, label: '1Password CLI', value: 'ok', state: 'ok', neededBy: 'creds' }
       : { id: 'op', group: L.tools, label: '1Password CLI', value: '-', state: 'warn', msg: L.opMissing, neededBy: 'creds', fix: 'op signin' });
   }
+
+  if (BRAND.prereqs?.includes('python')) { checks.push(pythonCheck(run, platform, o.lang)); }
 
   // AI agents: at least one, or there is nothing to configure.
   const home = env.HOME ?? env.USERPROFILE ?? '';
