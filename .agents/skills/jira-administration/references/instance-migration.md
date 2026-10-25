@@ -208,14 +208,13 @@ If the manifest does need updating, **update it first, then run the syncs** — 
 ```bash
 bun run jira:sync-fields --force
 bun run jira:sync-link-types
-bun run jira:sync-workflows --dry-run
-bun run jira:sync-workflows --force < /dev/null
+bun run jira:sync-workflows
 ```
 
 Three behaviors to anticipate, and they differ per script — do not assume one rule covers all three:
 
 - **`jira:sync-fields` REQUIRES `--force`.** Its populated-catalog guard sits on the main path, so a plain re-run stops with `already populated. Re-run with --force to overwrite.` and exits `1`.
-- **`jira:sync-workflows` NEEDS `--force` after an instance migration.** Its per-slug idempotency guard keeps every slug that already has an id, so a plain run writes the OLD instance's status ids back and reports success. Run `--dry-run` first, then `--force < /dev/null` (prompts fire only on a collision or a no-match, and stdin is closed). Transition ids are workflow-local and usually survive a site restore.
+- **`jira:sync-workflows` does NOT need `--force`, and should not get it.** Its identical-looking guard lives *inside* the `--upex` branch only, so the normal Jira path is idempotent. Adding `--force` re-prompts for already-mapped slugs and buys nothing. (In practice a canonical slug with exactly one candidate auto-resolves either way; prompts only appear on a collision or a no-match.)
 - **`jira:sync-link-types` has NO `--force` flag at all.** Its argument parser (check `--help`) has no `default:` case — so `--force` is silently swallowed rather than rejected. Passing it appears to work, which is exactly why it is worth not teaching.
 
 Plus one behavior shared with Phase 2:
