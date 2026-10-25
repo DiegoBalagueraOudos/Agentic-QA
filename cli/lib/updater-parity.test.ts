@@ -1,4 +1,5 @@
 import type { ParityFinding, ParityInput, ParityMeta } from './updater-parity.ts';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
@@ -41,6 +42,7 @@ import {
   retiredHarnessScripts,
   retiredMcpNote,
   runVerdict,
+  scriptFileTargets,
   strictVerdict,
   structuralEvidence,
   SURFACE_ORDER,
@@ -814,6 +816,12 @@ describe('a missing config block a shipped skill reads blocks the run', () => {
     expect(row!.evidence).not.toContain('BLOCKING');
   });
 
+  test('a block the project exempted through updater.schema_exempt never escalates', () => {
+    const upstream = 'project:\n  name: upstream\nboard:\n  source: auto\n';
+    expect(missingConfigBlocks('.agents/project.yaml', 'project:\n  name: consumer\n', upstream)).toEqual([{ block: 'board', reader: CONFIG_BLOCK_READERS['.agents/project.yaml'].board }]);
+    expect(missingConfigBlocks('.agents/project.yaml', 'project:\n  name: consumer\nupdater:\n  schema_exempt: [board]\n', upstream)).toEqual([]);
+  });
+
   test('missingConfigBlocks is top-level only and declaration-driven', () => {
     const project = 'git_strategy:\n  strategy: solo-main\n';
     const upstream = 'git_strategy:\n  strategy: solo-main\n  policy:\n    direct_push_to_protected: allowed\n';
@@ -832,8 +840,10 @@ describe('a missing config block a shipped skill reads blocks the run', () => {
     const declared = CONFIG_BLOCK_READERS['.agents/project.yaml'];
     expect(Object.keys(declared)).toContain('git_strategy');
     expect(Object.keys(declared)).toContain('orchestration');
+    expect(declared.board?.skill).toBe('/sprint-conductor');
     for (const reader of Object.values(declared)) {
       expect(reader.skill.startsWith('/')).toBe(true);
+      expect(existsSync(join(import.meta.dir, '..', '..', '.agents/skills', reader.skill.slice(1), 'SKILL.md'))).toBe(true);
       expect(reader.requiredBy.length).toBeGreaterThan(20);
     }
   });
@@ -1481,6 +1491,27 @@ describe('a kept file whose hunk gates another file of the same release', () => 
     expect(declared[0].evidence).toContain('`bun run report:check`');
   });
 
+  test('a kept regression workflow that still imports JUnit is a blocking row with the port and a real arbiter', () => {
+    // Live finding: the synced import guard refuses every keyless JUnit testcase,
+    // and the kept workflow's write-back fails silently behind continue-on-error.
+    const root = temporaryRoot();
+    const upstream = temporaryRoot();
+    write(root, '.github/workflows/regression.yml', 'jobs:\n  XrayImport:\n    steps:\n      - run: bun xray import junit test-results/junit.xml\n');
+    write(upstream, '.github/workflows/regression.yml', 'jobs:\n  XrayImport:\n    steps:\n      - run: bun run xray:payload\n');
+    const findings = collectParityFindings({
+      ...base(root, upstream),
+      drift: [{ path: '.github/workflows/regression.yml', reason: 'CI suite adapted (secrets, envs, jobs)' }],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].blocking).toBe(true);
+    expect(findings[0].evidence).toContain('XrayImport');
+    expect(findings[0].evidence).toContain('`bun run xray:payload`');
+    const gate = prerequisiteFor('.github/workflows/regression.yml')!.gate;
+    // The arbiter is a command, and it fails on the kept copy and passes on upstream's.
+    expect(spawnSync('sh', ['-c', gate], { cwd: root }).status).not.toBe(0);
+    expect(spawnSync('sh', ['-c', gate], { cwd: upstream }).status).toBe(0);
+  });
+
   test('the shipped manifest declares the category vocabulary at least', () => {
     expect(prerequisiteFor('scripts/lint-skills.ts')).not.toBeNull();
     expect(prerequisiteFor('scripts/lint-skills.ts')?.gate).toBe('bun run skills:check');
@@ -1674,5 +1705,60 @@ describe('context map rows (informational)', () => {
     const rows = collectParityFindings(base(root)).filter(f => f.path.includes('business-e2e-map'));
     expect(rows).toHaveLength(1);
     expect(rows[0].evidence).toContain('has no map');
+  });
+});
+
+describe('an appended script whose target file is absent', () => {
+  function base(root: string, upstream: string): ParityInput {
+    return { root, upstreamDir: upstream, drift: [], compatErrors: [], archivedSkills: [], archivedSkillsDir: join(root, 'x'), heldBack: [], envNewKeys: [] };
+  }
+
+  test('the targets of a script are the files bun, node or tsx execute, never a script name, a built-in or a binary', () => {
+    expect(scriptFileTargets('bun tests/utils/xrayResults.ts')).toEqual(['tests/utils/xrayResults.ts']);
+    expect(scriptFileTargets('bun --no-env-file scripts/launch.ts --warn bun tests/utils/jiraSync.ts')).toEqual(['scripts/launch.ts', 'tests/utils/jiraSync.ts']);
+    expect(scriptFileTargets('bun run cli/sprint-board/index.ts serve --open')).toEqual(['cli/sprint-board/index.ts']);
+    expect(scriptFileTargets('bun cli/preflight.ts --for setup --gate && bun cli/install.ts')).toEqual(['cli/preflight.ts', 'cli/install.ts']);
+    expect(scriptFileTargets('node ./scripts/x.mjs')).toEqual(['scripts/x.mjs']);
+    for (const none of ['bun run lint:check && bun run types:check', 'bun test', 'bunx playwright test', 'bun xray import', 'tsc --noEmit', 'eslint .']) {
+      expect(scriptFileTargets(none)).toEqual([]);
+    }
+  });
+
+  test('a missing target is a blocking package row naming the script and the file; a present one is no row', () => {
+    const root = temporaryRoot();
+    const upstream = temporaryRoot();
+    write(root, 'cli/sprint-board/index.ts', 'board\n');
+    const appended = [
+      { file: 'package.json', section: 'scripts', key: 'xray:payload', value: 'bun tests/utils/xrayResults.ts' },
+      { file: 'package.json', section: 'scripts', key: 'board', value: 'bun run cli/sprint-board/index.ts' },
+      { file: 'package.json', section: 'devDependencies', key: 'x.ts', value: 'bun missing.ts' },
+    ];
+    const findings = collectParityFindings({ ...base(root, upstream), packageJsonAppended: appended });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ surface: 'package', path: 'package.json', blocking: true });
+    expect(findings[0].evidence).toContain('scripts.xray:payload');
+    expect(findings[0].evidence).toContain('`tests/utils/xrayResults.ts`');
+    expect(findings[0].evidence).toContain('Module not found');
+    expect(strictVerdict(true, findings).exitCode).toBe(1);
+  });
+
+  test('on a dry-run, a target upstream ships is one the real run delivers: no row', () => {
+    const root = temporaryRoot();
+    const upstream = temporaryRoot();
+    write(upstream, 'tests/utils/xrayResults.ts', 'payload\n');
+    const appended = [{ file: 'package.json', section: 'scripts', key: 'xray:payload', value: 'bun tests/utils/xrayResults.ts' }];
+    expect(collectParityFindings({ ...base(root, upstream), packageJsonAppended: appended, dryRun: true })).toEqual([]);
+    expect(collectParityFindings({ ...base(root, upstream), packageJsonAppended: appended })).toHaveLength(1);
+  });
+
+  test('a held-back test sibling is one informational row naming both files', () => {
+    const root = temporaryRoot();
+    const findings = collectParityFindings({
+      ...base(root, temporaryRoot()),
+      testSiblingsHeldBack: [{ path: 'scripts/lint-skills.test.ts', protectedPath: 'scripts/lint-skills.ts' }],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ path: 'scripts/lint-skills.test.ts', blocking: false, suggested: 'keep project', side: 'kept' });
+    expect(findings[0].evidence).toContain('`scripts/lint-skills.ts`');
   });
 });

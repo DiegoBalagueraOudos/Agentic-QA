@@ -244,6 +244,10 @@ export interface RunSummary {
   localEditsOverwritten?: LocalEditOverwritten[]
   /** `package.json` keys kept at the project's value this run (upstream differs). */
   packageJsonKept?: PackageJsonKeptKey[]
+  /** `package.json` keys appended this run (planned, on a dry-run), with their upstream value. */
+  packageJsonAppended?: { file: string, section: string, key: string, value: string }[]
+  /** Test siblings of protected files the run did not deliver or overwrite. */
+  testSiblingsHeldBack?: { path: string, protectedPath: string }[]
   /** Paths recorded in `.template/last-apply.json`: the updater's own uncommitted output, exempt from the next dirty-tree guard. */
   lastApplyPaths?: number
   /** Set by the wrapper's parity hook when it saved the prompt file (`UpdaterConfig.promptFile`). */
@@ -501,6 +505,12 @@ export interface UpdaterConfig {
   packageJsonSpecs?: PackageJsonSpec[]
   deprecatedFiles: DeprecatedFile[]
   bootstrapOnlyPaths: string[]
+  /**
+   * Protected files whose `.test.*` sibling is held back while the project's
+   * copy differs from upstream's (`testSiblingsToHoldBack`). The wrapper passes
+   * the resolved watchlist.
+   */
+  holdTestSiblingsOf?: string[]
   /**
    * Generated, per-repo files that live INSIDE a synced component but must NEVER
    * be synced (each repo regenerates its own). Matched by exact repo-relative

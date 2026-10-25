@@ -54,7 +54,7 @@ def near(a, b, tol=12):
     return all(abs(x - y) <= tol for x, y in zip(a, b))
 
 
-@unittest.skipUnless(HAVE_PIL, "Pillow is not installed (python3 -m pip install pillow); build.py needs it")
+@unittest.skipUnless(HAVE_PIL, "Pillow is not installed (python3 -m pip install pillow; Homebrew Python: brew install pillow; Windows: py -m pip install pillow); build.py needs it")
 class BuildCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp(prefix="evidence-build-")

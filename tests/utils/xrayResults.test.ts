@@ -5,9 +5,8 @@
  * has its own `testMatch`.
  */
 
-import type { AtcResult } from '@utils/decorators';
 import type { OutcomeRecord } from '@utils/testOutcomes';
-import type { AtcReport } from '@utils/xrayResults';
+import type { AtcReport, AtcRun } from '@utils/xrayResults';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -25,7 +24,7 @@ import {
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 
-function run(testId: string, overrides: Partial<AtcResult> = {}): AtcResult {
+function run(testId: string, overrides: Partial<AtcRun> = {}): AtcRun {
   return {
     testId,
     methodName: 'loginSuccessfully',
@@ -109,7 +108,7 @@ describe('runCli (the CI step)', () => {
     errSpy.mockRestore();
   });
 
-  function report(name: string, results: Record<string, AtcResult[]>): string {
+  function report(name: string, results: Record<string, AtcRun[]>): string {
     const path = join(dir, name);
     writeFileSync(path, JSON.stringify({ results }));
     return path;

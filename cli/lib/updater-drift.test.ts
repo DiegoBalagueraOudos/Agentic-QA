@@ -14,6 +14,8 @@ import {
   readProjectProtectedPaths,
   resolveMarkerPath,
   splitFirstProjectAdvice,
+  testSiblingPath,
+  testSiblingsToHoldBack,
 } from './updater-drift.ts';
 
 const temporaryRoots: string[] = [];
@@ -241,5 +243,33 @@ describe('a first-advice entry with no upstream change since the lock cursor get
     const split = splitFirstProjectAdvice(drifted, { tempDir: upstream, lockCursor: 'deadbeef'.repeat(5) });
     expect(split.advised.map(d => d.path)).toEqual(['AGENTS.md']);
     expect(split.seededNoUpstreamChange).toEqual([]);
+  });
+});
+
+describe('a protected file keeps its own test (testSiblingsToHoldBack)', () => {
+  test('the sibling of a source file is its .test file; a test or a non-source file has none', () => {
+    expect(testSiblingPath('scripts/lint-skills.ts')).toBe('scripts/lint-skills.test.ts');
+    expect(testSiblingPath('cli\\lib\\x.mjs')).toBe('cli/lib/x.test.mjs');
+    expect(testSiblingPath('scripts/lint-skills.test.ts')).toBeNull();
+    expect(testSiblingPath('.husky/pre-push')).toBeNull();
+    expect(testSiblingPath('.agents/project.yaml')).toBeNull();
+  });
+
+  test('held only while the kept copy differs from upstream, and only when upstream ships the test', () => {
+    const upstream = temporaryRoot();
+    const project = temporaryRoot();
+    write(upstream, 'scripts/lint-skills.ts', 'upstream linter\n');
+    write(upstream, 'scripts/lint-skills.test.ts', 'upstream test\n');
+    write(upstream, 'scripts/api-login.ts', 'entry\n');
+    write(upstream, 'scripts/api-login.test.ts', 'core test\n');
+    write(upstream, 'scripts/lint-vars.ts', 'upstream vars\n');
+    // Live case: the project merged its own linter by hand and protects it.
+    write(project, 'scripts/lint-skills.ts', 'project linter\n');
+    // A watched file still identical to upstream (trailing whitespace aside) keeps its test flowing.
+    write(project, 'scripts/api-login.ts', 'entry  \n');
+    // A protected file whose upstream ships no test, and one the project lacks.
+    write(project, 'scripts/lint-vars.ts', 'project vars\n');
+    const held = testSiblingsToHoldBack(['scripts/lint-skills.ts', 'scripts/api-login.ts', 'scripts/lint-vars.ts', 'scripts/missing.ts', '.husky/pre-push'], project, upstream);
+    expect(held).toEqual([{ path: 'scripts/lint-skills.test.ts', protectedPath: 'scripts/lint-skills.ts' }]);
   });
 });

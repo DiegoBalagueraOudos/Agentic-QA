@@ -62,6 +62,8 @@
       "Skill(jira-administration)",
       "Skill(shift-left-testing)",
       "Skill(sprint-testing)",
+      "Skill(sprint-conductor)",
+      "Skill(exploratory-testing)",
       "Skill(test-documentation)",
       "Skill(test-automation)",
       "Skill(regression-testing)",
