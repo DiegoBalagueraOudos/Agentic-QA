@@ -122,7 +122,7 @@ Nothing NEW or RECHECK: go straight to §5.
    anything; a `continue` nudge once the error clears resumes it. A worker that reports a dead tool: query
    the same resource from the conductor first. It answers there → the worker's own tool process died, and
    the conductor can reconnect it by driving that worker's terminal
-   (`orca-orchestration/references/gotchas.md`). It fails there too → it is the resource; reconnecting is
+   (`orca-orchestration/references/gotchas.md` G76). It fails there too → it is the resource; reconnecting is
    theatre.
 6. **A redeploy while workers are live**: compare each repository's deployed build with `kickoff.md`.
    Same build: nothing. Changed with no live worker: update `kickoff.md`. Changed with at least one live

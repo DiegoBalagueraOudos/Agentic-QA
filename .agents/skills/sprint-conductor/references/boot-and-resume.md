@@ -123,12 +123,12 @@ conductor work, one query each; anything not verified goes into the brief marked
 2. **Probe the reply direction once, before any worker depends on it**: one `send` with a throwaway
    subject, one `check`, one verified ack. A conductor that was itself started by a dispatch can READ its
    fleet's mailbox and still be refused when it WRITES to it, because a dispatch scopes a terminal's sends
-   to its own Run (`orca-orchestration/references/gotchas.md`). If the probe fails: say so in every brief
+   to its own Run (`orca-orchestration/references/gotchas.md` G74). If the probe fails: say so in every brief
    (answers arrive through the brief file and a terminal pointer), or ask an unbound session to post into
    the Run.
 3. Mailbox reads follow `orca-orchestration`: one waiter, verified ack in the same command, and the
    coordinator's own read without a terminal selector, checking the call's `ok` before reading anything
-   (`orca-orchestration/references/gotchas.md`).
+   (`orca-orchestration/references/gotchas.md` G75).
 
 ---
 

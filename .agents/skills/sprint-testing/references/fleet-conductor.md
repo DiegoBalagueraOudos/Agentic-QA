@@ -4,6 +4,8 @@ Read this ONLY when sprint-wide mode runs with **more than one executor**. The s
 
 > **N=1 is untouched.** Every rule here is additive. A sprint-wide run with one executor behaves byte for byte as it did before this file existed: same queue, same waves, same dispatches, same STP writes. If a rule below would change N=1 behaviour, the rule is wrong.
 
+> **The conductor maneuver.** Booting a fleet with the Sprint Board, watching the test environment for arrivals, closing each round and resuming the fleet after a reboot is `/sprint-conductor` (`sprint-conductor/SKILL.md`), which loads this file and `sprint-board.md`. This file stays the canon for everything below.
+
 > **Split of duties.** This skill owns **WHAT**: the queue, the rounds, the assignment, the per-issue isolation, the STP parity and the dashboard. The orchestration skill owns **HOW**: sessions, terminals, message mailbox, worker adoption, cleanup, claims. Every orchestration action below is written as `[ORCHESTRATION_TOOL] <verb>: …` pseudocode and resolves in `orca-orchestration/SKILL.md` — never inline an orchestration command here.
 
 ---
@@ -49,6 +51,10 @@ The **orchestration gate** (binary present + runtime reachable, three-state, can
 | Sprint `plan.md` + STP **description** | rewritten wholesale → one writer (`sprint-orchestration.md` §STP parity) |
 | Sprint `progress.md` + STP **comment** | see §10 |
 | `launch.txt`, `roster.md`, `claims.md` | the fleet's own bookkeeping |
+| Fixture setup: seeding data, verifying with ONE query that a fixture named in a brief exists and belongs to whom the brief says, creating an owner-approved fixture user | shared state with one correct value; anything the conductor did not check goes into the brief marked `UNVERIFIED` |
+| Publishing an Epic's `## Module Context (QA)` section | N workers replacing one section race, and the last writer erases the others without an error (§10 "Module learnings") |
+
+**The conductor does not investigate an issue.** The line is fixture versus finding: making a case executable is shared-state setup and belongs here; what the case should assert, the code that implements it and any identifier the test needs belong to the worker, who has far more context and writes the ATR. When in doubt: if the answer belongs in the worker's deliverable, it is not the conductor's to produce. Measured on the source fleet: asked which blocked cases an authorization would unblock, a conductor read the controller source, traced the sync code and queried the database, duplicated work that then contradicted the worker. Hand the worker the fixture and the constraint instead, and say the rest is theirs.
 
 ---
 
@@ -78,6 +84,7 @@ A worker:
 - runs **without checkpoints**: no "explain the story and WAIT for OK", no per-stage "brief the user and wait". Nobody is watching its terminal. The gates it would have asked a human become report content instead: the story explanation and every stage summary go into its report, and anything that genuinely needs a decision goes out as an `ask` (§10), not as a `AskUserQuestion` nobody will ever see;
 - **never skips the Readiness Preflight Gate**, and never skips the MCP probes inside it. This is the single most expensive shortcut a worker can take: a worker whose DB tool never answered produces a confident ATR with a missing trifuerza leg, and nothing downstream catches it. Measured on the source fleet (ADR-0006): several workers ran an entire issue with no DB connectivity;
 - creates **no sprint-altitude state**: no `sprint-<N>/plan.md`, no `sprint-<N>/progress.md`, no STP find-or-create, no STP comment. Its scope is `sprint-<N>/<KEY>/` and only that;
+- writes **no `## Module Context (QA)` section** of its Epic, neither the first draft nor an update: it stages what it learned about the module under a `## Module Learnings (candidate)` heading in its own `test-session-memory.md`, and the conductor publishes it (§10 "Module learnings");
 - mints **no tokens** and runs **no bulk sync** (§2);
 - reports **once** when done, plus `ask` / `escalation` as needed, and then stops. No heartbeats — periodic "still alive" messages wake the conductor for nothing and are prohibited by the worker contract (`orca-orchestration/references/worker-contract.md`), which overrides any generic preamble the launcher injects;
 - takes its **test-case format from the brief** and never asks for it (`SKILL.md` §"Test-case format — ask once per batch"): the conductor asks the user once per batch, the worker applies the declared format to its whole batch, and a silent brief earns ONE `ask`, not a guess.
@@ -201,6 +208,8 @@ bun run api:login <env> --role admin --profile W2
 
 Each brief then names the **absolute path** of the token file its worker sources (`.auth/profiles/<label>/tokens.env`). One writer either way: the worker sources, never mints.
 
+**Freshness is checked before EVERY launch**, a mid-sprint launch included, never only at the start of the round. Regenerate a token or a browser state that is older than the app's session lifetime before the launch, only the stale roles; after any `BLOCKED_AUTH_STALE`, every role. Measured on the source fleet: states left from two days earlier expired mid-round and three of four workers each logged in again and saved the same state files concurrently. Prove a credential with the API login before driving a browser login with it: it fails in seconds where the browser costs a launch, and after three failed attempts stop and ask, because varying the identifier or the password to test a theory is credential guessing (Critical Rule #1).
+
 The browser side follows the same rule. The conductor produces one state file per environment and role the round needs (`.auth/<env>-<role>.json`, recipe in `agentic-qa-core/references/browser-sessions.md` §4) before launch; each brief names its absolute path; the worker only `state-load`s it into its own named session. An expired state is `BLOCKED_AUTH_STALE`, like an expired token.
 
 ---
@@ -226,6 +235,13 @@ A claim releases when its worker reports done. Read-only claims never conflict w
 ## 9. Ad-hoc retest — N=1, outside the rounds
 
 A bug retest that arrives mid-sprint is not queue work: it is short, it is urgent, and it has no ATP to plan. Run it as a single worker (or inline, in the conductor's own session, if nothing is in flight), **outside** the round structure, with no wave assignment. It still counts against `max_workers` — the cap is about machine load and tracker rate limits, not about queue semantics.
+
+What is easy to get wrong:
+
+- **Collisions are checked against the LIVE fleet**, not against the round plan: the retest arrived after the triage-time pass of §8, so compare its fixture `entity:id` with every claim in `claims.md` that has no release yet.
+- **Auth may have gone stale since the round launched**: the freshness check of §7 runs before this launch too.
+- **Its outcome still reaches the sprint record**: the conductor writes the close exactly as for a round issue (§10), at that close, not at sprint end.
+- **Cleanup is per issue**: release that worker's claims and close that worker; never a fleet-wide cleanup while round workers are live. Do not renumber the round in `launch.txt`; the next regeneration simply drops the closed line.
 
 ---
 
@@ -284,6 +300,10 @@ The conductor talks to workers through the orchestration mailbox: `[ORCHESTRATIO
 
 When a worker reports done, the conductor — exactly as in `sprint-orchestration.md` §STEP 4, unchanged — verifies the checklist, appends ONE entry to the sprint `progress.md`, mirrors it as ONE STP comment, moves the queue row off `PENDING` and archives the issue sub-scope.
 
+**The report is a claim; the conductor checks what it can observe.** Before that entry, it reads the issue's final status back from the tracker itself, with a bounded poll for the value the worker reported, and checks the artifacts that leave a trace (each Test's status, the ATR, the links, the evidence on disk). A worker's or a subagent's "verified" is never the proof. Measured on the source fleet: a subagent reported the tested status "straight from the tracker row" and the tracker still showed the earlier status ten minutes later.
+
+**Module learnings.** At each issue close, for the module the worker touched: read the Epic's `## Module Context (QA)` section live (the synced copy may be older), merge the worker's `## Module Learnings (candidate)` lines into it, deduplicated, keeping every line that exists only in the Epic, publish it through the module-context step of `session-entry-points.md` (that section only, never the product owner's text), then re-sync and read it back. One writer per module, so no two closes publish the same Epic at once.
+
 Both of those surfaces are append-only, so a worker appending its own would be *safe*; it would not be *ordered*, and two processes appending to one local file can interleave mid-line. So the write stays with the conductor: one writer, log ordered by close time, and N=1 behaviour unchanged. The worker's own issue-altitude writes (ATP, ATS, ATR, QA comment, bug reports, its own `progress.md`) are its own and are not duplicated by the conductor.
 
 ---
@@ -305,6 +325,10 @@ Which session and whose login: `agentic-qa-core/references/browser-sessions.md` 
 
 Each worker closes its browser sessions before reporting done. Orphaned browsers eating gigabytes is a measured outcome, not a hypothetical (ADR-0006).
 
+### Sibling repositories in a localhost fleet
+
+A worker reads the product's code from the repositories named in `.agents/project.yaml` (`backend.backend_repo`, `frontend.frontend_repo`). Against a deployed environment nothing is checked out, so every worker shares them read-only and the conductor measures their drift once, for the whole round (`sprint-conductor/references/boot-and-resume.md` §2.2). Against **localhost**, each worker reasons about its own issue's branch, and a working tree holds exactly one branch: the second worker's checkout silently retargets the first worker's running servers, and nothing reports it. So a localhost fleet gets one worktree per worker per touched sibling repository (`git-flow-master/references/worktrees.md`) and a distinct port pair per worker, assigned by the conductor and written into each brief and into `launch.txt`; the worktrees are removed after the sessions close, orphan audit first. Never check out a branch in a shared sibling repository while any worker is live.
+
 ---
 
 ## 12. Failure modes
@@ -322,6 +346,8 @@ Each worker closes its browser sessions before reporting done. Orphaned browsers
 | a worker sits at its prompt with Stage 1 done and nothing sent | it treated the stage boundary as a checkpoint | §3; restate the continuation rule in the brief |
 | the whole round launched with no tokens | `api:login` was called with a flag before the positional environment | §7 |
 | half the Tests came back Manual and half Gherkin | the format was not in the briefs and each worker decided for itself | §4 `## Meta`; `SKILL.md` §"Test-case format" |
+| a worker reported the issue tested and the tracker still shows the earlier status | its transition did not land, and the report was taken as the proof | §10: the conductor reads the status back itself (Critical Rule #16) |
+| one worker's module notes vanished from the Epic | two workers replaced the same `## Module Context (QA)` section | §3, §10 "Module learnings" |
 
 ---
 
@@ -340,3 +366,4 @@ Each worker closes its browser sessions before reporting done. Orphaned browsers
 - [ ] Every worker released / closed as it finishes — not at the end of the round
 - [ ] Sprint `progress.md` entry + STP comment + queue row + issue archive written by the CONDUCTOR, one per closed issue, after Stage 3 verified
 - [ ] `claims.md` shows a release for every granted write claim
+- [ ] Each closed issue: its tracker status read back by the conductor, its module learnings merged into the Epic once per module (§10)
