@@ -37,6 +37,40 @@ below names which one it applies to:
   `## Module Context (QA)` section at a time (`round-close.md` §2, the skill's compact rule and its
   dispatch table).
 
+### Fixed (`bun sync` delivers the last releases and leaves the project green)
+- **The outcome classes and the Xray payload reach existing projects.** A new `tests-utils`
+  component syncs `tests/utils/testOutcomes.ts`, `knownDefect.ts`, `xrayResults.ts` and their
+  tests. Before, the synced skills cited two of those files and none arrived, so `skills:check`
+  failed and the pre-commit hook refused the sync's own commit, and the appended `xray:payload`
+  script failed with `Module not found`. `xrayResults.ts` now declares the one field it reads
+  beyond `AtcResult` (`AtcRun`), so it compiles next to a project's older `decorators.ts`. A
+  project that copied and edited one of these files by hand gets its copy in `.backups/` and an
+  overwritten-edit row; list the path in `updater.protected_paths` to keep it instead.
+- **`tests/KataReporter.ts`, `tests/utils/decorators.ts` and `tests/utils/jiraSync.ts` are
+  watched**: never overwritten, delivered once when missing, and a drift row with the hunks when
+  upstream changes them (they used to get no row at all).
+- **`--auto` inserts a whole missing `.agents/project.yaml` block** (headless and agent runs
+  included), copied from the schema with its blank values and a `# NEW in <release>` marker. It
+  still never edits a block the project has: missing leaves inside one are listed, as before, and
+  `updater.schema_exempt` still silences a block. The `board:` block is now declared as read by
+  `/sprint-conductor`, so a project still missing it gets a blocking row. An inserted blank block
+  is "board not configured": `board:check` prints one INFO line and exits 0.
+- **A protected file keeps its own test.** The `.test.*` sibling of a watched or
+  `updater.protected_paths` file is held back (not delivered, not overwritten) while the
+  project's copy differs from upstream's, with one row naming both files. Before, protecting
+  `scripts/lint-skills.ts` still delivered upstream's `lint-skills.test.ts`, and `bun test`
+  failed on code nobody changed.
+- **A kept `.github/workflows/regression.yml` is a blocking row with the port steps**: the
+  synced `bun xray import` guard refuses keyless JUnit, so a workflow that still runs
+  `bun xray import junit` stops writing results while CI stays green (`continue-on-error`).
+- **A `package.json` script appended with a target file the project lacks is a blocking row**
+  naming the script and the file, instead of a script that fails the first time someone runs it.
+- **`.claude/settings.json` allows `Skill(sprint-conductor)` and `Skill(exploratory-testing)`**;
+  the permission merge appends both to existing projects.
+- **Upgrade step for a project that kept its own `repo:check`** (the parity row "project value
+  kept"): take upstream's value, or append `&& bun run shared:check && bun run board:check` to
+  yours; both scripts arrive with the sync, but nothing runs them until `repo:check` does.
+
 ### Fixed (the CI import to Xray can no longer create a Test)
 - **The regression workflow's Xray write-back imports explicit Test keys.** The `XrayImport` job
   used to post `junit.xml` with no `test_key` per testcase, and Xray creates a new Generic Test for
@@ -228,10 +262,16 @@ below names which one it applies to:
   (`PASSED WITH 2 KNOWN DEFECTS`, `EXECUTION FAILED: 4 FAILED (3 NOT OBSERVED: SETUP FAILED, ...)`).
   In GitHub Actions the same counts go to the step summary. The exit code is unchanged. A CI step
   that matched the old failure text should read the records file instead.
-- **Upgrade step for existing projects**: `bun sync` does not write `tests/` (it is the project's
-  own), so the outcome classes reach a project created before this release only by hand: copy
-  `tests/utils/testOutcomes.ts` and `tests/utils/knownDefect.ts`, then merge the `KataReporter.ts`
-  and `tests/utils/decorators.ts` changes into your copies.
+- **Upgrade step for existing projects** (corrected): `bun sync` now delivers
+  `tests/utils/testOutcomes.ts`, `knownDefect.ts` and `xrayResults.ts` (component `tests-utils`).
+  The files that carry project wiring stay yours and each gets a drift row with the hunks to
+  merge: `tests/KataReporter.ts` (writes `reports/test-outcomes.json` and the run id shared with
+  `atc_results.json`; without it the board never shows an automated result),
+  `tests/utils/decorators.ts` (`AtcResult.playwrightTestId`, a runtime `test.skip()` recorded as
+  `SKIP`) and `tests/utils/jiraSync.ts` (the Xray body built through `xrayResults.ts`, keys checked
+  before authenticating). Then port `.github/workflows/regression.yml`'s `XrayImport` job (its
+  blocking row lists the steps): the `*-atc-results` artifacts, `bun run xray:payload`, the Xray
+  JSON import, and every `@atc` id an existing Test key before the first run.
 
 ### Added (sprint source layer)
 - **`cli/lib/sprint-source/`**: the configuration layer and `Source` interface the Sprint Board,
@@ -241,18 +281,14 @@ below names which one it applies to:
   instead of being counted. The block derives the ticket key, environment, mainline branch,
   approvals, modality and Jira host from the keys that already own them.
 - **`bun run board:check`** validates the block offline and runs inside `repo:check`; an
-  unconfigured block (how the template ships) is one INFO line and exit 0. `bun sync` offers the
-  new block to existing projects through the schema diff.
-- **Upgrade step for existing projects that adopt `board.source: none`**: `bun sync` does not touch
-  the root `.gitignore`, and the default `.context/*` rule ignores the `tickets.yaml` that is the
-  source's system of record. Add this line right after `.context/*` (or `!` + the folder of your
-  own `board.tickets_file`):
-
-  ```gitignore
-  !.context/sprint/
-  ```
-
-  `bun run board:check` warns while the file is still ignored.
+  unconfigured block (how the template ships) is one INFO line and exit 0. `bun sync` inserts the
+  new block into existing projects through the schema diff (corrected: interactive runs offer
+  it; `--auto` inserts a whole missing block since the `bun sync` fix above).
+- **Upgrade step for existing projects that adopt `board.source: none`** (corrected): `bun sync`
+  appends `!.context/sprint/` to the root `.gitignore`, so the default `tickets.yaml` is
+  versioned with no hand edit. Only a custom `board.tickets_file` outside `.context/sprint/`
+  needs its own re-include line after `.context/*`; `bun run board:check` warns while the file is
+  still ignored.
 
 ### Changed (`bun sync` and `bun setup` are the command names)
 - **The updater is `bun sync`**, a new `sync` script. `up` stays as a hidden alias running the
