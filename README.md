@@ -79,7 +79,7 @@ These are **not optional** for the workflow — each one is required by a specif
 
 The list is `EXTERNAL_CLIS` in `cli/install.ts`: each entry names the skill that needs it, a cross-platform install hint when one exists, and the official docs URL. `bun setup` shows that table with a found / missing status per tool, and `bun run setup:doctor` re-checks it any time. Repo search (`rg`) is not on it: Claude Code bundles its own, OpenCode and Codex use the system binary (`brew install ripgrep` · `apt install ripgrep` · `winget install BurntSushi.ripgrep.MSVC`).
 
-The evidence page (`evidence-artifact` skill, `bun run evidence`) is built by a Python script: it needs **Python 3.9+** and **Pillow** (`python3 -m pip install pillow`). It is not on that list yet; `bun run evidence build` checks both first and names the one thing to install.
+The evidence page (`evidence-artifact` skill, `bun run evidence`) is built by a Python script: it needs **Python 3.9+** and **Pillow**. `python3` is on that list (on Windows `py` or `python` count), the `bun setup` preflight shows it as information, `bun run setup:doctor` checks the version and Pillow, and `bun run evidence build` checks both again before it builds. Pillow: `brew install pillow` on a Homebrew Python (it refuses a bare `pip install`, PEP 668), `py -m pip install pillow` on Windows, otherwise `python3 -m pip install pillow` or a venv. Orca is on the list too: `/sprint-conductor` runs only on it, every other skill works without it, and `setup:doctor` reports whether its runtime answers.
 
 ### Variables and MCP credentials (`.env` keys)
 

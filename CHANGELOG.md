@@ -16,6 +16,35 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Fixed (a new project commits, pushes and sees its prerequisites on day one)
+- **The hooks of a scaffolded project pass**: `vars:check` reads the `{}` placeholder catalogs as not
+  synced yet (one `CATALOG_NOT_SYNCED` warning instead of an UNKNOWN option error per shipped
+  reference); `skills:check` (STALE-PATH) and `docs:check` exempt the recorded ADRs the scaffolder
+  prunes, outside the boilerplate's own checkout only; `git:policy verify` warns and exits 0 with no
+  GitHub origin, and prints drift as warnings while `git_strategy.meta.strategy_source` is
+  `inherited` (a chosen strategy still blocks). Reaches existing projects through `bun sync`.
+- **Prerequisites named**: the `bun setup` preflight shows Python 3.9+ with Pillow as information,
+  `setup:doctor` reports the evidence builder and the Orca gate (binary and reachable runtime), and
+  the installer's tool table says Orca is required by `/sprint-conductor` and optional elsewhere. The
+  evidence builder finds `py` / `python` when there is no `python3`, and its Pillow hint names the
+  PEP 668 path (`brew install pillow`, a distro package, or a venv).
+- **The `board:` block from setup**: `bun setup` offers the suggested status buckets right after the
+  Jira catalog sync, and `bun run agents:setup` asks `board.jql` (default from the project key);
+  empty buckets are written as `[]`, and nothing is written unless `board:check` accepts the block.
+  A `{}` catalog or a yaml without a `board:` block gets one line saying what to do.
+- **No shell value reaches `.env` silently**: the installer asks before copying an MCP variable it
+  finds in the calling shell; an unattended run copies none and lists the names.
+- **Bare `bun test` is green downstream**: the tests that assert the maintainers' own files skip
+  outside the boilerplate checkout, and the setup fixture starts a downstream project from the blank
+  template.
+- Upgrade note: the shared `cli/preflight.ts` gained an optional `BRAND.prereqs` field; the sibling
+  boilerplate keeps working without it until the shared files are ported.
+
+### Changed — Scaffolder (prepared, not published)
+- `create-agentic-qa` prunes `.agents/jira-link-types.json` (the source site's ids), drops the ADR
+  Index rows of the decisions it prunes, and its `--inspect` manifest names Python/Pillow and the new
+  setup steps. Needs an npm release to reach `bunx create-agentic-qa`.
+
 ### Added (`/sprint-conductor`, the sprint QA conductor on Orca)
 - **`/sprint-conductor`**, a thin workflow skill that runs the sprint as a fleet of `/sprint-testing`
   workers watched from the Sprint Board: boot in seven steps (board, conductor-owned pre-flight, Run
