@@ -29,6 +29,7 @@ import {
   claudeSkillsAliasPlan,
   repairClaudeSkillsAlias,
 } from './lib/agent-compatibility.ts';
+import { isMaintainerCopy, isSchemaOwner } from './lib/agents-schema.ts';
 import { COMPONENTS, makeAgentCompatibilityHook } from './update-boilerplate.ts';
 
 const REPO_ROOT = resolve(import.meta.dir, '..');
@@ -80,6 +81,14 @@ function copyPath(root: string, relativePath: string): void {
 const HAS_CODEX = existsSync(join(REPO_ROOT, '.codex/hooks.json')) && existsSync(join(REPO_ROOT, '.codex/config.toml'));
 const HAS_CLAUDE = existsSync(join(REPO_ROOT, 'CLAUDE.md'));
 const HAS_ALL_HARNESSES = HAS_CODEX && existsSync(join(REPO_ROOT, 'opencode.jsonc')) && existsSync(join(REPO_ROOT, '.mcp.json'));
+/**
+ * The boilerplate's own checkout: the package name AND the maintainer sentinel
+ * (the same test `contractsEnforced` makes). A downstream project declares its
+ * own MCP servers, so an assertion on the boilerplate's exact set skips there.
+ */
+const yamlPath = join(REPO_ROOT, '.agents/project.yaml');
+const MAINTAINER_CHECKOUT = isSchemaOwner(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'))
+  && existsSync(yamlPath) && isMaintainerCopy(readFileSync(yamlPath, 'utf8'));
 
 function compatibilityFixture(): string {
   const root = temporaryRoot();
@@ -205,7 +214,7 @@ describe('installer Codex lifecycle', () => {
     });
   });
 
-  test.skipIf(!HAS_ALL_HARNESSES)('discovers the MCP environment contracts from the loader filter on every host, and exposes launch guidance', async () => {
+  test.skipIf(!HAS_ALL_HARNESSES || !MAINTAINER_CHECKOUT)('discovers the MCP environment contracts from the loader filter on every host, and exposes launch guidance', async () => {
     // Each server names what it reads in its `.env` loader's `--filter`, the
     // same list on all three hosts: the six DBHUB_* dbhub.toml interpolates,
     // the two SLACK_MCP_*, the OpenAPI pair. None is core scope (project or

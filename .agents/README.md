@@ -65,7 +65,7 @@ updater:
 ```
 
 - **When to list a path**: a synced file you merged by hand and want to keep across syncs. The parity row `project edit overwritten; backup: .backups/...` names exactly that situation and ends with the fix (`add the path to updater.protected_paths in .agents/project.yaml so the next sync keeps your merge`); the saved `parity-plan.md` repeats it under the row as the YAML to paste.
-- **Semantics**: identical to the upstream watchlist. Never overwritten (also under `--auto` and `--force`), delivered once from upstream when the file is missing locally, included in the sparse checkout so its upstream copy can be diffed, one drift row per upstream change (marker under `.template/upstream-sha/`).
+- **Semantics**: identical to the upstream watchlist. Never overwritten (also under `--auto` and `--force`), delivered once from upstream when the file is missing locally, included in the sparse checkout so its upstream copy can be diffed, one drift row per upstream change (marker under `.template/upstream-sha/`), except a path in `PATH_PREREQUISITES`, whose BLOCKING row repeats on every run until its gate passes.
 - **Validation**: a path outside the repo (absolute, `..`), under `.git`, a directory, or a non-string is reported at the start of the run (`updater.protected_paths (.agents/project.yaml): entrada ignorada "...": <reason>.`) and ignored; the run continues. Duplicates and paths already on the upstream watchlist are folded silently.
 - **Bootstrap-only**: `project.yaml` is never synced, so the list is entirely yours. The nested list is structured config read directly by the updater, so `vars:check` skips it (same carve-out as `git_strategy` and `qa.qa_epics`).
 

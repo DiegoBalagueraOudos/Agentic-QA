@@ -16,6 +16,29 @@ below names which one it applies to:
 
 ## Unreleased — Boilerplate
 
+### Fixed (a re-run of `bun sync` keeps the lock and the blocking rows honest)
+- **The lock's `templateCommit` reaches the upstream head after a partial-delta sync.** A
+  component with no delta at the new head now has its cursor moved too (`componentsWithoutDelta`),
+  so the top-level SHA advances once nothing is pending. Before, a sync that advanced 13
+  components left the 9 with nothing to sync at the old cursor, and `templateCommit` (and the
+  "project lock" line of every parity prompt) stayed releases behind. A re-run at the same head
+  repairs a lock left that way; a component with a pending delta, deselected or skipped, still
+  holds its cursor.
+- **A BLOCKING protected-file row stays until its arbiter passes.** The gate of every
+  `PATH_PREREQUISITES` entry that differs from upstream now runs on each sync (fail-closed: a gate
+  that cannot run counts as failing), and while it fails the row is printed whatever the
+  `.template/upstream-sha/` marker says, and is never seeded silently. Before, run 1 printed the
+  kept `.github/workflows/regression.yml` as BLOCKING and stamped its marker, and run 2 printed
+  nothing while `grep -q 'xray:payload'` still failed. A project whose marker is already stamped
+  gets the row back on its next sync.
+- **The last maintainer-only tests skip downstream.** The cases in `cli/lib/agents-schema.test.ts`
+  built on `generateSchema` of the real `.agents/project.yaml`, the exact MCP variable set in
+  `cli/agent-lifecycle.test.ts`, the exact hook layout in `cli/lib/updater-settings.test.ts` and
+  the shipped `.playwright/cli.config.json` shape in `cli/update-boilerplate.test.ts` now sit
+  behind the same maintainer-checkout test (package name AND sentinel) the other skipped tests
+  use. A synced project measured 31 failures in bare `bun test`; with these files it has none.
+  They still run, and pass, in the boilerplate's own checkout.
+
 ### Fixed (a new project commits, pushes and sees its prerequisites on day one)
 - **The hooks of a scaffolded project pass**: `vars:check` reads the `{}` placeholder catalogs as not
   synced yet (one `CATALOG_NOT_SYNCED` warning instead of an UNKNOWN option error per shipped
@@ -35,8 +58,8 @@ below names which one it applies to:
 - **No shell value reaches `.env` silently**: the installer asks before copying an MCP variable it
   finds in the calling shell; an unattended run copies none and lists the names.
 - **Bare `bun test` is green downstream**: the tests that assert the maintainers' own files skip
-  outside the boilerplate checkout, and the setup fixture starts a downstream project from the blank
-  template.
+  outside the boilerplate checkout (four files were still missed here; they are gated in the
+  section above), and the setup fixture starts a downstream project from the blank template.
 - Upgrade note: the shared `cli/preflight.ts` gained an optional `BRAND.prereqs` field; the sibling
   boilerplate keeps working without it until the shared files are ported.
 

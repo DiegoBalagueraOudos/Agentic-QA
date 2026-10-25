@@ -67,6 +67,8 @@ import {
   collectParityFindings,
   PARITY_PROMPT_PATH,
   persistArchivedSkillMarkers,
+  prerequisiteArbiterPasses,
+  prerequisiteFor,
   renderParityReport,
   RESOLVED_BY_APPLY_MARK,
   resolvedByApply,
@@ -1318,7 +1320,9 @@ async function resolveSkillFilter(skills: string[]): Promise<Component[]> {
 // "they differ" alone would fire every run. An entry fires ONLY when the
 // UPSTREAM content changed since the last advice, tracked per entry by a
 // content hash under `.template/upstream-sha/`. One nudge per upstream change,
-// never on dry-run (markers are not persisted there).
+// never on dry-run (markers are not persisted there). The one exception is a
+// BLOCKING entry (`PATH_PREREQUISITES`): it fires every run while its arbiter
+// gate fails, because its marker says "seen", never "resolved".
 //
 // `AGENTS.md` (formerly `CLAUDE.md`, promoted by the cross-harness migration)
 // keeps the legacy `claude-md.upstream.sha` marker path so repos that already
@@ -1624,8 +1628,15 @@ function makeParityHook(sink: ReportSink, priorLockSha: string, dryRun: boolean,
     // ANY first-advice entry whose upstream copy hasn't moved since the
     // project's own lock cursor, first-run noise on a migrated repo, not a
     // new upstream change to review.
+    // A BLOCKING entry (a release prerequisite) is re-judged by its arbiter
+    // gate on every run: while the gate fails, the row stays, whatever the
+    // marker says, and it is never seeded silently.
+    const arbiterFails = (entry: ProtectedWatchEntry): boolean => {
+      const prerequisite = prerequisiteFor(entry.path);
+      return prerequisite !== null && !prerequisiteArbiterPasses(prerequisite, cwd);
+    };
     const { advised: drifted, seeded, seededNoUpstreamChange } = splitFirstProjectAdvice(
-      detectProtectedDrift(watchlist, UPSTREAM_DIR, cwd),
+      detectProtectedDrift(watchlist, UPSTREAM_DIR, cwd, arbiterFails),
       { tempDir: UPSTREAM_DIR, lockCursor: priorLockSha || null },
     );
     // Markers FIRST: one nudge per upstream change even if the user ignores

@@ -471,6 +471,26 @@ export function prerequisiteClause(prerequisite: PathPrerequisite): string {
   return `PREREQUISITE for this release: ${prerequisite.requiredBy}; keeping the project copy as-is fails \`${prerequisite.gate}\` (run it: it is the arbiter, and it passes if your copy already carries the hunk)`;
 }
 
+/** Ceiling for one arbiter run; a gate that hangs counts as failing, so the row stays. */
+const ARBITER_TIMEOUT_MS = 120_000;
+
+/**
+ * Run a prerequisite's gate in `cwd` and report whether it passes (exit 0).
+ * The gates are the fixed commands of `PATH_PREREQUISITES`, never user input.
+ * Fail-closed: a gate that cannot start, times out or exits non-zero is a
+ * failing arbiter, so the BLOCKING row is kept rather than dropped.
+ *
+ * Why it runs every sync: the upstream-sha marker records "upstream seen", not
+ * "project resolved". Live finding: run 1 printed the BLOCKING row for a kept
+ * `.github/workflows/regression.yml` and stamped its marker; run 2, with the
+ * same failing `grep -q 'xray:payload'`, printed no row at all, and the only
+ * pointer to a release prerequisite was gone (see `detectProtectedDrift`).
+ */
+export function prerequisiteArbiterPasses(prerequisite: PathPrerequisite, cwd: string): boolean {
+  const res = spawnSync(prerequisite.gate, { cwd, shell: true, stdio: 'ignore', timeout: ARBITER_TIMEOUT_MS });
+  return res.error === undefined && res.status === 0;
+}
+
 /** Runners whose next non-flag argument is a file they execute. */
 const SCRIPT_RUNNERS = new Set(['bun', 'node', 'tsx']);
 

@@ -1,9 +1,10 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { CLAUDE_DOC_CONTRACTS_COMMAND, CLAUDE_HOOK_COMMAND, validateHookCompatibility } from './agent-compatibility-contracts.ts';
+import { isMaintainerCopy, isSchemaOwner } from './agents-schema.ts';
 import { applyPermissionListMerge, CLAUDE_SETTINGS_FILE, formatHookCommand, mergeHookGroups, mergePermissionLists, OPENCODE_SETTINGS_FILE, opencodeDenyGap, parseJsonKeepingDuplicates, readDeclinedDenies, readDeclinedHooks } from './updater-settings';
 
 const temporaryRoots: string[] = [];
@@ -358,6 +359,15 @@ function downstreamProject(hooks: Record<string, unknown> = {
   return root;
 }
 
+/**
+ * The boilerplate's own checkout: the package name AND the maintainer sentinel
+ * (the same test `contractsEnforced` makes). Downstream, `REPO_ROOT`'s settings
+ * file is the project's own, so a case that pins upstream's exact hook layout skips.
+ */
+const yamlPath = join(REPO_ROOT, '.agents/project.yaml');
+const MAINTAINER_CHECKOUT = isSchemaOwner(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'))
+  && existsSync(yamlPath) && isMaintainerCopy(readFileSync(yamlPath, 'utf8'));
+
 /** The boilerplate's own settings file is the upstream every downstream merges from. */
 function upstreamDir(): string {
   const upstream = temporaryRoot();
@@ -442,7 +452,7 @@ describe('the Claude hook groups merge additively', () => {
     expect(mergeHookGroups(root, upstream).added).toEqual([]);
   });
 
-  test('an absent hooks object is created; one of another shape is left alone', () => {
+  test.skipIf(!MAINTAINER_CHECKOUT)('an absent hooks object is created; one of another shape is left alone', () => {
     const upstream = upstreamDir();
     const root = temporaryRoot();
     write(root, '.agents/hooks/personality-reinject.mjs', '');
