@@ -302,7 +302,8 @@ ${colors.bold}TRACEABILITY${colors.reset}
                      is invisible per Story and only reads as a pattern in a sweep.
 
 ${colors.bold}IMPORT RESULTS${colors.reset}
-  import junit       Import JUnit XML results
+  import junit       Import JUnit XML results. Refused when any testcase has
+                     no test_key / test_id property (Xray would create a Test)
                      --file <path>      XML file path (required)
                      --project <key>    Project key
                      --plan <key>       Test plan key
@@ -312,7 +313,8 @@ ${colors.bold}IMPORT RESULTS${colors.reset}
                      --file <path>      JSON file path (required)
                      --project <key>    Project key
 
-  import xray        Import Xray JSON format
+  import xray        Import Xray JSON format. Refused when any entry carries
+                     testInfo or has no testKey (Xray would create a Test)
                      --file <path>      JSON file path (required)
 
 ${colors.bold}BACKUP & RESTORE${colors.reset}

@@ -17,6 +17,7 @@
 import type { AtcResult } from '@utils/decorators';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildXrayTests } from '@utils/xrayResults';
 import { config, env } from '@variables';
 
 // ============================================
@@ -231,24 +232,9 @@ async function syncToXray(results: Record<string, AtcResult[]>): Promise<SyncRes
 
     const token = await authResponse.json();
 
-    const tests: XrayTestExecution[] = [];
-
-    for (const [testId, executions] of Object.entries(results)) {
-      const finalStatus = executions.every(e => e.status === 'PASS') ? 'PASSED' : 'FAILED';
-      const lastExecution = executions[executions.length - 1];
-
-      tests.push({
-        testKey: testId,
-        status: finalStatus,
-        comment:
-          `KATA ATC: ${lastExecution.methodName}\n`
-          + `Executions: ${executions.length}\n`
-          + `Duration: ${lastExecution.duration}ms\n`
-          + `Last run: ${lastExecution.executedAt}\n${
-            lastExecution.error !== null ? `\nError:\n${lastExecution.error}` : ''
-          }`,
-      });
-    }
+    // One entry per ATC, `testKey` only: no `testInfo`, so Xray cannot create a
+    // Test from this import (tests/utils/xrayResults.ts, shared with CI).
+    const tests: XrayTestExecution[] = buildXrayTests(results);
 
     // Preferred path: write onto an Execution that already exists in Jira. That
     // item is the RTR /regression-testing created for this run (or the
