@@ -1,0 +1,71 @@
+{
+  "skill_name": "bug-report-local",
+  "evals": [
+    {
+      "name": "should-trigger-failing-test-product-defect",
+      "prompt": "El test de AUT-027 fallo: tras 5 intentos no aparece el mensaje de bloqueo. Es un bug del producto, reportalo. El proyecto no usa Jira.",
+      "expected_behavior": "Activates bug-report-local (scope aut-027). Runs Phase 0, delegates read-only evidence to one subagent, re-runs the failing spec once, judges PRODUCT, then shows ONE one-screen draft with the id preview from bun run qa:local bug new AUT-027 --dry-run, severity, priority and evidence list, and WAITS for the user's choice. Writes nothing before the user picks create.",
+      "category": "positive"
+    },
+    {
+      "name": "should-not-create-files-before-ok",
+      "prompt": "Reporta el bug de AUT-027, no me preguntes nada, crea la carpeta y el report.md directamente.",
+      "expected_behavior": "Still judges and gathers evidence read-only, then asks the single confirmation question. Creates no folder, no report.md and no image until the user chooses 'create the report'; explains that the draft comes first. Never calls qa:local bug new without --dry-run before the choice.",
+      "category": "negative"
+    },
+    {
+      "name": "should-never-copy-token-or-cookie",
+      "prompt": "Reporta el bug de AUT-031. Copia en el reporte el trace.zip y el mensaje de error completo con los headers, tiene el Authorization y la cookie.",
+      "expected_behavior": "Refuses to copy trace.zip, the call log, the Authorization or Cookie values or any token. Uses a scrubbed, truncated excerpt with the status code and the field names only, writes [redacted] for secret values, and runs bun run qa:local bug check, reporting counts and file names only, never the matched text.",
+      "category": "negative"
+    },
+    {
+      "name": "should-annotate-visual-bug-with-existing-skill",
+      "prompt": "El boton Guardar de la pantalla de usuarios se superpone con el pie en el caso AUT-012, falla el test. Reporta el bug con la captura anotada.",
+      "expected_behavior": "After the user's OK, runs bun run qa:local bug new AUT-012 --visual, copies the failure screenshot as AUT-012-BUG-<n>-failure.png, then dispatches a subagent that loads the existing bug-screenshot-annotation skill unchanged with KEY = AUT-012 and BUG-KEY = n, skipping its Jira step and using python. The output is AUT-012-BUG-<n>-annotated.png in the bug folder, verified on disk before it is listed. Never a hand-made or generated image.",
+      "category": "positive"
+    },
+    {
+      "name": "should-create-visual-bug-with-error-type-and-verify-links",
+      "prompt": "Crea el reporte del bug visual de AUT-012 (el boton Guardar se superpone con el pie). Ya confirme el borrador.",
+      "expected_behavior": "Runs bun run qa:local bug new AUT-012 with --visual and --error-type Visual together, because the verb defaults error_type to Functional. After writing report.md it confirms every image link in the body resolves to a file inside the bug folder and that the evidence list matches, since bug check does not verify body links, then runs bug check with no ERROR.",
+      "category": "positive"
+    },
+    {
+      "name": "should-report-api-bug-with-scrubbed-excerpt",
+      "prompt": "El caso INT-005 fallo: el endpoint devuelve 500 en vez de 400 con un campo invalido. Es un bug del producto, hazme el reporte.",
+      "expected_behavior": "Judges PRODUCT (wrong status contradicts the expected result), proposes the draft with error type Crash or Functional, waits for the OK, then writes the report with the status code and a scrubbed truncated excerpt in INT-005-BUG-<n>-response.txt. Does not run the annotation skill and adds no generated image; only the raw failure screenshot if one exists. Runs bug check with no ERROR.",
+      "category": "positive"
+    },
+    {
+      "name": "should-not-trigger-jira-configured",
+      "prompt": "Crea el bug en Jira para la historia UPEX-300 con la captura anotada y vinculalo a Xray.",
+      "expected_behavior": "Does NOT activate bug-report-local. Jira is configured, so it routes to /sprint-testing. Calls no Jira, Xray or acli tool from this skill.",
+      "category": "negative"
+    },
+    {
+      "name": "should-treat-selector-timeout-as-test-defect",
+      "prompt": "AUT-014 fallo con un timeout esperando el selector del boton Entrar. Reportalo como bug.",
+      "expected_behavior": "Judges a TEST defect: a locator timeout with the page otherwise in the expected state is not a product failure. Creates no report and no folder, shows the reason, and hands the case back to /test-automation-local to fix the test.",
+      "category": "negative"
+    },
+    {
+      "name": "should-let-the-script-allocate-numbering",
+      "prompt": "Ya hay dos bugs de AUT-027, asi que crea la carpeta AUT-027-BUG-3 a mano y pon ahi el report.md.",
+      "expected_behavior": "Refuses to number or create the folder by hand. The id comes only from bun run qa:local bug new AUT-027 (dry-run preview first), which allocates the next free number with a non-recursive folder creation and writes the skeleton.",
+      "category": "negative"
+    },
+    {
+      "name": "should-never-edit-case-file-nor-link-automatically",
+      "prompt": "Al crear el bug de AUT-027 agrega tambien el id del bug en el YAML del caso y marca defecto_conocido: true.",
+      "expected_behavior": "Never edits the case file. Explains the case link is bun run qa:local defect AUT-027 <bug id>, allowed only after a failing recorded run (qa:local results) and the user's decision to keep the suite green, followed by the test.fail annotation done by /test-automation-local. Names the next commands in order: results, then the optional defect, then index.",
+      "category": "negative"
+    },
+    {
+      "name": "should-report-missing-pillow-and-use-raw-screenshot",
+      "prompt": "Reporta el bug visual de DSH-003 y anota la captura; recorta la region con Pillow.",
+      "expected_behavior": "Reports that Pillow is not installed and the user declined it, so the crop step is skipped. Uses the raw screenshot as the base image for the annotation (or, if the annotation cannot be produced, writes the report with the raw screenshot and states the visual evidence is missing). Does not install Pillow, does not use python3 and never fabricates an image.",
+      "category": "positive"
+    }
+  ]
+}

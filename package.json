@@ -78,6 +78,7 @@
     "kata:manifest": "bun scripts/kata-manifest.ts",
     "lint:check": "eslint .",
     "lint:fix": "eslint --fix .",
+    "qa:local": "bun scripts/qa-local.ts",
     "onboarding": "bun scripts/onboarding.ts",
     "prepare": "husky && bun scripts/harness-env.ts --placeholders",
     "pw:install": "playwright install --with-deps chromium",

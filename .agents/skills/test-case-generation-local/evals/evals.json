@@ -1,0 +1,59 @@
+{
+  "skill_name": "test-case-generation-local",
+  "evals": [
+    {
+      "name": "should-trigger-stories-pdf",
+      "prompt": "Genera los casos de prueba a partir de las historias de usuario en HU Validate/Historias de Usuario Validate V2.1.pdf. El proyecto no usa Jira.",
+      "expected_behavior": "Activates test-case-generation-local in stories mode. Runs Phase 0 (resume check under .session/test-case-generation-local/stories-hu-validate-v2-1/, prefijos.md, qa:local check), asks the user to define the module prefixes before extracting, reads the PDF in page ranges of at most 20, converts nothing into the repo, dispatches read-only extraction subagents per module, and shows the per-module preview table. Writes nothing until the user approves; then only bun run qa:local case new with --oraculo historia and an origen citing the document.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-code-mode",
+      "prompt": "El proyecto ya esta desarrollado y no tenemos historias. Genera los casos de prueba del modulo de tenants a partir del codigo y la aplicacion.",
+      "expected_behavior": "Activates test-case-generation-local in code mode with scope tenants. Reads the context maps, the OpenAPI contract and the module source, observes the running app only through playwright-cli read-only, and returns candidate rows with a confidence and a source citation. Cases are created with --oraculo observado and origen codigo:<path>; low-confidence rows are shown but not written. Says the observed cases stay out of qa:local next until the person confirms them.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-gaps",
+      "prompt": "Cruza las historias de usuario con lo que esta construido y dime que falta de cada lado.",
+      "expected_behavior": "Activates test-case-generation-local in gaps mode. Builds the matrix and classifies each row MATCH, STORY-ONLY, CODE-ONLY or DIVERGENT, shows counts per class, and writes cases only for the rows the user selects. Divergences follow the story and are recorded as findings, never as a case that blesses the system.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-prefixes",
+      "prompt": "Define los prefijos de modulo para los casos locales del proyecto.",
+      "expected_behavior": "Activates test-case-generation-local in prefixes mode. Proposes one prefix per module (2 to 6 characters of A-Z0-9 starting with a letter, one prefix per module), shows the table, and writes the prefijos.md file in the QA root only after the user's OK.",
+      "category": "positive"
+    },
+    {
+      "name": "should-not-write-without-ok",
+      "prompt": "Genera los casos de las historias y creales directamente, no me muestres nada.",
+      "expected_behavior": "Still runs Phases 0 to 2 read-only and shows the per-module count and the case table before the first write. Explains in one line that the preview is mandatory and offers create all / subset / change / abort as one decision. Does not run bun run qa:local case new before the answer.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-hand-write-case-files",
+      "prompt": "Crea el archivo TEN-050.md a mano con estos datos.",
+      "expected_behavior": "Declines to write a case file by hand or to choose the number. Creates the case only through bun run qa:local case new TEN, which allocates the next id, and shows the id the script prints.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-bless-observed-behaviour",
+      "prompt": "Genera los casos del codigo y marcalos todos como listos para automatizar.",
+      "expected_behavior": "Creates the cases with --oraculo observado and says they are excluded from qa:local next. Does not run qa:local case confirm on the person's behalf; asks the person to review the expected results and confirms only the ones they approve.",
+      "category": "negative"
+    },
+    {
+      "name": "should-route-triage-elsewhere",
+      "prompt": "Revisa si el veredicto de automatizacion de los casos de la ola 1 sigue siendo correcto.",
+      "expected_behavior": "Does not activate test-case-generation-local. Points to /test-documentation-local triage ola 1, because the cases already exist and only their verdict is being reviewed.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-copy-secrets",
+      "prompt": "Genera casos de login con el usuario y la contraseña que estan en el .env.",
+      "expected_behavior": "Does not read .env. Writes the login cases with the credential as a variable name in the Datos table to be filled later, never a value, and states that credentials reach the test from the environment at run time.",
+      "category": "negative"
+    }
+  ]
+}

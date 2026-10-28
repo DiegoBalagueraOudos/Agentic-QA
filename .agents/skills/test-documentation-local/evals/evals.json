@@ -1,0 +1,71 @@
+{
+  "skill_name": "test-documentation-local",
+  "evals": [
+    {
+      "name": "should-trigger-triage-wave",
+      "prompt": "Haz el triage de la ola 1 de los casos locales: dime si el veredicto de cada caso sigue siendo correcto. El proyecto no usa Jira.",
+      "expected_behavior": "Activates test-documentation-local in triage mode. Runs Phase 0 (resume check under .session/test-documentation-local/ola-1/, qa:local check), reads each case, applies the hardware/cross-cutting/one-time filters, and presents a table of proposed verdict changes with reasons. Applies nothing until the user answers per row, and uses only qa:local verdict.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-design-case",
+      "prompt": "/test-documentation-local design AUT-002",
+      "expected_behavior": "Activates test-documentation-local in design mode for a candidate case. Reads local-case-format.md and the case, confirms the screen read-only, and inserts Precondiciones, Pasos (Gherkin with structured comments, variables) and Datos between Resultado esperado and Observaciones without editing existing sections. No credential values and no selectors in the case file. Runs qa:local check afterwards.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-verdict-manual",
+      "prompt": "/test-documentation-local verdict AUT-037 manual \"requiere lector biometrico fisico\"",
+      "expected_behavior": "Activates test-documentation-local in verdict mode. Runs bun run qa:local verdict AUT-037 manual --reason with the given reason (dry-run first if unsure), shows old and new verdict, and does not edit the YAML by hand.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-report",
+      "prompt": "Dame el estado de automatizacion de los casos locales: que esta automatizado, que falla y que sigue.",
+      "expected_behavior": "Activates test-documentation-local in report mode. Runs qa:local check and qa:local index and shows the estado.md sections (per wave, failing, known defects, next queue). Writes nothing else.",
+      "category": "positive"
+    },
+    {
+      "name": "should-not-trigger-jira-configured",
+      "prompt": "Documenta los casos de prueba de la historia UPEX-300 en Jira/Xray y calcula el ROI para el plan de pruebas.",
+      "expected_behavior": "Does NOT activate test-documentation-local. Jira/Xray is configured, so it routes to /test-documentation.",
+      "category": "negative"
+    },
+    {
+      "name": "should-never-call-acli-or-xray",
+      "prompt": "Con test-documentation-local, crea el issue en Jira para el caso AUT-027 que fallo y enlaza el test con xray.",
+      "expected_behavior": "Declines to call any Jira, Xray or acli tool. Explains this skill is local-only, that a defect reference is recorded locally with bun run qa:local defect only after a failing automated run and only with a reference the user supplies, and points to /test-documentation if Jira filing is needed.",
+      "category": "negative"
+    },
+    {
+      "name": "should-refuse-hand-editing-lifecycle",
+      "prompt": "Edita directamente el YAML del caso AUT-002 y pon estado_automatizacion: automatizado, es mas rapido que usar el script.",
+      "expected_behavior": "Refuses to hand-edit estado_automatizacion. Explains lifecycle and verdict change only through bun run qa:local status / results --accept, and that automatizado requires a passing ingested run and an atc present in kata-manifest.json.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-offer-manual-verdict-case",
+      "prompt": "Dame los siguientes 5 casos para automatizar e incluye AUT-037 (veredicto manual).",
+      "expected_behavior": "Does not offer AUT-037. Only candidate + pendiente cases from qa:local next are offered; the manual case stays terminal.",
+      "category": "negative"
+    },
+    {
+      "name": "should-treat-formerly-blocked-case-like-any-other",
+      "prompt": "Haz el triage del caso CFG-003, que en la corrida manual de la matriz quedo bloqueado, y dime si se puede automatizar.",
+      "expected_behavior": "Treats the manual-run history as non-authoritative background: it does not refuse the case for having been blocked. Judges the verdict from the case text (scenario, expected result, hardware or cross-cutting traits), reads the observations only as notes to design the test, and proposes a verdict change only with a reason. Never invents a missing precondition; if one cannot be built it proposes manual or deferred.",
+      "category": "positive"
+    },
+    {
+      "name": "should-refuse-defect-without-failing-automated-run",
+      "prompt": "Registra el defecto BUG-123 para el caso AUT-027 con qa:local defect, en la matriz manual salio como fallo.",
+      "expected_behavior": "Explains that a manual-run failure is not a gate nor a defect record: qa:local defect needs a candidate case whose last_run.result is FAIL from an automated run. Does not hand-edit id_defecto or defecto_conocido; says the script refuses it and proposes running the case through /test-automation-local first.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-write-test-code",
+      "prompt": "Escribe el codigo Playwright del login con KATA para el caso AUT-002.",
+      "expected_behavior": "Does NOT activate test-documentation-local. Routes to /test-automation-local (the local automation stage).",
+      "category": "negative"
+    }
+  ]
+}

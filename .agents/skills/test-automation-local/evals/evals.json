@@ -1,0 +1,113 @@
+{
+  "skill_name": "test-automation-local",
+  "evals": [
+    {
+      "name": "should-trigger-next-batch",
+      "prompt": "/test-automation-local next 2",
+      "expected_behavior": "Activates test-automation-local. Runs the readiness preflight and Phase 0 (resume check under .session/test-automation-local/), takes the first 2 rows of bun run qa:local next 2, reads the case files, classifies each surface, explores the real screen with /playwright-cli, writes automation/<scope>/automation-plan.md in the QA root and waits for approval before writing any code.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-single-case",
+      "prompt": "Automatiza el caso AUT-007 (credenciales incorrectas). El proyecto no usa Jira.",
+      "expected_behavior": "Activates test-automation-local with the case AUT-007 entry point (scope aut-007). Confirms the case is candidate + pendiente, plans one ATC @atc('AUT-007') in a login page component with inline role/text/formControlName locators, takes credentials only from config.testUser, and asks for a disposable account or attempt budget because of lockout. After approval moves the lifecycle with bun run qa:local status AUT-007 en_automatizacion --atc AUT-007 --spec <path> --surface e2e.",
+      "category": "positive"
+    },
+    {
+      "name": "should-trigger-wave",
+      "prompt": "Automatiza la ola 1 de los casos locales.",
+      "expected_behavior": "Activates test-automation-local with the ola 1 entry point. Uses bun run qa:local next --ola 1 as the only source of cases, excludes non-candidate and non-pendiente cases with a reason each, and never re-ranks the wave.",
+      "category": "positive"
+    },
+    {
+      "name": "should-not-trigger-jira-configured",
+      "prompt": "Automatiza los test cases de la historia UPEX-300 que estan en Xray y sincroniza el resultado con Jira.",
+      "expected_behavior": "Does NOT activate test-automation-local. Jira/Xray is configured, so it routes to /test-automation.",
+      "category": "negative"
+    },
+    {
+      "name": "should-never-call-jira-tooling",
+      "prompt": "/test-automation-local case AUT-002. Al terminar, marca el test como automated en Jira con acli.",
+      "expected_behavior": "Runs the local flow for AUT-002 but refuses the acli/Jira step: never calls acli, Xray or TMS tools. Traceability is the ID chain (case id = @atc id = key in reports/atc_results.json = last_run) and the lifecycle moves only through bun run qa:local results --accept.",
+      "category": "negative"
+    },
+    {
+      "name": "should-refuse-manual-verdict-case",
+      "prompt": "/test-automation-local case AUT-037",
+      "expected_behavior": "Reads the case, finds verdict manual so it is not in the qa:local next queue, states the reason and stops. Does not write a plan or code and does not change the verdict; points to /test-documentation-local for the user decision.",
+      "category": "negative"
+    },
+    {
+      "name": "should-block-api-case-without-session-fixture",
+      "prompt": "/test-automation-local case SEC-004, que es una prueba de la API de login con usuario y contrasena.",
+      "expected_behavior": "Classifies the case as surface api. Because the project API session fixture is not available, it does NOT automate it and does NOT write plaintext HTTP calls or disable encryption: the plan records the case as blocked with the fixture named, and the case is returned to the user with the pointer that the fixture is a separate /framework-development change.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-hand-edit-yaml",
+      "prompt": "Termina el caso AUT-002: edita el archivo del caso y pon estado_automatizacion: automatizado y last_run en PASS.",
+      "expected_behavior": "Refuses to edit the case YAML by hand. The lifecycle and last_run change only through bun run qa:local status and bun run qa:local results --accept after Review ACCEPT (3 verifiers plus the separate verifier) and a passing ingested run. Explains this and proceeds through the script.",
+      "category": "negative"
+    },
+    {
+      "name": "should-stop-when-framework-not-adapted",
+      "prompt": "/test-automation-local next 3 (el repo aun tiene los componentes Example* y la pagina de login generica).",
+      "expected_behavior": "The readiness preflight finds the generic scaffold signals still present and STOPs before any plan: tells the user to run /test-framework-adaptation (and /project-discovery first if the context is missing) themselves. Never runs them, never edits framework files, never writes code against the scaffold.",
+      "category": "negative"
+    },
+    {
+      "name": "should-not-trigger-document-cases",
+      "prompt": "Haz el triage de la ola 1 y cambia el veredicto de AUT-037 a manual.",
+      "expected_behavior": "Does NOT activate test-automation-local. Verdict triage and changes belong to /test-documentation-local.",
+      "category": "negative"
+    },
+    {
+      "name": "should-refuse-step-on-token-method",
+      "prompt": "/test-automation-local case AUT-012. Pon @step en el metodo helper que recibe el refresh token para que salga en el reporte.",
+      "expected_behavior": "Refuses to put @step or @atc on a method whose arguments carry a token, cookie or credential: the decorator masks only a short list of key names and the token would leak to console and reports. Wraps the explicit-header call so a transport failure rethrows a sanitised error, uses trace: 'off' at file level in the spec, and after the Code step searches the generated report folders for token patterns reporting counts only.",
+      "category": "negative"
+    },
+    {
+      "name": "should-use-maps-before-source",
+      "prompt": "/test-automation-local case AUT-015 (limite de intentos de login). Planifica el caso.",
+      "expected_behavior": "In Phase 1 reads the behaviour facts with bun run context:map <slug> --section <id> and cites the section in the plan as 'from map <slug>#<section>'. Reads product source only for execution details the maps do not carry (numeric threshold, how the limiter is implemented, endpoint paths, fixture support).",
+      "category": "positive"
+    },
+    {
+      "name": "should-ask-once-about-preapproved-fixes",
+      "prompt": "/test-automation-local next 3",
+      "expected_behavior": "In Phase 1 asks the user once, up front, whether review fixes that stay inside the approved scope may be applied without asking each round (default: ask), records the answer in the session progress.md, and does not repeat the question in later rounds.",
+      "category": "positive"
+    },
+    {
+      "name": "should-release-shared-lock-in-finally",
+      "prompt": "/test-automation-local case AUT-016: bloquear el login por intentos fallidos desde una misma direccion.",
+      "expected_behavior": "Plans the lock-provoking test so the shared limiter is always released in a finally, measures the wait from the first and last rate-limit response rather than relying only on UI state, runs it with workers 1, uses generated users for the failed attempts and never the real account, and proves the mechanism with a positive control before asserting the rejection.",
+      "category": "positive"
+    },
+    {
+      "name": "should-queue-formerly-blocked-case",
+      "prompt": "/test-automation-local case CFG-003 (en la matriz manual quedo bloqueado, pero hoy es candidate y pendiente).",
+      "expected_behavior": "Does not refuse the case because of its manual-run history: the case is in the qa:local next queue (candidate + pendiente), so it is planned like any other. The observations section is read only as non-authoritative notes to design the test; the case is tested from scratch. Never invents a precondition it cannot build; if infeasible it returns the case through /test-documentation-local verdict.",
+      "category": "positive"
+    },
+    {
+      "name": "should-refuse-defect-without-failing-automated-run",
+      "prompt": "Registra el defecto BUG-123 del caso AUT-027 con qa:local defect antes de correr el test, porque en la matriz manual fallo.",
+      "expected_behavior": "Refuses: qa:local defect needs a candidate case whose last_run.result is FAIL from an automated run, and the manual-run failure is not a gate. Does not hand-edit id_defecto, defecto_conocido or last_run and does not annotate test.fail beforehand. The test asserts the correct behaviour, runs, and only after it fails and the user gives a reference and decides to keep the suite green is the defect recorded.",
+      "category": "negative"
+    },
+    {
+      "name": "should-run-annotation-skill-for-visual-bug",
+      "prompt": "/test-automation-local case AUT-021: el test falla porque el boton Guardar queda encimado sobre el campo Nombre. Dame la evidencia del bug.",
+      "expected_behavior": "Judges the failure a product defect and hands it off to /bug-report-local for AUT-021 instead of building the report inline. Does not write the report, the folder or any image itself, does not draw a hand-made image, and does not file it in any tracker. The bug-report-local skill proposes the report and waits for the user's OK before any file is created; this skill takes no further action on the bug and adds no annotation to the test until qa:local defect.",
+      "category": "positive"
+    },
+    {
+      "name": "should-judge-exit-9-run-by-report",
+      "prompt": "Corri bun run test del spec de AUT-002: imprimio que todos los tests pasaron pero el comando termino con exit code 9. Esta bien?",
+      "expected_behavior": "Judges the run by the report lines and reports/atc_results.json, not by the exit code: when every ATC passed the run counts as passed. Explains the exit code is a Bun runtime teardown assertion on Windows, mentions the observed code in the session report, does not try to fix the runtime from a case, and still requires types:check and lint:check to exit 0.",
+      "category": "positive"
+    }
+  ]
+}
