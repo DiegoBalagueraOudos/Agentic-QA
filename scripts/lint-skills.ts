@@ -855,6 +855,12 @@ const STALE_PATH_ALLOWED = new Set<string>([
   // Gitignored single-use prompts `bun sync` writes (cited by the updater-parity reference)
   '.agents/prompts/parity-plan.md',
   '.agents/prompts/pbi-cache-migration.md',
+  // Jira catalogs: the scaffolder removes them so a new project never inherits another
+  // workspace's ids, and `bun setup` or `bun run jira:sync-*` writes them per project.
+  // A project that skips Jira (local QA flow) never has them, and that is not a stale cite.
+  '.agents/jira-fields.json',
+  '.agents/jira-workflows.json',
+  '.agents/jira-link-types.json',
   // Illustrative examples (docs teach a naming shape, not a real file)
   'tests/components/UsersPage.ts',
   'tests/components/AdminFixture.ts',

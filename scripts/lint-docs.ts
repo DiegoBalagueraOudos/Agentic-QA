@@ -145,6 +145,10 @@ export function lintDocMeta(rel: string, html: string): DocFinding[] {
  */
 export const OPTIONAL_PATHS = new Set<string>([
   '.agents/compatibility/command-aliases.project.json',
+  // Jira catalogs: removed by the scaffolder, written per project by `bun setup` or `bun run jira:sync-*`.
+  '.agents/jira-fields.json',
+  '.agents/jira-workflows.json',
+  '.agents/jira-link-types.json',
 ]);
 
 /**
