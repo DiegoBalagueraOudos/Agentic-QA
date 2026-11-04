@@ -49,6 +49,7 @@ storage-state-*.json
 # ===== Custom Reports =====
 /reports/
 /qa-wiki/
+/qa-wiki.local.json
 /share-reports/
 *.json.bak
 

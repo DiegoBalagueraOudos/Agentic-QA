@@ -1,6 +1,6 @@
 ---
 name: bug-report-local
-description: "Local-files variant (no Jira, no Xray) of the bug-reporting step. When an automated test fails and the failure is judged a PRODUCT defect, judges it (product vs test vs environment), gathers read-only evidence, proposes ONE one-screen draft, waits for the user's OK, and only then writes the complete report (report.md plus images) in a per-bug folder of the bugs area of the QA root, through `bun run qa:local bug`. Visual or positional bugs run the existing bug-screenshot-annotation skill unchanged. Use for: reportar bug, bug de producto, informe de bug, reporta este bug para AUT-027, a failing automated test judged a product defect, report this bug for AUT-027, write the bug report of a failing case. Do NOT use when Jira is configured -> /sprint-testing. Do NOT use only to annotate a screenshot -> /bug-screenshot-annotation. Do NOT use to fix or rewrite a failing test -> /test-automation-local."
+description: "Local-files variant (no Jira, no Xray) of the bug-reporting step. When an automated test fails and the failure is judged a PRODUCT defect, judges it (product vs test vs environment), gathers read-only evidence, proposes ONE one-screen draft, waits for the user's OK, and only then writes the complete report (report.md plus images) in a per-bug folder of the bugs area of the QA root, through `bun run qa:local bug`. Every bug found by a browser (screen) test runs the existing bug-screenshot-annotation skill unchanged and carries ONE image, the annotated screenshot. Use for: reportar bug, bug de producto, informe de bug, reporta este bug para AUT-027, a failing automated test judged a product defect, report this bug for AUT-027, write the bug report of a failing case. Do NOT use when Jira is configured -> /sprint-testing. Do NOT use only to annotate a screenshot -> /bug-screenshot-annotation. Do NOT use to fix or rewrite a failing test -> /test-automation-local."
 license: MIT
 compatibility: [claude-code, codex, opencode]
 metadata:
@@ -14,9 +14,9 @@ compact_rules: |
   - Judge before proposing: a selector, timeout, data or precondition failure is a TEST defect (no report); a connection or gateway failure is ENVIRONMENT (no report); only a reproduced failure that contradicts the case's expected result is a PRODUCT candidate.
   - The bug id `<case id>-BUG-<n>` is allocated ONLY by `bun run qa:local bug new`. Never count folders or invent a number by hand.
   - Never copy a trace, `.zip`, `.har`, video or `.env`, nor a cookie, `Authorization` / `Set-Cookie` / `Cookie` value, token, password or the Playwright call log of an error message. API evidence is a scrubbed, truncated excerpt, never a full body.
-  - A visual or positional bug runs the existing `bug-screenshot-annotation` skill unchanged (KEY = the case id, BUG-KEY = n, its Jira embed step skipped, `python` never `python3`, intermediates in the session scratchpad). A non-visual bug gets no image. Never a hand-made or generated image.
-  - Pillow is not installed and the user declined it: the annotation crop is optional; the raw screenshot is the base image; if the visual evidence cannot be produced, write the report with the raw screenshot and say so.
-  - List an evidence file in the report only after verifying it on disk. Copy the failure screenshot, never move it.
+  - Every bug found by a browser (screen) test runs the existing `bug-screenshot-annotation` skill unchanged (KEY = the case id, BUG-KEY = n, its Jira embed step skipped, `python` never `python3`, intermediates in the session scratchpad). The report carries ONE image, `<case id>-BUG-<n>-annotated.png`; the raw failure screenshot is only the base of the annotation and is NOT copied into the bug folder. A bug with no screen (an API test) has no image, only the scrubbed excerpt. Never a hand-made or generated image.
+  - Pillow is not installed and the user declined it: the annotation crop is optional; the raw screenshot is the base image; if the annotation cannot be produced, keep the raw failure screenshot as the single image and say so in `## Evidencia`.
+  - List an evidence file in the report only after verifying it on disk. `## Evidencia` is ONE line, a link `- [Captura anotada](<file>): <description>`; never an embedded `![...]` image and never two captures of the same failure.
   - Every `qa:local bug` write is done inline by the orchestrator. The skill never edits a case file; the case link is `qa:local defect <case id> <bug id>` only after a failing recorded run and the user's decision.
 ---
 
@@ -26,7 +26,7 @@ compact_rules: |
 
 # Bug Report Local — Judge, Evidence, Confirm, Write
 
-Turn a failing automated test that is a real PRODUCT defect into a complete local bug report: text, steps, evidence and, for visual bugs, an annotated image. No Jira, no Xray: the per-bug folder and `bun run qa:local bug` are the whole system.
+Turn a failing automated test that is a real PRODUCT defect into a complete local bug report: text, steps, evidence and, for every bug found by a screen test, ONE annotated screenshot. No Jira, no Xray: the per-bug folder and `bun run qa:local bug` are the whole system.
 
 It is the owner of the bug flow that `/test-automation-local` hands over when a failure is judged a product defect. It can also be called directly: "report this bug for AUT-027".
 
@@ -50,9 +50,9 @@ Requires `agentic-qa-core`. Loads on demand:
 - **Judge before proposing.** A selector, timeout, data or precondition failure is a TEST defect (no report); a connection or gateway failure is ENVIRONMENT (no report); only a reproduced failure that contradicts the case's expected result is a PRODUCT candidate.
 - **The script numbers bugs.** The bug id `<case id>-BUG-<n>` is allocated ONLY by `bun run qa:local bug new`. Never count folders or invent a number by hand.
 - **No secrets, no traces.** Never copy a trace, `.zip`, `.har`, video or `.env`, nor a cookie, `Authorization` / `Set-Cookie` / `Cookie` value, token, password or the Playwright call log of an error message. API evidence is a scrubbed, truncated excerpt, never a full body.
-- **Visual bugs use the existing annotation skill.** It runs unchanged (KEY = the case id, BUG-KEY = n, its Jira embed step skipped, `python` never `python3`, intermediates in the session scratchpad). A non-visual bug gets no image. Never a hand-made or generated image.
-- **No Pillow here.** Pillow is not installed and the user declined it: the annotation crop is optional; the raw screenshot is the base image; if the visual evidence cannot be produced, write the report with the raw screenshot and say so.
-- **Evidence is verified.** List an evidence file in the report only after verifying it on disk. Copy the failure screenshot, never move it.
+- **Every screen bug is annotated.** A bug found by a browser (screen) test runs the existing annotation skill unchanged (KEY = the case id, BUG-KEY = n, its Jira embed step skipped, `python` never `python3`, intermediates in the session scratchpad). The report carries ONE image, `<case id>-BUG-<n>-annotated.png`; the raw failure screenshot is only the base of the annotation and is NOT copied into the bug folder. A bug with no screen (an API test) has no image, only the scrubbed excerpt. Never a hand-made or generated image.
+- **No Pillow here.** Pillow is not installed and the user declined it: the annotation crop is optional; the raw screenshot is the base image; if the annotation cannot be produced, keep the raw failure screenshot as the single image and say so in `## Evidencia`.
+- **Evidence is verified, and single.** List an evidence file in the report only after verifying it on disk. `## Evidencia` is ONE line, a link `- [Captura anotada](<file>): <description>`; never an embedded `![...]` image and never two captures of the same failure.
 - **Writes are inline, cases are untouched.** Every `qa:local bug` write is done by the orchestrator. The skill never edits a case file; the case link is `qa:local defect <case id> <bug id>` only after a failing recorded run and the user's decision.
 
 ---
@@ -70,7 +70,7 @@ Every dispatch follows the 7-component briefing in `agentic-qa-core/references/b
 | Phase 0 — resume check, scope | inline | orchestrator only |
 | Phase 1 — Judge and Phase 2 — Evidence | Single | ONE read-only Evidence subagent: re-runs the one failing spec once, reads the case, the screenshot and the scrubbed error, returns a findings table and the proposed fields |
 | Phase 3 — draft and confirmation gate | inline | the orchestrator asks the single question |
-| Phase 4 — annotation (visual bugs only) | Single | one subagent loads `bug-screenshot-annotation` and returns the verified path of the annotated image |
+| Phase 4 — annotation (every screen bug) | Single | one subagent loads `bug-screenshot-annotation` and returns the verified path of the annotated image |
 | Phase 4 — every `qa:local bug` write, copies, report fill, check | inline | the orchestrator, in order |
 
 - **On any failure**: STOP, report the partial state (which files exist in the bug folder), offer retry / skip / abort. No auto-fix, no auto-delete of a created folder.
@@ -118,10 +118,10 @@ A TEST or ENVIRONMENT verdict ends the flow with the reason shown; nothing is wr
 
 Same Evidence subagent, same turn. It returns, without writing under the QA root:
 
-1. The path of the failure screenshot (verified on disk), and whether the bug is visual or positional. Playwright writes the failure artifacts in a folder of the test-results folder named after the spec and the truncated test title plus a hash that changes between runs. The subagent finds the failing test's folder (the newest one, or the path Playwright prints in the run output), takes `test-failed-1.png` as the failure screenshot to COPY (never move) and never copies `trace.zip`. `error-context.md` in that folder is session material, not copied by default: it can hold a page snapshot with real data.
+1. The path of the failure screenshot (verified on disk), whether the failing test is a screen (browser) test or an API test, and whether the defect is visual or positional. Playwright writes the failure artifacts in a folder of the test-results folder named after the spec and the truncated test title plus a hash that changes between runs. The subagent finds the failing test's folder (the newest one, or the path Playwright prints in the run output), takes `test-failed-1.png` as the failure screenshot, the BASE of the annotation (it is read, never moved, and it is not copied into the bug folder), and never copies `trace.zip`. `error-context.md` in that folder is session material, not copied by default: it can hold a page snapshot with real data.
 2. The scrubbed error: assertion text, status code, a truncated body excerpt, console message. The call log, headers and tokens are dropped per `references/local-bug-format.md`; the scrub is mandatory (an assertion on a plain value prints no call log, an assertion on a locator or a request usually does).
 3. The reproduction steps from the case's `## Pasos` or the spec's step titles, and the environment inferred from the base URL (report template 1.7).
-4. A proposed title, type, severity, error type and visual yes/no, with a one-line reason each.
+4. A proposed title, type, severity, error type, screen bug yes/no and visual defect yes/no, with a one-line reason each.
 
 A trace, `.zip`, `.har`, video or `.env` is never opened for copying; a trace is session material until scrubbed (`agentic-qa-core/references/evidence-conventions.md`).
 
@@ -130,7 +130,7 @@ A trace, `.zip`, `.har`, video or `.env` is never opened for copying; a trace is
 ## Phase 3 — Draft and confirmation gate (inline)
 
 1. Get the id preview: `bun run qa:local bug new <case id> --dry-run` (prints the id it would allocate, writes nothing).
-2. Show ONE one-screen draft: id preview, title, type, severity and the priority it maps to, error type, environment, visual yes/no, the evidence list (failure screenshot, excerpt, annotation if visual), the two-line summary and the reason it is a product defect.
+2. Show ONE one-screen draft: id preview, title, type, severity and the priority it maps to, error type, environment, screen bug yes/no, the evidence (the annotated screenshot for a screen bug, the excerpt for an API bug), the two-line summary and the reason it is a product defect.
 3. Ask ONE question with these options:
    1. Create the report.
    2. It is a test defect: go back to fix the test.
@@ -140,10 +140,10 @@ A trace, `.zip`, `.har`, video or `.env` is never opened for copying; a trace is
 
 ## Phase 4 — Write (inline, after option 1)
 
-1. `bun run qa:local bug new <case id> --title "<title>" --type <T> --severity <S> --error-type <E> --environment <ENV> --run <run id> [--visual]`. For a visual bug pass `--visual --error-type Visual` together: the verb defaults `error_type` to Functional and `--visual` does not change it. Read the id and the folder from the two output lines. `--run` is the `last_run.run` of the case after `qa:local results`; omit it when no run was recorded.
-2. Copy the failure screenshot into the folder as `<case id>-BUG-<n>-failure.png`. Write the scrubbed excerpt, when there is one, as `<case id>-BUG-<n>-response.txt`.
-3. **Visual or positional bug**: dispatch the annotation subagent, which loads `bug-screenshot-annotation` and runs it unchanged with KEY = the case id and BUG-KEY = n, so the output is `<case id>-BUG-<n>-annotated.png` in the bug folder. Skip its Jira embed step, use `python`, keep the crop and HTML in the session scratchpad. The crop step needs Pillow, which is missing and declined: the crop is optional (the raw screenshot is the base image) or made without Pillow as described in the reference, section 8. Launch `playwright-cli` with the working directory in the session scratchpad, never in the repo root: it creates a `.playwright-cli` folder in the current directory. A single favicon 404 console error is harmless. The annotation skill's step 5 lists closing the browser before the resize and screenshot; the working order is open, resize the viewport to the canvas, screenshot, then close. If the annotation cannot be produced, say so in the report and keep the raw screenshot. Never fabricate an image. State the final path in chat the moment it lands (`agentic-qa-core/references/session-footer-contract.md`).
-4. Fill `report.md` with the sections from the format reference: summary, steps, actual and expected result, technical analysis, impact, root cause, workaround, evidence links, related cases; and the frontmatter `evidence` list with only the files verified on disk.
+1. `bun run qa:local bug new <case id> --title "<title>" --type <T> --severity <S> --error-type <E> --environment <ENV> --run <run id> [--visual]`. For a screen bug pass `--visual` (here it means "an annotated image is expected"); add `--error-type Visual` only when the defect itself is visual or positional, because the verb defaults `error_type` to Functional and `--visual` does not change it. Read the id and the folder from the two output lines. `--run` is the `last_run.run` of the case after `qa:local results`; omit it when no run was recorded.
+2. Write the scrubbed excerpt of an API bug as `<case id>-BUG-<n>-response.txt`. Do NOT copy the failure screenshot into the folder: it is the base of the annotation.
+3. **Every screen bug**: dispatch the annotation subagent, which loads `bug-screenshot-annotation` and runs it unchanged with KEY = the case id and BUG-KEY = n, so the output is `<case id>-BUG-<n>-annotated.png` in the bug folder. Skip its Jira embed step, use `python`, keep the crop and HTML in the session scratchpad. The crop step needs Pillow, which is missing and declined: the crop is optional (the raw screenshot is the base image) or made without Pillow as described in the reference, section 8. Launch `playwright-cli` with the working directory in the session scratchpad, never in the repo root: it creates a `.playwright-cli` folder in the current directory. A single favicon 404 console error is harmless. The annotation skill's step 5 lists closing the browser before the resize and screenshot; the working order is open, resize the viewport to the canvas, screenshot, then close. When the defect is not a layout problem (a counter, a message, a missing guard, a wrong number), annotate the area of the screen where the failure shows with a rectangle or circle and a short callout that names the failure, so every screen bug gets the same single annotated image. If the annotation cannot be produced, copy the raw failure screenshot as `<case id>-BUG-<n>-failure.png`, keep it as the single image and say so in the report. Never fabricate an image. State the final path in chat the moment it lands (`agentic-qa-core/references/session-footer-contract.md`).
+4. Fill `report.md` with the sections from the format reference: summary, steps, actual and expected result, technical analysis, impact, root cause, workaround, evidence links, related cases; and the frontmatter `evidence` list with only the file verified on disk (the single image, or `response.txt` for an API bug). `## Evidencia` is one line: `- [Captura anotada](<case id>-BUG-<n>-annotated.png): <what the capture shows>`.
 5. Confirm every image link in `report.md` resolves to a file inside the bug folder and that the frontmatter `evidence` list matches the files linked and verified on disk. `bug check` does not cover the links in the body, so this step is manual.
 6. `bun run qa:local bug check <bug id>`: no ERROR. On ERROR, show the counts and file names and fix the file named; never paste a matched value.
 
@@ -172,5 +172,6 @@ A trace, `.zip`, `.har`, video or `.env` is never opened for copying; a trace is
 - **B4.** NEVER report a selector timeout, a data collision or an unreachable environment as a product bug.
 - **B5.** NEVER produce a hand-made or generated image; no image at all is better than a fabricated one.
 - **B6.** NEVER pass the local bug id as BUG-KEY to the annotation skill: KEY = the case id, BUG-KEY = n, or the file name doubles the case id.
+- **B9.** NEVER leave the raw failure screenshot next to the annotated one, and NEVER embed the image with `![...]` in `## Evidencia`: one link to one annotated image.
 - **B7.** NEVER edit a case file or run `qa:local defect` as part of reporting; the link is a separate decision after a failing recorded run.
 - **B8.** NEVER call Jira, Xray or acli, and never push or open a PR from here.

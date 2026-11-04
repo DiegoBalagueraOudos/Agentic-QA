@@ -20,21 +20,21 @@
       "category": "negative"
     },
     {
-      "name": "should-annotate-visual-bug-with-existing-skill",
+      "name": "should-annotate-every-screen-bug-with-existing-skill",
       "prompt": "El boton Guardar de la pantalla de usuarios se superpone con el pie en el caso AUT-012, falla el test. Reporta el bug con la captura anotada.",
-      "expected_behavior": "After the user's OK, runs bun run qa:local bug new AUT-012 --visual, copies the failure screenshot as AUT-012-BUG-<n>-failure.png, then dispatches a subagent that loads the existing bug-screenshot-annotation skill unchanged with KEY = AUT-012 and BUG-KEY = n, skipping its Jira step and using python. The output is AUT-012-BUG-<n>-annotated.png in the bug folder, verified on disk before it is listed. Never a hand-made or generated image.",
+      "expected_behavior": "After the user's OK, runs bun run qa:local bug new TEN-012 --visual (plus --error-type Visual because the defect is a layout overlap), then dispatches a subagent that loads the existing bug-screenshot-annotation skill unchanged with KEY = TEN-012 and BUG-KEY = n, skipping its Jira step and using python. The raw failure screenshot is only the base of the annotation and is NOT copied into the bug folder. The output is TEN-012-BUG-<n>-annotated.png in the bug folder, verified on disk before it is listed as the single evidence file, and ## Evidencia is one link line. Never a hand-made or generated image.",
       "category": "positive"
     },
     {
       "name": "should-create-visual-bug-with-error-type-and-verify-links",
       "prompt": "Crea el reporte del bug visual de AUT-012 (el boton Guardar se superpone con el pie). Ya confirme el borrador.",
-      "expected_behavior": "Runs bun run qa:local bug new AUT-012 with --visual and --error-type Visual together, because the verb defaults error_type to Functional. After writing report.md it confirms every image link in the body resolves to a file inside the bug folder and that the evidence list matches, since bug check does not verify body links, then runs bug check with no ERROR.",
+      "expected_behavior": "Runs bun run qa:local bug new TEN-012 with --visual and --error-type Visual together, because the verb defaults error_type to Functional. After writing report.md it confirms the single image link in ## Evidencia resolves to a file inside the bug folder (a link line, not an embedded image) and that the evidence list matches, since bug check does not verify body links, then runs bug check with no ERROR.",
       "category": "positive"
     },
     {
       "name": "should-report-api-bug-with-scrubbed-excerpt",
       "prompt": "El caso INT-005 fallo: el endpoint devuelve 500 en vez de 400 con un campo invalido. Es un bug del producto, hazme el reporte.",
-      "expected_behavior": "Judges PRODUCT (wrong status contradicts the expected result), proposes the draft with error type Crash or Functional, waits for the OK, then writes the report with the status code and a scrubbed truncated excerpt in INT-005-BUG-<n>-response.txt. Does not run the annotation skill and adds no generated image; only the raw failure screenshot if one exists. Runs bug check with no ERROR.",
+      "expected_behavior": "Judges PRODUCT (wrong status contradicts the expected result), proposes the draft with error type Crash or Functional, waits for the OK, then writes the report with the status code and a scrubbed truncated excerpt in INT-005-BUG-<n>-response.txt. An API test has no screen, so it does not run the annotation skill, adds no image and copies no screenshot. Runs bug check with no ERROR.",
       "category": "positive"
     },
     {

@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, posix } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 
-import { buildWiki, createWikiHandler, listen, parseArgs, readStore, run, scanPages, startServe } from './qa-wiki.ts';
+import { buildWiki, createWikiHandler, listen, parseArgs, readLocalDefaults, readStore, run, scanPages, startServe } from './qa-wiki.ts';
 
 const REPO_ROOT = join(import.meta.dir, '..');
 const PNG = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3]);
@@ -31,7 +31,8 @@ let out: string;
 let resultsFile: string;
 let printed: string[];
 const log = (line: string): void => { printed.push(line); };
-const generate = (...extra: string[]): number => run(['--root', root, '--out', out, '--results', resultsFile, ...extra], log);
+// The temp folder holds no `qa-wiki.local.json`: the tests never read the real one
+const generate = (...extra: string[]): number => run(['--root', root, '--out', out, '--results', resultsFile, ...extra], log, REPO_ROOT, base);
 
 function put(file: string, content: string | Buffer): void {
   mkdirSync(dirname(file), { recursive: true });
@@ -121,6 +122,25 @@ describe('parseArgs', () => {
   });
 });
 
+describe('local defaults', () => {
+  it('reads the reports links from qa-wiki.local.json and lets a flag win', () => {
+    put(join(base, 'qa-wiki.local.json'), JSON.stringify({ reportsUrl: 'https://example.github.io/repo/qa-reports/', sharepointUrl: 'https://example.sharepoint.com/folder' }));
+    expect(readLocalDefaults(base)).toEqual({ reportsUrl: 'https://example.github.io/repo/qa-reports', sharepointUrl: 'https://example.sharepoint.com/folder' });
+    expect(run(['--root', root, '--out', out, '--results', resultsFile], log, REPO_ROOT, base)).toBe(0);
+    const page = readFileSync(join(out, 'Reportes.md'), 'utf8');
+    expect(page).toContain('https://example.github.io/repo/qa-reports/allure/index.html');
+    expect(page).toContain('https://example.sharepoint.com/folder');
+    expect(run(['--root', root, '--out', out, '--results', resultsFile, '--reports-url', 'https://flag.example.com/r'], log, REPO_ROOT, base)).toBe(0);
+    expect(readFileSync(join(out, 'Reportes.md'), 'utf8')).toContain('https://flag.example.com/r/allure/index.html');
+  });
+
+  it('is empty without the file and refuses a bad value', () => {
+    expect(readLocalDefaults(base)).toEqual({ reportsUrl: null, sharepointUrl: null });
+    put(join(base, 'qa-wiki.local.json'), JSON.stringify({ reportsUrl: 'http://insecure.example.com' }));
+    expect(() => readLocalDefaults(base)).toThrow();
+  });
+});
+
 describe('model and pages', () => {
   beforeEach(seed);
 
@@ -191,7 +211,7 @@ describe('model and pages', () => {
     expect(openSection).toContain('AUT-002-BUG-2');
     expect(openSection).not.toContain('AUT-001-BUG-1');
     expect(pages.get('Reportes.md')).toContain('ENLACE PENDIENTE');
-    expect(pages.get('Reportes.md')).toContain('bun run allure:generate');
+    expect(pages.get('Reportes.md')).not.toContain('Cómo producirlos');
   });
 
   it('--reports-url puts direct links in Home and Reportes and drops the pending marker', () => {
@@ -202,7 +222,7 @@ describe('model and pages', () => {
     expect(pages.get('Reportes.md')).toContain(`[Reporte Playwright](${url}/playwright/index.html)`);
     expect(pages.get('Reportes.md')).not.toContain('ENLACE PENDIENTE');
     expect(pages.get('Reportes.md')).toContain('## Abrir los reportes');
-    expect(pages.get('Reportes.md')).toContain('bun run reports:share');
+    for (const gone of ['Portada de los reportes', 'Cómo producirlos', 'Cómo publicarlos', 'bun run reports:share']) { expect(pages.get('Reportes.md')).not.toContain(gone); }
     expect(pages.get('Home.md')).toContain('](Reportes.md)');
     expect(pages.get('Home.md')).not.toContain(url);
     expect(pages.get('Reportes.md')).not.toContain('Descargar desde SharePoint');
@@ -335,7 +355,7 @@ describe('safety', () => {
     const targets = [root, join(root, 'inside'), base, REPO_ROOT, dirname(REPO_ROOT), join(base, 'precious')];
     for (const target of targets) {
       printed = [];
-      expect(run(['--root', root, '--out', target, '--results', resultsFile], log)).toBe(1);
+      expect(run(['--root', root, '--out', target, '--results', resultsFile], log, REPO_ROOT, base)).toBe(1);
       expect(printed.join('\n')).toContain('--out');
     }
     expect(readFileSync(join(base, 'precious', 'keep.txt'), 'utf8')).toBe('keep');
@@ -347,7 +367,7 @@ describe('safety', () => {
     mkdirSync(out, { recursive: true });
     expect(generate()).toBe(0);
     printed = [];
-    expect(run(['--root', join(base, 'nope'), '--out', out], log)).toBe(1);
+    expect(run(['--root', join(base, 'nope'), '--out', out], log, REPO_ROOT, base)).toBe(1);
     expect(printed.join('\n')).toContain('QA root not found');
   });
 

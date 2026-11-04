@@ -10,12 +10,11 @@ One folder per bug in the bugs area of the QA root. The id is `<case id>-BUG-<n>
 ```
 <qa-root>/bugs/<case id>-BUG-<n>/
   report.md                                  report, frontmatter + body (written by the verb, filled by the skill)
-  <case id>-BUG-<n>-failure.png              raw failure screenshot, COPIED from the failing test's folder
-  <case id>-BUG-<n>-annotated.png            output of bug-screenshot-annotation (visual or positional bugs only)
+  <case id>-BUG-<n>-annotated.png            output of bug-screenshot-annotation: the ONE image of a screen bug
   <case id>-BUG-<n>-response.txt             optional scrubbed, truncated status / body excerpt (API bugs)
 ```
 
-Images are linked from `report.md` with relative paths, for example `![failure](AUT-027-BUG-1-failure.png)`, so the Markdown renders offline from the folder. Nothing else belongs in the folder.
+The image is linked from `report.md` with a relative path in ONE line of `## Evidencia`, for example `- [Captura anotada](AUT-027-BUG-1-annotated.png): <what it shows>`, so it opens offline from the folder in editors that do not render embedded local images. Never an embedded `![...]` image. Nothing else belongs in the folder: the raw failure screenshot is only the base of the annotation and is not copied.
 
 ## 2. report.md frontmatter
 
@@ -47,12 +46,12 @@ evidence: []
 | `type` | Bug, Defect, Improvement | Defect | template 1.0 |
 | `severity` | Critical, Major, Moderate, Minor, Trivial | Moderate | section 4 |
 | `priority` | Highest, High, Medium, Low, Lowest | derived | written by the verb from `severity`; never passed |
-| `error_type` | Functional, Visual, Content, Performance, Crash, Data, Integration, Security | Functional | template 1.6, flag `--error-type`; `--visual` does not change it, so a visual bug passes `--visual --error-type Visual` together |
+| `error_type` | Functional, Visual, Content, Performance, Crash, Data, Integration, Security | Functional | template 1.6, flag `--error-type`; `--visual` does not change it, so a visual defect passes `--visual --error-type Visual` together |
 | `environment` | Dev, QA, UAT, Staging, Production | Dev | template 1.7, inferred from the base URL |
 | `status` | open, fixed, verified | open | moves in section 7 |
 | `found_by` | the run id (`last_run.run` of the case after `qa:local results`) | empty | flag `--run` |
 | `found_on` | local date | the local date at creation | flag `--date` overrides |
-| `visual` | true, false | false | flag `--visual` sets true; true means an annotated image is expected |
+| `visual` | true, false | false | flag `--visual` sets true; true means an annotated image is expected: set it for every bug found by a screen (browser) test |
 | `evidence` | list of file names in the folder | `[]` | only files verified on disk |
 
 ## 3. report.md body headings
@@ -70,7 +69,7 @@ Exactly as the verb writes them, in this order. Unfilled sections hold `(por com
 | `## Impacto` | affected users, blocked functionality, business impact |
 | `## Causa raiz` | a value from template 1.8, or `por investigar` |
 | `## Workaround` | optional; `(por completar)` or "ninguno" |
-| `## Evidencia` | relative links to the files of the `evidence` list; the annotated image first |
+| `## Evidencia` | ONE line, a link to the single file of the `evidence` list: `- [Captura anotada](<file>): <what the capture shows>` (an API bug links its `response.txt` instead) |
 | `## Casos relacionados` | the case id, plus related cases |
 
 ## 4. Severity matrix and priority mapping
@@ -98,10 +97,10 @@ Priority is derived from severity by the verb (template 1.5):
 ## 5. Evidence rules and what is never copied
 
 - Playwright writes the failure artifacts of a test in a folder of the test-results folder named after the spec, the truncated test title and a hash that changes between runs. It holds `test-failed-1.png` (the failure screenshot), `trace.zip` and `error-context.md`; Playwright also prints the attachment paths in its own output. The evidence subagent finds the failing test's folder (the newest one, or the printed path) and lists it before naming the file.
-- The failure screenshot, `test-failed-1.png`, is COPIED from that folder, never moved. `trace.zip` is never copied. `error-context.md` is session material, not copied by default: it can hold a page snapshot with real data.
+- The failure screenshot, `test-failed-1.png`, is the BASE of the annotation: it is read from that folder, never moved, and not copied into the bug folder. `trace.zip` is never copied. `error-context.md` is session material, not copied by default: it can hold a page snapshot with real data.
 - List a file in `evidence` only after verifying it on disk in this session (`agentic-qa-core/references/evidence-conventions.md`). The check refuses a listed file that is missing.
 - An API bug carries a status code and a scrubbed, truncated body excerpt in `<case id>-BUG-<n>-response.txt`. Never a full response body.
-- A non-visual bug has no image beyond the raw failure screenshot, and none is generated.
+- Every bug found by a screen (browser) test carries ONE image, the annotated screenshot; when the defect is not a layout problem the annotation marks the area where the failure shows. A bug with no screen (an API test) has no image. None is ever generated.
 - The screenshot may show real product data: it stays local, and never goes to an external image service.
 
 NEVER copied into the bug folder or the report:
@@ -161,4 +160,4 @@ The link between bug and case is the `case:` field of the report. The case file 
 
 - Pillow is not installed and the user declined to install it, so step 2 (the crop) cannot run as written. The crop is OPTIONAL here: when no crop is made, or the whole screenshot is the region, the raw screenshot is the base image of the annotation HTML.
 - A crop WITHOUT Pillow works with `playwright-cli` (verified): put the screenshot in a small HTML wrapper whose container has `overflow: hidden` and the image offset to the wanted region, serve it over loopback like the annotation HTML, and take an ELEMENT screenshot with the CSS selector of the container (`screenshot "<selector>" --filename=<path>`). There is no `--clip` option. The wrapper and its output stay in the session scratchpad.
-- Never a hand-made or generated image. If the annotation cannot be produced, the report is still written with the raw screenshot and its `## Evidencia` section says the visual evidence is missing and why; `visual` stays true so the gap is visible.
+- Never a hand-made or generated image. If the annotation cannot be produced, the raw failure screenshot is copied as `<case id>-BUG-<n>-failure.png` and kept as the single image, `## Evidencia` says the annotation is missing and why, and `visual` stays true so the gap is visible.

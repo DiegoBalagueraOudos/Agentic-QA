@@ -7,7 +7,7 @@
  *   3. Scan and redaction: each detector, shapes without values, e-mail and path
  *      rewrite (idempotent, JSON still parses), the double pass, and the rule that a
  *      refused run writes nothing and leaves an existing output untouched.
- *   4. Output: layout, Spanish landing page without scripts, byte-identical re-run, no
+ *   4. Output: layout (Allure, Playwright, LEEME), byte-identical re-run, no
  *      secret value in the log or in any written file.
  * Every fixture lives in a temp directory created here; the real `allure-results/`
  * and `playwright-report/` are never read.
@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 
-import { buildLanding, buildLeeme, checkOut, crc32, leftoverEmails, leftoverFileLines, neutralizeFileLines, parseArgs, preparePlaywright, readZip, redactDir, redactText, redactZipPayload, reportName, run, scanDir, scanText, sinceDate, stageResults, writeZip } from './reports-share.ts';
+import { buildLeeme, checkOut, crc32, leftoverEmails, leftoverFileLines, neutralizeFileLines, parseArgs, preparePlaywright, readZip, redactDir, redactText, redactZipPayload, reportName, run, scanDir, scanText, sinceDate, stageResults, writeZip } from './reports-share.ts';
 
 // Built from parts so this file never holds a complete secret-shaped literal.
 const SENTINEL = ['Zz9', 'Qq8', 'Ww7!'].join('');
@@ -282,7 +282,7 @@ describe('run', () => {
   it('a clean run writes the layout, redacts counts into the log and leaves the staging gone', () => {
     clean();
     expect(share('--since', '2026-10-28')).toBe(0);
-    expect(walk(out())).toEqual(['.reports-share-generated', 'LEEME.md', 'qa-reports/allure/index.html', 'qa-reports/index.html', 'qa-reports/playwright/data/a.md', 'qa-reports/playwright/data/b.png', 'qa-reports/playwright/index.html']);
+    expect(walk(out())).toEqual(['.reports-share-generated', 'LEEME.md', 'qa-reports/allure/index.html', 'qa-reports/playwright/data/a.md', 'qa-reports/playwright/data/b.png', 'qa-reports/playwright/index.html']);
     expect(printed.join('\n')).toContain('redacted 1 e-mails and 1 paths');
     expect(readdirSync(tmpdir()).filter(name => name.startsWith('reports-share-') && !name.includes('test'))).toEqual([]);
   });
@@ -555,21 +555,7 @@ describe('neutralizeFileLines', () => {
   });
 });
 
-describe('landing page and LEEME', () => {
-  it('landing has a meta description (docs lint)', () => {
-    expect(buildLanding(NOW, null)).toContain('<meta name="description"');
-  });
-
-  it('landing is Spanish, dated from the injected clock, has relative links and no script', () => {
-    const html = buildLanding(NOW, '2026-10-28');
-    expect(html).not.toMatch(/<script/i);
-    expect(html).toContain('lang="es"');
-    expect(html).toContain('2026-10-29');
-    expect(html).toContain('href="allure/index.html"');
-    expect(html).toContain('href="playwright/index.html"');
-    expect(html).toContain('desde el 2026-10-28');
-  });
-
+describe('LEEME', () => {
   it('LEEME gives the publish steps and the public warning', () => {
     const text = buildLeeme(NOW, null);
     expect(text).toContain('docs/qa-reports/');

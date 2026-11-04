@@ -8,7 +8,8 @@
  *   .reports-share-generated   marker: the generator only ever deletes a folder that holds it
  *   LEEME.md                   exact publish steps (Spanish)
  *   qa-reports/                the payload the owner copies to `docs/qa-reports/`
- *     index.html               static landing page (Spanish, no scripts)
+ *     allure/index.html        single-file Allure report
+ *     playwright/              the redacted Playwright report
  *
  * Pipeline (strict order; nothing is written to `--out` until every scan has passed):
  *   1. arguments and `--out` guards
@@ -551,43 +552,11 @@ export function generateAllure(staging: string, work: string, deps: Pick<Deps, '
 }
 
 // ============================================
-// Landing page and LEEME
+// LEEME
 // ============================================
 
 const dateOf = (now: Date): string => now.toISOString().slice(0, 10);
 const windowText = (since: string | null): string => (since === null ? 'todos los resultados disponibles' : `los resultados desde el ${since}`);
-
-/** Static landing page: Spanish, relative links, NO scripts. */
-export function buildLanding(now: Date, since: string | null): string {
-  return `<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Reportes de QA: Allure y Playwright de la automatización de pruebas.">
-<title>Reportes de QA</title>
-<style>
-:root{color-scheme:light dark;--bg:#fff;--fg:#1f2328;--mut:#59636e;--line:#d1d9e0;--link:#0969da}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#9198a1;--line:#3d444d;--link:#4493f8}}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,sans-serif}
-main{max-width:720px;margin:0 auto;padding:32px 16px}
-a{color:var(--link)}li{margin:8px 0}.note{color:var(--mut);font-size:14px;border-top:1px solid var(--line);margin-top:24px;padding-top:12px}
-</style>
-</head>
-<body>
-<main>
-<h1>Reportes de QA</h1>
-<p>Generado el ${dateOf(now)}.</p>
-<ul>
-<li><a href="allure/index.html">Reporte de Allure</a>: ${windowText(since)}.</li>
-<li><a href="playwright/index.html">Reporte de Playwright</a>: solo la última corrida.</li>
-</ul>
-<p class="note">Los correos y las rutas locales fueron enmascarados antes de generar estos reportes. Las capturas de pantalla no se revisan de forma automática.</p>
-</main>
-</body>
-</html>
-`;
-}
 
 /** Spanish publish instructions for the owner. */
 export function buildLeeme(now: Date, since: string | null): string {
@@ -603,7 +572,7 @@ Contenido del Allure: ${windowText(since)}. El reporte de Playwright es solo el 
 2. Copia la carpeta \`qa-reports/\` completa a \`docs/qa-reports/\` del repositorio. No copies este archivo ni \`${MARKER}\`.
 3. Haz el commit y el push a mano.
 4. En GitHub, en Settings > Pages, publica desde la rama principal y la carpeta \`/docs\`.
-5. La dirección queda como \`https://<usuario>.github.io/<repositorio>/qa-reports/\`: Allure en \`.../qa-reports/allure/\` y Playwright en \`.../qa-reports/playwright/\`.
+5. Las direcciones quedan como \`https://<usuario>.github.io/<repositorio>/qa-reports/allure/\` para Allure y \`https://<usuario>.github.io/<repositorio>/qa-reports/playwright/\` para Playwright..
 
 ## Advertencia: el repositorio es público
 
@@ -706,7 +675,6 @@ export function run(argv: string[], deps: Partial<Deps> = {}): number {
     const now = full.now();
     const files = new Map<string, string | Buffer>([
       ['LEEME.md', buildLeeme(now, opts.since)],
-      [`${PAYLOAD}/index.html`, buildLanding(now, opts.since)],
       [`${PAYLOAD}/allure/index.html`, allure],
     ]);
     for (const rel of allFiles(pwStage)) { files.set(`${PAYLOAD}/playwright/${rel}`, readFileSync(join(pwStage, ...rel.split('/')))); }

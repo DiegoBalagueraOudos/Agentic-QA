@@ -102,6 +102,7 @@ const DEFAULT_RESULTS = 'reports/atc_results.json';
 const DEFAULT_PORT = 4174;
 const PORT_ATTEMPTS = 20;
 const DEFAULT_PAGE = 'Home.md';
+const LOCAL_CONFIG = 'qa-wiki.local.json';
 const MARKER = '.qa-wiki-generated';
 const MAX_PAGE_BYTES = 18 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 19 * 1024 * 1024;
@@ -134,6 +135,7 @@ build:
   --results  Playwright ATC summary (default ${DEFAULT_RESULTS})
   --reports-url  https base URL where the shared reports are published; adds direct links to the Reportes page
   --sharepoint-url  https link to the SharePoint folder with the zipped reports; adds a download section to Reportes
+  Both default to reportsUrl / sharepointUrl of ${LOCAL_CONFIG} (git-ignored) when the file exists; a flag overrides it.
 
 serve (preview on 127.0.0.1 only; approximate: raw HTML is shown escaped, only pie charts are drawn):
   --dir      folder to preview (default ${DEFAULT_OUT})
@@ -594,13 +596,6 @@ function bugPage(names: Names, bug: BugData): string {
 }
 
 function reportsPage(store: Store): string {
-  const wanted: [string, string][] = [
-    ['allure:generate', 'genera el reporte Allure estático a partir de los resultados'],
-    ['allure:open', 'abre el reporte Allure generado'],
-    ['test:report', 'abre el reporte HTML de Playwright'],
-    ['reports:share', 'prepara Allure y Playwright para compartir, con correos, rutas y credenciales redactados'],
-  ];
-  const commands = wanted.filter(([name]) => store.scripts.includes(name)).map(([name, what]) => `- \`bun run ${name}\`: ${what}`);
   const summary = store.summary
     ? table(['Campo', 'Valor'], [
         ['Generado', store.summary.generatedAt || '-'],
@@ -617,7 +612,6 @@ function reportsPage(store: Store): string {
     : [
         '## Abrir los reportes',
         [
-          `- [Portada de los reportes](${url}/)`,
           `- [Reporte Allure](${url}/allure/index.html)`,
           `- [Reporte Playwright](${url}/playwright/index.html)`,
         ].join('\n'),
@@ -631,17 +625,6 @@ function reportsPage(store: Store): string {
         ].join('\n'),
       ]
     : [];
-  const publish = store.scripts.includes('reports:share')
-    ? [
-        '## Cómo publicarlos',
-        [
-          '1. `bun run reports:share --since <fecha>`: prepara el paquete en `share-reports/qa-reports/`.',
-          '2. Copia `share-reports/qa-reports/` a `docs/qa-reports/` del repositorio.',
-          '3. Haz commit y `git push`; con GitHub Pages activo sobre `/docs` quedan publicados.',
-          '4. Regenera esta wiki con `bun run qa:wiki --reports-url <URL base de los reportes>` para que los enlaces apunten ahí.',
-        ].join('\n'),
-      ]
-    : [];
   return [
     '# Reportes',
     url === null
@@ -649,9 +632,6 @@ function reportsPage(store: Store): string {
       : 'Los reportes interactivos están publicados fuera de esta wiki. Ábrelos directamente desde estos enlaces.',
     ...links,
     ...download,
-    '## Cómo producirlos',
-    commands.length > 0 ? commands.join('\n') : 'Sin comandos de reporte disponibles.',
-    ...publish,
     '## Últimos resultados de ejecución',
     'Resumen de la última ejecución registrada; puede cubrir solo una parte de las pruebas.',
     summary,
@@ -901,8 +881,26 @@ export function startServe(opts: Options, log: (line: string) => void = console.
 // Entry
 // ============================================
 
+/**
+ * Reports links kept for this machine in `qa-wiki.local.json` (git-ignored: the SharePoint link is internal). They are the defaults of
+ * `--reports-url` and `--sharepoint-url`, so a plain `bun run qa:wiki` keeps the Reportes page links. A flag always wins.
+ */
+export function readLocalDefaults(repoRoot: string): { reportsUrl: string | null, sharepointUrl: string | null } {
+  const file = join(repoRoot, LOCAL_CONFIG);
+  if (!existsSync(file)) { return { reportsUrl: null, sharepointUrl: null }; }
+  let data: unknown;
+  try { data = JSON.parse(readFileSync(file, 'utf8')); }
+  catch { throw new WikiError(`${LOCAL_CONFIG} is not valid JSON`); }
+  if (!isRecord(data)) { throw new WikiError(`${LOCAL_CONFIG} must be a JSON object with reportsUrl and/or sharepointUrl`); }
+  const reportsUrl = typeof data.reportsUrl === 'string' ? data.reportsUrl : null;
+  const sharepointUrl = typeof data.sharepointUrl === 'string' ? data.sharepointUrl : null;
+  if (reportsUrl !== null && !/^https:\/\/[^\s@?#]+$/.test(reportsUrl)) { throw new WikiError(`${LOCAL_CONFIG}: reportsUrl needs an https URL without credentials, query or fragment`); }
+  if (sharepointUrl !== null && !/^https:\/\/[^\s@]+$/.test(sharepointUrl)) { throw new WikiError(`${LOCAL_CONFIG}: sharepointUrl needs an https URL without credentials or spaces`); }
+  return { reportsUrl: reportsUrl === null ? null : reportsUrl.replace(/\/+$/, ''), sharepointUrl };
+}
+
 /** Build the wiki, or start the preview. Returns the process exit code (0 with a live server for `serve`). */
-export function run(argv: string[], log: (line: string) => void = console.error, repoRoot: string = REPO_ROOT): number {
+export function run(argv: string[], log: (line: string) => void = console.error, repoRoot: string = REPO_ROOT, localConfigDir: string = repoRoot): number {
   try {
     const opts = parseArgs(argv);
     if (opts.help) { log(USAGE); return 0; }
@@ -915,7 +913,8 @@ export function run(argv: string[], log: (line: string) => void = console.error,
     }
     if (!existsSync(opts.root) || !statSync(opts.root).isDirectory()) { throw new WikiError(`QA root not found: ${toPosix(opts.root)}`); }
     checkOutDir(opts.out, opts.root, repoRoot);
-    const store = readStore({ root: opts.root, results: opts.results, packageJson: join(repoRoot, 'package.json'), reportsUrl: opts.reportsUrl, sharepointUrl: opts.sharepointUrl });
+    const local = readLocalDefaults(localConfigDir);
+    const store = readStore({ root: opts.root, results: opts.results, packageJson: join(repoRoot, 'package.json'), reportsUrl: opts.reportsUrl ?? local.reportsUrl, sharepointUrl: opts.sharepointUrl ?? local.sharepointUrl });
     for (const warning of store.warnings) { log(`! ${warning}`); }
     const pages = buildWiki(store);
     const hits = scanPages(pages);
