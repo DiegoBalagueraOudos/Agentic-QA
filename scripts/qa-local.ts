@@ -620,7 +620,7 @@ const BUG_ENVIRONMENTS = ['Dev', 'QA', 'UAT', 'Staging', 'Production'] as const;
 const FORBIDDEN_BUG_FILE = /\.(?:zip|har|webm|env|trace)$/i;
 const BINARY_FILE = /\.(?:png|jpe?g|gif|webp|bmp|ico|mp4|mov|pdf)$/i;
 /** Secret shapes. Only the pattern NAME and the count are ever reported, never the match. */
-const SECRET_PATTERNS: { name: string, re: RegExp }[] = [
+export const SECRET_PATTERNS: { name: string, re: RegExp }[] = [
   { name: 'jwt', re: /eyJ[\w-]+\.eyJ[\w-]+\.[\w-]+/g },
   { name: 'bearer', re: /\bBearer\s+[\w.~+/=-]{8,}/gi },
   { name: 'set-cookie', re: /Set-Cookie\s*:/gi },
