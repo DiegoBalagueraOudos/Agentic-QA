@@ -124,18 +124,18 @@ describe('parseArgs', () => {
 
 describe('local defaults', () => {
   it('reads the reports links from qa-wiki.local.json and lets a flag win', () => {
-    put(join(base, 'qa-wiki.local.json'), JSON.stringify({ reportsUrl: 'https://example.github.io/repo/qa-reports/', sharepointUrl: 'https://example.sharepoint.com/folder' }));
-    expect(readLocalDefaults(base)).toEqual({ reportsUrl: 'https://example.github.io/repo/qa-reports', sharepointUrl: 'https://example.sharepoint.com/folder' });
+    put(join(base, 'qa-wiki.local.json'), JSON.stringify({ reportsUrl: 'https://example.github.io/repo/qa-reports/', downloadUrl: 'https://dev.azure.com/org/proj/_git/repo?path=/reports.zip' }));
+    expect(readLocalDefaults(base)).toEqual({ reportsUrl: 'https://example.github.io/repo/qa-reports', downloadUrl: 'https://dev.azure.com/org/proj/_git/repo?path=/reports.zip' });
     expect(run(['--root', root, '--out', out, '--results', resultsFile], log, REPO_ROOT, base)).toBe(0);
     const page = readFileSync(join(out, 'Reportes.md'), 'utf8');
     expect(page).toContain('https://example.github.io/repo/qa-reports/allure/index.html');
-    expect(page).toContain('https://example.sharepoint.com/folder');
+    expect(page).toContain('https://dev.azure.com/org/proj/_git/repo?path=/reports.zip');
     expect(run(['--root', root, '--out', out, '--results', resultsFile, '--reports-url', 'https://flag.example.com/r'], log, REPO_ROOT, base)).toBe(0);
     expect(readFileSync(join(out, 'Reportes.md'), 'utf8')).toContain('https://flag.example.com/r/allure/index.html');
   });
 
   it('is empty without the file and refuses a bad value', () => {
-    expect(readLocalDefaults(base)).toEqual({ reportsUrl: null, sharepointUrl: null });
+    expect(readLocalDefaults(base)).toEqual({ reportsUrl: null, downloadUrl: null });
     put(join(base, 'qa-wiki.local.json'), JSON.stringify({ reportsUrl: 'http://insecure.example.com' }));
     expect(() => readLocalDefaults(base)).toThrow();
   });
@@ -147,13 +147,15 @@ describe('model and pages', () => {
   it('builds the five page kinds with Azure-safe names', () => {
     const pages = buildWiki(readStore({ root, results: resultsFile }));
     const keys = [...pages.keys()];
-    for (const page of ['Home.md', 'Casos.md', 'Corridas.md', 'Bugs.md', 'Reportes.md', 'Casos/AUT.md', 'Casos/LOG.md', 'Casos/API.md', 'Corridas/2026-10-01-smoke.md', 'Corridas/2026-10-02-full.md', 'Bugs/AUT-001-BUG-1.md', 'Bugs/AUT-002-BUG-2.md']) {
+    for (const page of ['Home.md', 'Casos.md', 'Corridas.md', 'Bugs.md', 'Pendientes.md', 'Reportes.md', 'Casos/AUT.md', 'Casos/LOG.md', 'Casos/API.md', 'Corridas/2026-10-01-smoke.md', 'Corridas/2026-10-02-full.md', 'Bugs/AUT-001-BUG-1.md', 'Bugs/AUT-002-BUG-2.md']) {
       expect(keys).toContain(page);
     }
     for (const key of keys.filter(k => !k.startsWith('.attachments/'))) {
       expect(key.split('/').every(part => part === '.order' || (/^[\w.-]+$/.test(part) && !part.endsWith('.')))).toBe(true);
     }
     expect(keys.every(k => k.length <= 235)).toBe(true);
+    // a device name (CON, PRN...) is refused by Azure DevOps and Windows git, with or without extension
+    expect(keys.every(k => k.split('/').every(part => !/^(?:con|prn|aux|nul|com\d|lpt\d)(?:\..*)?$/i.test(part)))).toBe(true);
   });
 
   it('every .order lists exactly the pages of its folder', () => {
@@ -166,7 +168,7 @@ describe('model and pages', () => {
         .map(k => k.slice(dir.length, -3));
       expect([...listed].sort()).toEqual([...files].sort());
     }
-    expect((pages.get('.order') as string).trim().split('\n')).toEqual(['Home', 'Casos', 'Corridas', 'Bugs', 'Reportes']);
+    expect((pages.get('.order') as string).trim().split('\n')).toEqual(['Home', 'Casos', 'Corridas', 'Bugs', 'Pendientes', 'Reportes']);
     expect((pages.get('Corridas/.order') as string).trim().split('\n')[0]).toBe('2026-10-02-full');
   });
 
@@ -205,6 +207,16 @@ describe('model and pages', () => {
     expect(home).toContain('Datos al: 2026-10-02');
   });
 
+  it('Pendientes lists only the cases that are not automated, with their reason', () => {
+    writeCase('LOG-002', { automatizacion: 'deferred', automatizacion_motivo: '"Lo recibe una suite de carga"' });
+    const pending = buildWiki(readStore({ root, results: resultsFile })).get('Pendientes.md') as string;
+    expect(pending).toContain('LOG-001');
+    expect(pending).toContain('sin motivo escrito');
+    expect(pending).toContain('Lo recibe una suite de carga');
+    expect(pending).not.toContain('AUT-001');
+    expect(pending).toContain('Casos/LOG.md');
+  });
+
   it('Home lists open bugs only and Reportes carries the pending marker', () => {
     const pages = buildWiki(readStore({ root, results: resultsFile }));
     const openSection = (pages.get('Home.md') as string).split('## Bugs abiertos')[1].split('## Últimas corridas')[0];
@@ -223,30 +235,22 @@ describe('model and pages', () => {
     expect(pages.get('Reportes.md')).not.toContain('ENLACE PENDIENTE');
     expect(pages.get('Reportes.md')).toContain('## Abrir los reportes');
     for (const gone of ['Portada de los reportes', 'Cómo producirlos', 'Cómo publicarlos', 'bun run reports:share']) { expect(pages.get('Reportes.md')).not.toContain(gone); }
-    expect(pages.get('Home.md')).toContain('](Reportes.md)');
+    expect(pages.get('Home.md')).not.toContain('](Reportes.md)');
+    expect(pages.get('Home.md')).not.toContain('](Pendientes.md)');
     expect(pages.get('Home.md')).not.toContain(url);
-    expect(pages.get('Reportes.md')).not.toContain('Descargar desde SharePoint');
+    expect(pages.get('Reportes.md')).not.toContain('Descargar desde Azure DevOps');
   });
 
-  it('names each prefix from prefijos.md of the QA root, and shows the bare prefix without it', () => {
-    const bare = buildWiki(readStore({ root, results: resultsFile })).get('Casos.md') as string;
-    expect(bare).not.toContain('AUT: ');
-    writeFileSync(join(root, 'prefijos.md'), '# Prefijos\n\n| Prefijo | Modulo | Alcance |\n| --- | --- | --- |\n| AUT | Autenticación | Login y sesión |\n| bad | Ignorado | x |\n');
-    const named = buildWiki(readStore({ root, results: resultsFile })).get('Casos.md') as string;
-    expect(named).toContain('AUT: Autenticación');
-    expect(named).not.toContain('Ignorado');
-  });
-
-  it('--sharepoint-url adds a download section to Reportes only', () => {
-    const sp = 'https://contoso.sharepoint.com/sites/qa/Documentos/Reportes%20QA?e=abc';
-    expect(parseArgs(['--sharepoint-url', sp]).sharepointUrl).toBe(sp);
+  it('--download-url adds a download section to Reportes only', () => {
+    const sp = 'https://dev.azure.com/org/proj/_apis/git/repositories/repo/items?path=/qa-reports.zip&download=true';
+    expect(parseArgs(['--download-url', sp]).downloadUrl).toBe(sp);
     for (const bad of ['http://x.com/a', 'https://u:p@x.com/a', 'ftp://x.com/a', 'https://x .com']) {
-      expect(() => parseArgs(['--sharepoint-url', bad])).toThrow('--sharepoint-url');
+      expect(() => parseArgs(['--download-url', bad])).toThrow('--download-url');
     }
-    const pages = buildWiki(readStore({ root, results: resultsFile, sharepointUrl: sp }));
-    expect(pages.get('Reportes.md')).toContain('## Descargar desde SharePoint');
+    const pages = buildWiki(readStore({ root, results: resultsFile, downloadUrl: sp }));
+    expect(pages.get('Reportes.md')).toContain('## Descargar desde Azure DevOps');
     expect(pages.get('Reportes.md')).toContain(`(${sp})`);
-    expect(pages.get('Home.md')).not.toContain('sharepoint');
+    expect(pages.get('Home.md')).not.toContain('dev.azure.com');
   });
 
   it('--reports-url refuses anything but a plain https URL', () => {

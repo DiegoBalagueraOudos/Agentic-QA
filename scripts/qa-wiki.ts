@@ -75,10 +75,8 @@ export interface Store {
   warnings: string[]
   /** Base URL where the shareable reports are published (`--reports-url`); null = not published yet. */
   reportsUrl?: string | null
-  /** Link to the SharePoint folder or file where the zipped reports are stored (`--sharepoint-url`). */
-  sharepointUrl?: string | null
-  /** Module name per prefix, from `<qa-root>/prefijos.md`. */
-  prefixMeaning?: Record<string, string>
+  /** Link to the file or folder of the Azure DevOps repo where the zipped reports are stored (`--download-url`). */
+  downloadUrl?: string | null
 }
 export interface Options {
   command: 'build' | 'serve'
@@ -89,7 +87,7 @@ export interface Options {
   port: number
   page: string
   reportsUrl: string | null
-  sharepointUrl: string | null
+  downloadUrl: string | null
   noOpen: boolean
   help: boolean
 }
@@ -108,7 +106,7 @@ const MAX_PAGE_BYTES = 18 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 19 * 1024 * 1024;
 const MAX_PATH_CHARS = 235;
 const IMAGE_NAME = /^[A-Z0-9][\w.-]*\.(?:png|jpe?g)$/i;
-const BUILD_OPTIONS = new Set(['root', 'out', 'results', 'reports-url', 'sharepoint-url']);
+const BUILD_OPTIONS = new Set(['root', 'out', 'results', 'reports-url', 'download-url']);
 const SERVE_OPTIONS = new Set(['dir', 'port', 'page']);
 const IMAGE_TYPES: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
 const CSP = 'default-src \'none\'; img-src \'self\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'; frame-ancestors \'none\'';
@@ -126,7 +124,7 @@ class WikiError extends Error {}
 const USAGE = `qa-wiki: build a local Markdown wiki folder from the QA store (publishes nothing).
 
 Usage:
-  bun scripts/qa-wiki.ts [build] [--root <dir>] [--out <dir>] [--results <file>] [--reports-url <https url>] [--sharepoint-url <https url>]
+  bun scripts/qa-wiki.ts [build] [--root <dir>] [--out <dir>] [--results <file>] [--reports-url <https url>] [--download-url <https url>]
   bun scripts/qa-wiki.ts serve [--dir <dir>] [--port <n>] [--page <Page.md>] [--no-open]
 
 build:
@@ -134,8 +132,8 @@ build:
   --out      output folder (default ${DEFAULT_OUT}); only an absent, empty or previously generated folder is replaced
   --results  Playwright ATC summary (default ${DEFAULT_RESULTS})
   --reports-url  https base URL where the shared reports are published; adds direct links to the Reportes page
-  --sharepoint-url  https link to the SharePoint folder with the zipped reports; adds a download section to Reportes
-  Both default to reportsUrl / sharepointUrl of ${LOCAL_CONFIG} (git-ignored) when the file exists; a flag overrides it.
+  --download-url  https link to the zipped reports in the Azure DevOps repo; adds a download section to Reportes
+  Both default to reportsUrl / downloadUrl of ${LOCAL_CONFIG} (git-ignored) when the file exists; a flag overrides it.
 
 serve (preview on 127.0.0.1 only; approximate: raw HTML is shown escaped, only pie charts are drawn):
   --dir      folder to preview (default ${DEFAULT_OUT})
@@ -150,7 +148,7 @@ serve (preview on 127.0.0.1 only; approximate: raw HTML is shown escaped, only p
 // ============================================
 
 export function parseArgs(argv: string[]): Options {
-  const opts: Options = { command: 'build', root: DEFAULT_ROOT, out: DEFAULT_OUT, results: DEFAULT_RESULTS, dir: DEFAULT_OUT, port: DEFAULT_PORT, page: DEFAULT_PAGE, reportsUrl: null, sharepointUrl: null, noOpen: false, help: false };
+  const opts: Options = { command: 'build', root: DEFAULT_ROOT, out: DEFAULT_OUT, results: DEFAULT_RESULTS, dir: DEFAULT_OUT, port: DEFAULT_PORT, page: DEFAULT_PAGE, reportsUrl: null, downloadUrl: null, noOpen: false, help: false };
   const args = [...argv];
   if (args[0] === 'build' || args[0] === 'serve') { opts.command = args.shift() as Options['command']; }
   const allowed = opts.command === 'serve' ? SERVE_OPTIONS : BUILD_OPTIONS;
@@ -178,9 +176,9 @@ export function parseArgs(argv: string[]): Options {
       if (!/^https:\/\/[^\s@?#]+$/.test(value)) { throw new WikiError('--reports-url needs an https URL without credentials, query or fragment, for example https://user.github.io/repo/qa-reports'); }
       opts.reportsUrl = value.replace(/\/+$/, '');
     }
-    else if (name === 'sharepoint-url') {
-      if (!/^https:\/\/[^\s@]+$/.test(value)) { throw new WikiError('--sharepoint-url needs an https URL without credentials or spaces'); }
-      opts.sharepointUrl = value;
+    else if (name === 'download-url') {
+      if (!/^https:\/\/[^\s@]+$/.test(value)) { throw new WikiError('--download-url needs an https URL without credentials or spaces'); }
+      opts.downloadUrl = value;
     }
     else { opts[name as 'root' | 'out' | 'results' | 'dir'] = value; }
   }
@@ -198,7 +196,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> => value !==
 
 /** Azure page names: ASCII `[A-Za-z0-9_-]`, no leading/trailing dash, unique inside one folder. */
 function pageName(raw: string, used: Set<string>): string {
-  const base = raw.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'sin-nombre';
+  const clean = raw.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'sin-nombre';
+  // Azure DevOps (like Windows) refuses a path part named as a device (CON, PRN, AUX, NUL, COM1..9, LPT1..9), with or without extension.
+  const base = /^(?:con|prn|aux|nul|com\d|lpt\d)$/i.test(clean) ? `${clean}-pagina` : clean;
   let name = base;
   for (let n = 2; used.has(name); n++) { name = `${base}-${n}`; }
   used.add(name);
@@ -351,20 +351,6 @@ function readSummary(file: string, warnings: string[]): AtcSummary | null {
   }
 }
 
-/** `<qa-root>/prefijos.md`: the Markdown table `Prefijo | Modulo | Alcance` that test-case-generation-local keeps. Absent file = no names. */
-function readPrefixMeaning(root: string): Record<string, string> {
-  const meaning: Record<string, string> = {};
-  const raw = readText(join(root, 'prefijos.md'));
-  if (raw === null) { return meaning; }
-  for (const line of raw.split(/\r?\n/)) {
-    const cells = line.split('|').map(cell => cell.trim());
-    if (cells.length < 4) { continue; }
-    const [, prefix, module] = cells;
-    if (/^[A-Z][A-Z0-9]{1,5}$/.test(prefix) && module !== '') { meaning[prefix] = module; }
-  }
-  return meaning;
-}
-
 function readScripts(file: string): string[] {
   const raw = readText(file);
   if (raw === null) { return []; }
@@ -376,7 +362,7 @@ function readScripts(file: string): string[] {
 }
 
 /** The only place that touches the disk for input. Everything it opens is named in the header. */
-export function readStore(opts: { root: string, results: string, packageJson?: string, reportsUrl?: string | null, sharepointUrl?: string | null }): Store {
+export function readStore(opts: { root: string, results: string, packageJson?: string, reportsUrl?: string | null, downloadUrl?: string | null }): Store {
   const warnings: string[] = [];
   const { cases, unreadable } = loadCases(opts.root);
   for (const file of unreadable) { warnings.push(`case without frontmatter skipped: ${toPosix(file).split('/').slice(-2).join('/')}`); }
@@ -389,8 +375,7 @@ export function readStore(opts: { root: string, results: string, packageJson?: s
     scripts: readScripts(opts.packageJson ?? join(REPO_ROOT, 'package.json')),
     warnings,
     reportsUrl: opts.reportsUrl ?? null,
-    sharepointUrl: opts.sharepointUrl ?? null,
-    prefixMeaning: readPrefixMeaning(opts.root),
+    downloadUrl: opts.downloadUrl ?? null,
   };
 }
 
@@ -486,7 +471,6 @@ function homePage(store: Store, names: Names): string {
     '> Vista previa local, no publicado.',
     `Datos al: ${latestDate(store) || 'sin datos'}`,
     `Casos: ${store.cases.length} en ${prefixes.length} prefijos. Bugs: ${store.bugs.length}. Corridas: ${store.runs.length}.`,
-    `Reportes interactivos: ${mdLink('ver la página de Reportes', file, 'Reportes.md')}`,
     '## Casos por prefijo',
     table(['Prefijo', 'Casos', 'Pendiente', 'En automatización', 'Automatizado', 'Manual', 'Deferred', 'No aplica', 'PASS', 'FAIL con defecto', 'EXPECTED_FAIL', 'Última corrida'], rows),
     '## Estado de automatización',
@@ -501,13 +485,57 @@ function homePage(store: Store, names: Names): string {
   return parts.join('\n\n');
 }
 
+// What each case prefix means. The store carries no legend (only a `bloque` per case), so the names come from the scenarios of each prefix.
+const PREFIX_MEANING: Record<string, string> = {
+  ADM: 'Administradores del tenant',
+  AUT: 'Autenticación y sesión',
+  CFG: 'Configuración',
+  CON: 'Concurrencia',
+  DAT: 'Integridad de datos',
+  DIS: 'Dispositivos',
+  DSH: 'Dashboard',
+  E2E: 'Flujos de extremo a extremo',
+  INT: 'Integración (API de sincronización y validación)',
+  LOG: 'Logs (consultas, peticiones y respuestas)',
+  NF: 'No funcionales (rendimiento y volumen)',
+  OPE: 'Operadores',
+  PRO: 'Productos',
+  SEC: 'Seguridad',
+  SMK: 'Humo (smoke)',
+  SUC: 'Sucursales',
+  TEN: 'Tenants',
+  TER: 'Terminales',
+  UAP: 'Usuarios de aplicación',
+  UAT: 'Aceptación de usuario',
+  USR: 'Usuarios del sistema',
+};
+
 function casesIndexPage(store: Store, names: Names): string {
   const file = 'Casos.md';
   const rows = [...names.prefixes.entries()].map(([prefix, name]) => [
-    mdLink(store.prefixMeaning?.[prefix] != null ? `${prefix}: ${store.prefixMeaning[prefix]}` : prefix, file, `Casos/${name}.md`),
+    mdLink(PREFIX_MEANING[prefix] != null ? `${prefix}: ${PREFIX_MEANING[prefix]}` : prefix, file, `Casos/${name}.md`),
     String(store.cases.filter(c => c.prefix === prefix).length),
   ]);
   return ['# Casos', rows.length > 0 ? table(['Prefijo', 'Casos'], rows) : 'Sin casos.'].join('\n\n');
+}
+
+/** Verdicts of a case that is not automated. */
+const NOT_AUTOMATED = ['manual', 'deferred', 'no_aplica'];
+
+/** The cases that are not automated, with the reason written in each case file, so nobody has to remember why. */
+function pendingPage(store: Store, names: Names): string {
+  const file = 'Pendientes.md';
+  const rows = store.cases.filter(c => NOT_AUTOMATED.includes(str(c.fm.automatizacion))).map(c => [
+    mdLink(c.id, file, `Casos/${names.prefixes.get(c.prefix)}.md`),
+    cell(scenarioOf(c), 120),
+    cell(str(c.fm.automatizacion)),
+    cell(str(c.fm.automatizacion_motivo) || 'sin motivo escrito', 200),
+  ]);
+  return [
+    '# Pendientes',
+    `Casos que no se automatizan: ${rows.length}. \`manual\`: lo prueba una persona. \`deferred\`: lo recibe otra suite. \`no_aplica\`: no corresponde probarlo aquí. El motivo sale de cada caso (\`automatizacion_motivo\`).`,
+    rows.length > 0 ? table(['Caso', 'Escenario', 'Veredicto', 'Motivo'], rows) : 'Todos los casos se automatizan.',
+  ].join('\n\n');
 }
 
 function casePage(store: Store, names: Names, prefix: string): string {
@@ -616,12 +644,12 @@ function reportsPage(store: Store): string {
           `- [Reporte Playwright](${url}/playwright/index.html)`,
         ].join('\n'),
       ];
-  const download = store.sharepointUrl
+  const download = store.downloadUrl
     ? [
-        '## Descargar desde SharePoint',
+        '## Descargar desde Azure DevOps',
         [
-          `- [Descargar los reportes (.zip) desde SharePoint](${store.sharepointUrl})`,
-          '- SharePoint no muestra estos reportes en el navegador: descarga el `.zip`, descomprímelo y abre `index.html` en tu equipo.',
+          `- [Descargar los reportes (.zip) desde Azure DevOps](${store.downloadUrl})`,
+          '- Azure DevOps no muestra estos reportes en el navegador: descarga el `.zip`, descomprímelo y abre `index.html` en tu equipo.',
         ].join('\n'),
       ]
     : [];
@@ -654,8 +682,9 @@ export function buildWiki(store: Store): Map<string, Page> {
   put('Casos.md', casesIndexPage(store, names));
   put('Corridas.md', runsIndexPage(store, names));
   put('Bugs.md', bugsIndexPage(store, names));
+  put('Pendientes.md', pendingPage(store, names));
   put('Reportes.md', reportsPage(store));
-  order('', ['Home', 'Casos', 'Corridas', 'Bugs', 'Reportes']);
+  order('', ['Home', 'Casos', 'Corridas', 'Bugs', 'Pendientes', 'Reportes']);
 
   for (const [prefix, name] of names.prefixes) { put(`Casos/${name}.md`, casePage(store, names, prefix)); }
   order('Casos/', [...names.prefixes.values()]);
@@ -882,21 +911,21 @@ export function startServe(opts: Options, log: (line: string) => void = console.
 // ============================================
 
 /**
- * Reports links kept for this machine in `qa-wiki.local.json` (git-ignored: the SharePoint link is internal). They are the defaults of
- * `--reports-url` and `--sharepoint-url`, so a plain `bun run qa:wiki` keeps the Reportes page links. A flag always wins.
+ * Reports links kept for this machine in `qa-wiki.local.json` (git-ignored: the download link is internal). They are the defaults of
+ * `--reports-url` and `--download-url`, so a plain `bun run qa:wiki` keeps the Reportes page links. A flag always wins.
  */
-export function readLocalDefaults(repoRoot: string): { reportsUrl: string | null, sharepointUrl: string | null } {
+export function readLocalDefaults(repoRoot: string): { reportsUrl: string | null, downloadUrl: string | null } {
   const file = join(repoRoot, LOCAL_CONFIG);
-  if (!existsSync(file)) { return { reportsUrl: null, sharepointUrl: null }; }
+  if (!existsSync(file)) { return { reportsUrl: null, downloadUrl: null }; }
   let data: unknown;
   try { data = JSON.parse(readFileSync(file, 'utf8')); }
   catch { throw new WikiError(`${LOCAL_CONFIG} is not valid JSON`); }
-  if (!isRecord(data)) { throw new WikiError(`${LOCAL_CONFIG} must be a JSON object with reportsUrl and/or sharepointUrl`); }
+  if (!isRecord(data)) { throw new WikiError(`${LOCAL_CONFIG} must be a JSON object with reportsUrl and/or downloadUrl`); }
   const reportsUrl = typeof data.reportsUrl === 'string' ? data.reportsUrl : null;
-  const sharepointUrl = typeof data.sharepointUrl === 'string' ? data.sharepointUrl : null;
+  const downloadUrl = typeof data.downloadUrl === 'string' ? data.downloadUrl : null;
   if (reportsUrl !== null && !/^https:\/\/[^\s@?#]+$/.test(reportsUrl)) { throw new WikiError(`${LOCAL_CONFIG}: reportsUrl needs an https URL without credentials, query or fragment`); }
-  if (sharepointUrl !== null && !/^https:\/\/[^\s@]+$/.test(sharepointUrl)) { throw new WikiError(`${LOCAL_CONFIG}: sharepointUrl needs an https URL without credentials or spaces`); }
-  return { reportsUrl: reportsUrl === null ? null : reportsUrl.replace(/\/+$/, ''), sharepointUrl };
+  if (downloadUrl !== null && !/^https:\/\/[^\s@]+$/.test(downloadUrl)) { throw new WikiError(`${LOCAL_CONFIG}: downloadUrl needs an https URL without credentials or spaces`); }
+  return { reportsUrl: reportsUrl === null ? null : reportsUrl.replace(/\/+$/, ''), downloadUrl };
 }
 
 /** Build the wiki, or start the preview. Returns the process exit code (0 with a live server for `serve`). */
@@ -914,7 +943,7 @@ export function run(argv: string[], log: (line: string) => void = console.error,
     if (!existsSync(opts.root) || !statSync(opts.root).isDirectory()) { throw new WikiError(`QA root not found: ${toPosix(opts.root)}`); }
     checkOutDir(opts.out, opts.root, repoRoot);
     const local = readLocalDefaults(localConfigDir);
-    const store = readStore({ root: opts.root, results: opts.results, packageJson: join(repoRoot, 'package.json'), reportsUrl: opts.reportsUrl ?? local.reportsUrl, sharepointUrl: opts.sharepointUrl ?? local.sharepointUrl });
+    const store = readStore({ root: opts.root, results: opts.results, packageJson: join(repoRoot, 'package.json'), reportsUrl: opts.reportsUrl ?? local.reportsUrl, downloadUrl: opts.downloadUrl ?? local.downloadUrl });
     for (const warning of store.warnings) { log(`! ${warning}`); }
     const pages = buildWiki(store);
     const hits = scanPages(pages);
