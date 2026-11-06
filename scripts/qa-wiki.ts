@@ -538,6 +538,12 @@ function pendingPage(store: Store, names: Names): string {
   ].join('\n\n');
 }
 
+/** What the Automatización column shows: the lifecycle state of a case that is automated, the verdict (manual, deferred, no_aplica) of one that is not. */
+function automationOf(c: QaCase): string {
+  const verdict = str(c.fm.automatizacion);
+  return verdict !== '' && verdict !== 'candidate' ? verdict : str(c.fm.estado_automatizacion);
+}
+
 function casePage(store: Store, names: Names, prefix: string): string {
   const file = `Casos/${names.prefixes.get(prefix)}.md`;
   const rows = store.cases.filter(c => c.prefix === prefix).map((c) => {
@@ -546,7 +552,7 @@ function casePage(store: Store, names: Names, prefix: string): string {
       cell(c.id),
       cell(scenarioOf(c), 160),
       cell(str(c.fm.prioridad)),
-      cell(str(c.fm.estado_automatizacion)),
+      cell(automationOf(c)),
       cell(last.result ? `${last.result}${last.date ? ` (${last.date})` : ''}` : '-'),
       bugLinks(bugsOf(c, names), file, names),
     ];

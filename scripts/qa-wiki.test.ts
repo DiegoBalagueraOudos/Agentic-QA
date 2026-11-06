@@ -207,6 +207,15 @@ describe('model and pages', () => {
     expect(home).toContain('Datos al: 2026-10-02');
   });
 
+  it('the Automatización column shows the verdict of a case that is not automated, not its pending lifecycle', () => {
+    const page = buildWiki(readStore({ root, results: resultsFile })).get('Casos/LOG.md') as string;
+    const row = page.split('\n').find(line => line.includes('LOG-001')) ?? '';
+    expect(row).toContain('manual');
+    expect(row).not.toContain('pendiente');
+    const automated = (buildWiki(readStore({ root, results: resultsFile })).get('Casos/AUT.md') as string).split('\n').find(line => line.includes('AUT-001')) ?? '';
+    expect(automated).toContain('automatizado');
+  });
+
   it('Pendientes lists only the cases that are not automated, with their reason', () => {
     writeCase('LOG-002', { automatizacion: 'deferred', automatizacion_motivo: '"Lo recibe una suite de carga"' });
     const pending = buildWiki(readStore({ root, results: resultsFile })).get('Pendientes.md') as string;
