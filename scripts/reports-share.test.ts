@@ -208,6 +208,8 @@ describe('scanText', () => {
     expect(names('locator.fill("short1!")')).toEqual([]);
     expect(names(`locator.fill("${SENTINEL}")`)).toEqual(['typed-value']);
     expect(names(`Fill \\"${SENTINEL}\\"`)).toEqual(['typed-value']);
+    // a method whose name ends in `fill` (route.fulfill) is not a typed value, even with a quoted string on the next source line
+    expect(names('route.fulfill(answer));\\n  209 |     await page.goto(buildUrl(\'/operators\'))')).toEqual([]);
   });
 
   it('credential keys: masks, functions and words are not secrets; a letter+digit value is', () => {

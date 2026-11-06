@@ -39,6 +39,10 @@ export default defineConfig({
   },
 
   reporter: [
+    // ScrubReporter: MUST stay first. Redacts request headers (Bearer, cookies, CSRF, session id) from the errors of failed API
+    // calls in place, so every reporter below receives the cleaned objects (no secret reaches Allure, HTML, JSON or JUnit).
+    ['./tests/utils/ScrubReporter.ts'],
+
     // KataReporter: Rich terminal output with step-by-step logging
     // Always active for better debugging in both local and CI environments
     ['./tests/KataReporter.ts'],

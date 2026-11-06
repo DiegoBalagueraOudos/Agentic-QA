@@ -128,7 +128,7 @@ Behaviour facts come from the generated context maps with `bun run context:map <
 - Never put `@step` or `@atc` on a method whose arguments carry a token, cookie or credential. The decorator masks only a short list of key names, so a refresh token placed in a step title leaks to console and reports.
 - A token travelling in an explicit header is wrapped so a transport failure rethrows a sanitised error (no call log, no headers).
 - Use `trace: 'off'` at FILE level (not inside describe) in a spec that handles a live session token.
-- After any Code or fix step the orchestrator searches the generated report folders for token patterns: counts only, never printing values.
+- After any Code or fix step the orchestrator searches the generated report folders for token patterns: counts only, never printing values. First layer: `ScrubReporter` (listed first in `playwright.config.ts`) redacts request headers and Bearer tokens from failed-call errors and their `error-context` attachments before any report is written; this search stays as the check that it held.
 
 ## 8d. Patterns that held in the first run
 

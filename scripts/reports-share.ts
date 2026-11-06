@@ -79,8 +79,12 @@ const TEXT_FILE = /\.(?:json|txt|md|properties|csv|html|dat|js|xml)$/i;
 const SINCE_FORMAT = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/;
 const EMAIL = /[\w.%+-]+@([A-Z0-9-]+(?:\.[A-Z0-9-]+)+)/gi;
 const USER_PATH = /[A-Z]:[\\/]+Users[\\/]+[^\\/"'\s]+/gi;
-/** `fill` step titles with a quoted value of 8+ characters; the value is group 2. */
-const FILL_VALUE = /fill\b[^"'`\n]{0,80}\\*(["'`])([^"'`\n\\]{8,})\\*\1/gi;
+/**
+ * `fill` step titles with a quoted value of 8+ characters; the value is group 2. `fill` must not be glued to a letter before it:
+ * `route.fulfill(...)` in the source snippet of a failed test is not a typed value (in the report JSON a line break is the two
+ * characters backslash-n, so the quoted text of the NEXT source line would otherwise be read as one).
+ */
+const FILL_VALUE = /(?<![A-Z])fill\b[^"'`\n]{0,80}\\*(["'`])([^"'`\n\\]{8,})\\*\1/gi;
 const AUTHORIZATION = /authorization\W{1,4}(?!bearer)\S{8,}/gi;
 // Typed values that are generated test data, never credentials: the product's password rule needs upper + lower + digit, so a generated code (upper-case letters and digits only, or the lower-case form of an operator code), a `qa-sec.invalid` URL and a markup payload cannot be a password.
 const ALLOWED_TYPED = /^(?:QAX|QA |\[correo\]@)|^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$|^[A-Z0-9]{8,}$|^q[a-z0-9]{8}$|^https?:\/\/qa-sec\.invalid|^<(?:img|script|svg)\b/;

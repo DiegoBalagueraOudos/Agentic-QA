@@ -116,6 +116,7 @@ Nothing blocks install, update or `setup:doctor`: a value is validated by the co
 | **Start a new project — magic command (recommended)** | `bunx create-agentic-qa@latest <your-repo-name>` — official scaffolder ([npm](https://www.npmjs.com/package/create-agentic-qa))                                                                               |
 | **Start a new project — GitHub "Use this template"**  | Click [**Use this template**](https://github.com/upex-galaxy/agentic-qa-boilerplate/generate) → clone your new repo → `bun install && bun setup` (see [Other ways to start](#other-ways-to-start)) |
 | **Contribute to the boilerplate itself**              | `git clone …` then `bun install && bun setup` (see [Other ways to start](#other-ways-to-start))                                                                                                    |
+| **Run the local QA flow step by step (no Jira)**      | [GUIA-PRUEBAS.md](GUIA-PRUEBAS.md): what to install, the order of work and what to use for each type of test |
 | **Get oriented before installing**                    | `bun run onboarding` — opens the docs site on its "Empezar aquí" page (`docs/core/empezar-aqui.html`)                                                                                                   |
 | **Understand the methodology**                        | `bun run docs` → Metodología ([IQL](docs/core/metodologia/iql.html), [how this repo implements it](docs/core/metodologia/este-repo.html)); official site: [upexgalaxy.com/metodologia](https://www.upexgalaxy.com/metodologia) |
 | **Browse the human docs**                             | `bun run docs` — local HTML site (setup guides, methodology, exploration); add your own pages under any `docs/` folder except `docs/core/`                                                                |
@@ -406,6 +407,8 @@ bun run test:smoke         # smoke / @critical tests
 │   │   └── DataFactory.ts        # Dynamic data generation
 │   ├── utils/                    # Test utilities
 │   │   ├── decorators.ts         # @atc decorator
+│   │   ├── ScrubReporter.ts      # Redacts request secrets from failed-call errors (first reporter)
+│   │   ├── scrubSecrets.ts       # The redaction rules used by ScrubReporter
 │   │   └── jiraSync.ts           # TMS synchronization
 │   └── KataReporter.ts           # Terminal reporter
 │
