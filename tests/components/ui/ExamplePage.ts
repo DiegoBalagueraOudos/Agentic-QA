@@ -102,7 +102,7 @@ export class ExamplePage extends UiBase {
 
     // Using shared locators (extracted because used in multiple ATCs)
     await this.emailInput().first().fill(data.email);
-    await this.passwordInput().first().fill(data.password);
+    await this.fillSecret(this.passwordInput().first(), data.password);
     await this.submitButton().click();
 
     // TODO: Update assertion for your success condition
@@ -125,7 +125,7 @@ export class ExamplePage extends UiBase {
 
     // Using shared locators
     await this.emailInput().first().fill(email);
-    await this.passwordInput().first().fill(password);
+    await this.fillSecret(this.passwordInput().first(), password);
     await this.submitButton().click();
 
     // Using data-testid string option with fallbacks

@@ -66,7 +66,7 @@ Elige el nombre del proyecto antes de empezar (por ejemplo el del sistema que va
 
 | Forma | Cómo | Cuándo |
 |---|---|---|
-| **Generador** (recomendada) | `bunx create-agentic-qa@latest <nombre-del-repo> --template-repo <usuario>/Agentic-QA`. Descarga la plantilla sin su historial de git, **cambia el nombre en los archivos**, inicia un repositorio nuevo con su primer commit, instala las dependencias y lanza el instalador. | Proyecto nuevo. Sin `--template-repo` descarga la plantilla original del boilerplate, no esta. Comprueba que el generador pueda leer el repositorio de la plantilla (que no sea privado sin acceso). |
+| **Generador** (recomendada) | `bunx create-agentic-qa@latest <nombre-del-repo> --template-repo DiegoBalagueraOudos/Agentic-QA`. Descarga la plantilla sin su historial de git, **cambia el nombre en los archivos**, inicia un repositorio nuevo con su primer commit, instala las dependencias y lanza el instalador. | Proyecto nuevo. Sin `--template-repo` descarga la plantilla original del boilerplate, no esta. Comprueba que el generador pueda leer el repositorio de la plantilla (que no sea privado sin acceso). |
 | **Botón «Use this template» de GitHub** | En el repositorio de la plantilla, «Use this template» y escribe el nombre del repositorio nuevo; luego clónalo. | El repositorio de la plantilla debe estar marcado como plantilla. El nombre en los archivos se cambia después, en 2.2. |
 | **Clonar o descargar el repositorio** | `git clone <url> <nombre-del-proyecto>` (o descarga el `.zip` y descomprímelo en una carpeta con ese nombre). Borra la carpeta `.git` e inicia un repositorio propio con `git init`. | Solo si no puedes usar las anteriores. El nombre en los archivos se cambia a mano, en 2.2. |
 

@@ -8,9 +8,10 @@
  * Playwright auto-waits before every action - no wrappers needed.
  */
 
-import type { Page, Request, Response } from '@playwright/test';
+import type { Locator, Page, Request, Response } from '@playwright/test';
 import type { TestContextOptions } from '@TestContext';
 
+import { expect } from '@playwright/test';
 import { TestContext } from '@TestContext';
 import { attachRequestResponseToAllure } from '@utils/allure';
 
@@ -96,6 +97,40 @@ export class UiBase extends TestContext {
     const base = this.baseUrl.replace(/\/$/, '');
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
     return `${base}${cleanPath}`;
+  }
+
+  // ============================================
+  // Secret Input
+  // ============================================
+
+  /**
+   * Type a secret (password, token) into an input without leaving it in the step titles
+   * of the HTML and Allure reports.
+   *
+   * Playwright records `locator.fill(value)` as the step `Fill "<value>" locator(...)`,
+   * which lands in the HTML report and in allure-results; the key-based masking of
+   * `@step`/`@atc` does not cover it, and `reports:share` refuses to publish it.
+   * `locator.evaluate` does not print its argument in the step title, so the value is set
+   * there with the native setter and the `input`/`change` events that reactive forms listen
+   * to. Pass a secret to this helper only, never to `fill`.
+   *
+   * It does NOT protect the Playwright trace: the trace still records the arguments of
+   * `locator.evaluate`. A spec that types a real credential must set `trace: 'off'` at
+   * file level (`test.use({ trace: 'off' })`).
+   */
+  protected async fillSecret(locator: Locator, value: string): Promise<void> {
+    // Keep Playwright's auto-waiting: the field must be usable, as `fill` requires
+    await locator.waitFor({ state: 'visible' });
+    await expect(locator).toBeEnabled();
+    await locator.focus();
+    await locator.evaluate((el, secret) => {
+      const input = el as HTMLInputElement;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, secret);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+    // Leave the field as a user would, so touched/blur validators run
+    await locator.blur();
   }
 
   // ============================================
